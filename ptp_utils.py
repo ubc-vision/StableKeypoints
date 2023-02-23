@@ -19,6 +19,8 @@ import cv2
 from typing import Optional, Union, Tuple, List, Callable, Dict
 from IPython.display import display
 from tqdm.notebook import tqdm
+import torch.nn.functional as F
+
 
 
 def text_under_image(image: np.ndarray, text: str, text_color: Tuple[int, int, int] = (0, 0, 0)):
@@ -61,15 +63,15 @@ def view_images(images, num_rows=1, offset_ratio=0.02):
     display(pil_img)
 
 
-def diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource=False):
-    if low_resource:
-        noise_pred_uncond = model.unet(latents, t, encoder_hidden_states=context[0])["sample"]
-        noise_prediction_text = model.unet(latents, t, encoder_hidden_states=context[1])["sample"]
-    else:
+def diffusion_step(model, controller, latents, context, t, guidance_scale=None, cfg = True):
+    if cfg:
         latents_input = torch.cat([latents] * 2)
         noise_pred = model.unet(latents_input, t, encoder_hidden_states=context)["sample"]
         noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
-    noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
+        noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
+    else:
+        noise_pred = model.unet(latents, t, encoder_hidden_states=context)["sample"]
+        
     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     latents = controller.step_callback(latents)
     return latents
@@ -160,14 +162,22 @@ def text2image_ldm_stable(
     latent, latents = init_latent(latent, model, height, width, generator, batch_size)
     
     # set timesteps
-    extra_set_kwargs = {"offset": 1}
+    # extra_set_kwargs = {"offset": 1}
+    extra_set_kwargs = {}
     model.scheduler.set_timesteps(num_inference_steps, **extra_set_kwargs)
     for t in tqdm(model.scheduler.timesteps):
-        latents = diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource)
+        latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
     
     image = latent2image(model.vae, latents)
   
     return image, latent
+
+def softmax_torch(x): # Assuming x has atleast 2 dimensions
+    maxes = torch.max(x, -1, keepdim=True)[0]
+    x_exp = torch.exp(x-maxes)
+    x_exp_sum = torch.sum(x_exp, -1, keepdim=True)
+    probs = x_exp/x_exp_sum
+    return probs 
 
 
 def register_attention_control(model, controller):
@@ -191,17 +201,27 @@ def register_attention_control(model, controller):
             v = self.reshape_heads_to_batch_dim(v)
 
             sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+            # sim = torch.matmul(q, k.permute(0, 2, 1)) * self.scale
 
             if mask is not None:
                 mask = mask.reshape(batch_size, -1)
                 max_neg_value = -torch.finfo(sim.dtype).max
                 mask = mask[:, None, :].repeat(h, 1, 1)
-                sim.masked_fill_(~mask, max_neg_value)
+                sim = sim.masked_fill(~mask, max_neg_value)
+                
+                
 
             # attention, what we cannot get enough of
-            attn = sim.softmax(dim=-1)
+            # attn = sim
+            # attn = sim.softmax(dim=-1)
+            # softmax = torch.nn.Softmax()
+            attn = torch.nn.Softmax(dim=-1)(sim)
+            # attn = softmax_torch(sim)
+            attn = attn.clone()
             attn = controller(attn, is_cross, place_in_unet)
-            out = torch.einsum("b i j, b j d -> b i d", attn, v)
+            # out = torch.einsum("b i j, b j d -> b i d", attn, v)
+            out = torch.matmul(attn, v)
+            
             out = self.reshape_batch_dim_to_heads(out)
             return to_out(out)
 
