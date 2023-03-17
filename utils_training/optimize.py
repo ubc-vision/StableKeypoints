@@ -8,7 +8,7 @@ from utils_training.evaluation import Evaluator
 from eval.keypoint_to_flow import KeypointToFlow
 import ipdb
 
-from optimize_token import optimize_prompt, optimize_prompt_informed, find_average_attention, find_max_pixel_value, visualize_image_with_points, optimize_prompt_over_subject, visualize_keypoints_over_subject, run_image_with_tokens
+from optimize_token import optimize_prompt, find_max_pixel_value, visualize_image_with_points, run_image_with_tokens
 
 r'''
     loss function implementation from GLU-Net
@@ -75,8 +75,7 @@ def save_img(img, save_path):
 def validate_epoch(ldm,
                    val_loader,
                    device,
-                   epoch, 
-                   map_size = 32):
+                   epoch):
     running_total_loss = 0
 
 
@@ -216,27 +215,27 @@ def validate_epoch(ldm,
             visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
         
             print("optimizing prompt")
-            context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context=None, device="cuda", map_size = map_size, num_steps=100)
+            context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context=None, device="cuda", num_steps=100)
             
             print("context.shape")
             print(context.shape)
             
             print("running token")
             
-            attn_map = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, map_size=map_size)
+            attn_map = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0)
             
             max_val = find_max_pixel_value(attn_map)
             
             
             visualize_image_with_points(attn_map[None], max_val, f"largest_loc_trg_{j:02d}")
-            visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5)*512/map_size, f"largest_loc_trg_img_{j:02d}")
+            visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
             
-            est_keypoints[0, :, j] = (max_val+0.5)*512/map_size
+            est_keypoints[0, :, j] = (max_val+0.5)
             
-            attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, map_size=map_size)
+            attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0)
             max_val_src = find_max_pixel_value(attn_map_src)
             visualize_image_with_points(attn_map[None], max_val, f"largest_loc_src_{j:02d}")
-            visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5)*512/map_size, f"largest_loc_src_img_{j:02d}")
+            visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
         
         visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"estimated_correspondences_{i:03d}")
         
