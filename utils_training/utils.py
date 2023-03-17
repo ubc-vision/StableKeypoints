@@ -209,5 +209,6 @@ def visualie_correspondences(initial_image, final_image, source, target, name):
     # print(y)
     # plt.quiver(x*16, y*16, flow[0]/32, flow[1]/32, color='r', scale=1)
     plt.savefig(f'outputs/{name}.png')
+    plt.close()
 
     

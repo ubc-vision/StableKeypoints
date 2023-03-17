@@ -20,6 +20,7 @@ from typing import Optional, Union, Tuple, List, Callable, Dict
 from IPython.display import display
 from tqdm.notebook import tqdm
 import torch.nn.functional as F
+import ipdb
 
 
 
@@ -64,6 +65,7 @@ def view_images(images, num_rows=1, offset_ratio=0.02):
 
 
 def diffusion_step(model, controller, latents, context, t, guidance_scale=None, cfg = True):
+    
     if cfg:
         latents_input = torch.cat([latents] * 2)
         noise_pred = model.unet(latents_input, t, encoder_hidden_states=context)["sample"]

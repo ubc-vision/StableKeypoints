@@ -26,6 +26,11 @@ import shutil
 from torch.optim.adam import Adam
 from PIL import Image
 
+import torch.nn.functional as F
+
+
+# import ipdb
+
 # from diffusers import StableDiffusionPipeline, EulerDiscreteScheduler
 
 from time import sleep
@@ -52,6 +57,8 @@ def load_ldm(device):
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     ldm = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", use_auth_token=MY_TOKEN, scheduler=scheduler).to(device)
     # ldm_stable = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-base").to(device)
+
+    
     
     # model_id = "stabilityai/stable-diffusion-2-1-base"
 
@@ -82,6 +89,7 @@ def load_ldm(device):
 class AttentionControl(abc.ABC):
     
     def step_callback(self, x_t):
+
         return x_t
     
     def between_steps(self):
@@ -96,6 +104,7 @@ class AttentionControl(abc.ABC):
         raise NotImplementedError
 
     def __call__(self, attn, is_cross: bool, place_in_unet: str):
+
         if self.cur_att_layer >= self.num_uncond_att_layers:
             h = attn.shape[0]
             attn[h // 2:] = self.forward(attn[h // 2:], is_cross, place_in_unet)
@@ -125,12 +134,14 @@ class AttentionStore(AttentionControl):
                 "down_self": [],  "mid_self": [],  "up_self": []}
 
     def forward(self, attn, is_cross: bool, place_in_unet: str):
+
         key = f"{place_in_unet}_{'cross' if is_cross else 'self'}"
         if attn.shape[1] <= 32 ** 2:  # avoid memory overhead
             self.step_store[key].append(attn)
         return attn
 
     def between_steps(self):
+
         if len(self.attention_store) == 0:
             self.attention_store = self.step_store
         else:
@@ -140,6 +151,7 @@ class AttentionStore(AttentionControl):
         self.step_store = self.get_empty_store()
 
     def get_average_attention(self):
+
         average_attention = {key: [item / self.cur_step for item in self.attention_store[key]] for key in self.attention_store}
         return average_attention
 
@@ -159,8 +171,39 @@ class AttentionStore(AttentionControl):
 
 
 def aggregate_attention(attention_store: AttentionStore, res: int, from_where: List[str], is_cross: bool, select: int):
+    
     out = []
     attention_maps = attention_store.get_average_attention()
+    
+    import ipdb; ipdb.set_trace()
+    
+    # for key in attention_maps:
+    #     print(key, attention_maps[key].shape)
+    # print("attention_maps")
+    # print(attention_maps)
+
+    
+    num_pixels = res ** 2
+    for location in from_where:
+        for item in attention_maps[f"{location}_{'cross' if is_cross else 'self'}"]:
+            if item.shape[1] == num_pixels:
+                cross_maps = item.reshape(1, -1, res, res, item.shape[-1])[select]
+                out.append(cross_maps)
+    out = torch.cat(out, dim=0)
+    out = out.sum(0) / out.shape[0]
+    return out.cpu()
+
+
+
+def extract_attention_map(attention_store: AttentionStore, res: int, from_where: List[str], is_cross: bool, select: int):
+    out = []
+    attention_maps = attention_store.get_average_attention()
+    
+    # for key in attention_maps:
+    #     print(key, attention_maps[key].shape)
+    # print("attention_maps")
+    # print(attention_maps)
+
     
     num_pixels = res ** 2
     for location in from_where:
@@ -277,6 +320,17 @@ def run_image(model, image_path, prompt):
     show_cross_attention(controller, 16, ["up", "down"])
 
 
+def reshape_attention(attention_map):
+    """takes average over 0th dimension and reshapes into square image
+
+    Args:
+        attention_map (4, img_size, -1): _description_
+    """
+    attention_map = attention_map.mean(0)
+    img_size = int(np.sqrt(attention_map.shape[0]))
+    attention_map = attention_map.reshape(img_size, img_size, -1)
+    return attention_map
+
 def visualize_attention_map(attention_map, file_name):
     # save attention map
     attention_map = attention_map.unsqueeze(-1).repeat(1, 1, 3)
@@ -285,11 +339,91 @@ def visualize_attention_map(attention_map, file_name):
     attention_map = (attention_map * 255).astype(np.uint8)
     img = Image.fromarray(attention_map)
     img.save(file_name)
+    
+    
+def visualize_all_attention_map(image_path, ldm, device):
+    
+    text_input = ldm.tokenizer(
+        ["cat"],
+        padding="max_length",
+        max_length=ldm.tokenizer.model_max_length,
+        truncation=True,
+        return_tensors="pt",
+    )
+    text_embeddings = ldm.text_encoder(text_input.input_ids.to(ldm.device))[0]
+    
+        
+        
+    image = load_512(image_path)
+    
+    latent = image2latent(ldm, image, device)
+    
+    controller = AttentionStore()
+        
+    ptp_utils.register_attention_control(ldm, controller)
+    
+    _ = ptp_utils.diffusion_step(ldm, controller, latent, text_embeddings, torch.tensor(1), cfg=False)
+    
+    # attention_maps = aggregate_attention(controller, 16, ["up", "down"], True, 0)
+    
+    print("text_embeddings.shape")
+    print(text_embeddings.shape)
+    
+    tokens = ldm.tokenizer.encode("cat")
+    
+    idx = 1
+    
+    
+    
+    print("ldm.tokenizer.decode(int(text_embeddings[idx]))")
+    print(ldm.tokenizer.decode(int(tokens[idx])))
+    
+    for idx, map in enumerate(controller.attention_store['down_cross']):
+        map = reshape_attention(map)
+        visualize_attention_map(map[..., idx], "down_cross_{}.png".format(idx))
+    for idx, map in enumerate(controller.attention_store['mid_cross']):
+        map = reshape_attention(map)
+        visualize_attention_map(map[..., idx], "mid_cross_{}.png".format(idx))
+    for idx, map in enumerate(controller.attention_store['up_cross']):
+        map = reshape_attention(map)
+        visualize_attention_map(map[..., idx], "up_cross_{}.png".format(idx))
+    for idx, map in enumerate(controller.attention_store['down_self']):
+        map = reshape_attention(map)
+        visualize_attention_map(map[..., idx], "down_self_{}.png".format(idx))
+    for idx, map in enumerate(controller.attention_store['mid_self']):
+        map = reshape_attention(map)
+        visualize_attention_map(map[..., idx], "mid_self_{}.png".format(idx))
+    for idx, map in enumerate(controller.attention_store['up_self']):
+        map = reshape_attention(map)
+        visualize_attention_map(map[..., idx], "up_self_{}.png".format(idx))
+    
 
-def run_image_with_tokens(image_path, tokens, file_name):
-    image = load_512(image_path)
+def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["down"], index=0, map_size=16):
     
-    latent = image2latent(ldm_stable, image)
+    # if image is a torch.tensor, convert to numpy
+    if type(image) == torch.Tensor:
+        image = image.permute(1, 2, 0).detach().cpu().numpy()
+    
+    latent = image2latent(ldm, image, device=device)
+    
+    controller = AttentionStore()
+        
+    ptp_utils.register_attention_control(ldm, controller)
+    
+    latents = ptp_utils.diffusion_step(ldm, controller, latent, tokens, torch.tensor(1), cfg=False)
+    
+    attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+    
+    return attention_maps[..., index]
+    
+    
+def find_average_attention(image, ldm_stable, tokens, device):
+    
+    # if the image is a torch tensor, convert to numpy
+    if type(image) is torch.Tensor:
+        image = image.permute(1, 2, 0).detach().cpu().numpy()
+    
+    latent = image2latent(ldm_stable, image, device=device)
     
     controller = AttentionStore()
         
@@ -299,34 +433,16 @@ def run_image_with_tokens(image_path, tokens, file_name):
     
     attention_maps = aggregate_attention(controller, 16, ["up", "down"], True, 0)
     
-    # save image
-    img = Image.fromarray(image)
-    img.save(f"outputs/{file_name}_img.png")
+    return attention_maps
     
-    visualize_attention_map(attention_maps[..., 0], f"outputs/{file_name}_map.png")
+    # # save image
+    # img = Image.fromarray(image)
+    # img.save(f"outputs/{file_name}_img.png")
     
+    # for i in range(attention_maps.shape[-1]):
+    #     visualize_attention_map(attention_maps[..., i], f"outputs/{file_name}_map_{i}.png")
     
-def find_average_attention(image_path, ldm_stable, tokens, file_name):
-    image = load_512(image_path)
-    
-    latent = image2latent(ldm_stable, image)
-    
-    controller = AttentionStore()
-        
-    ptp_utils.register_attention_control(ldm_stable, controller)
-    
-    latents = ptp_utils.diffusion_step(ldm_stable, controller, latent, tokens, torch.tensor(1), cfg=False)
-    
-    attention_maps = aggregate_attention(controller, 16, ["up", "down"], True, 0)
-    
-    # save image
-    img = Image.fromarray(image)
-    img.save(f"outputs/{file_name}_img.png")
-    
-    for i in range(attention_maps.shape[-1]):
-        visualize_attention_map(attention_maps[..., i], f"outputs/{file_name}_map_{i}.png")
-    
-    visualize_attention_map(torch.mean(attention_maps, dim=-1), f"outputs/{file_name}_map.png")
+    # visualize_attention_map(torch.mean(attention_maps, dim=-1), f"outputs/{file_name}_map.png")
     
     
 def find_average_attention_from_list(image, ldm_stable, tokens, file_name=None, device='cuda', index=0):
@@ -364,11 +480,36 @@ def find_average_attention_from_list(image, ldm_stable, tokens, file_name=None, 
         visualize_attention_map(attention_maps[..., index], f"outputs/{file_name}_map.png")
         
     return attention_maps[..., index]
+
+
+def upscale_to_img_size(controller, from_where = ["up_cross"], img_size=512):
+    """
+    from_where is one of "down_cross" "mid_cross" "up_cross"
+    """
+    
+    imgs = []
+    
+    for key in from_where:
+        for layer in range(len(controller.attention_store[key])):
+            
+            img = controller.attention_store[key][layer]
+            
+            img = img.reshape(4, int(img.shape[1]**0.5), int(img.shape[1]**0.5), img.shape[2])[None, :, :, :, 0]
+            
+            # import ipdb; ipdb.set_trace()
+            # bilinearly upsample the image to img_sizeximg_size
+            img = F.interpolate(img, size=(img_size, img_size), mode='bilinear', align_corners=False)
+
+            imgs.append(img)
+            
+    imgs = torch.cat(imgs, dim=0)
+    
+    return imgs
         
     
     
     
-def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100):
+def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["up_cross"], map_size = 16, img_size = 512):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -383,7 +524,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     context.requires_grad = True
     
     # optimize context to maximize attention at pixel_loc
-    optimizer = torch.optim.Adam([context], lr=0.001)
+    optimizer = torch.optim.Adam([context], lr=1e-2)
     
     # time the optimization
     import time
@@ -391,38 +532,53 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     
     for _ in range(num_steps):
         
-        print("step")
-        
         controller = AttentionStore()
         
         ptp_utils.register_attention_control(ldm, controller)
         
         _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(1), cfg = False)
         
-        attention_maps = aggregate_attention(controller, 16, ["up", "down"], True, 0)
+        # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+        attention_maps = upscale_to_img_size(controller, from_where = from_where, img_size=img_size)
+        num_maps = attention_maps.shape[0]
+        
+        
+        # divide by the mean along the dim=1
+        attention_maps = attention_maps / torch.mean(attention_maps, dim=1, keepdim=True)
+
         
             
         gt_maps = torch.zeros_like(attention_maps)
         
-        x_loc = pixel_loc[0]*gt_maps.shape[0]
-        y_loc = pixel_loc[1]*gt_maps.shape[1]
+
+        
+        x_loc = pixel_loc[0]*img_size
+        y_loc = pixel_loc[1]*img_size
         
         # round x_loc and y_loc to the nearest integer
         x_loc = int(x_loc)
         y_loc = int(y_loc)
         
-        gt_maps[int(y_loc), int(x_loc)] = 1
+        gt_maps[:, :, int(y_loc), int(x_loc)] = 1
+        
+        gt_maps = gt_maps.reshape(num_maps, -1)
+        attention_maps = attention_maps.reshape(num_maps, -1)
         
         
-        # visualize_image_with_points(gt_maps[..., 0][None], [x_loc, y_loc], "gt_points")
-        # visualize_image_with_points(image, [(x_loc+0.5)*512/16, (y_loc+0.5)*512/16], "gt_img_point_quantized")
+        # visualize_image_with_points(gt_maps[0], [0, 0], "gt_points")
+        # visualize_image_with_points(image, [(x_loc+0.5), (y_loc+0.5)], "gt_img_point_quantized")
         # visualize_image_with_points(image, [pixel_loc[0]*512, pixel_loc[1]*512], "gt_img_point")
+        # exit()
         
         
-        loss = torch.nn.MSELoss()(attention_maps[..., 0], gt_maps[..., 0])
+        # loss = torch.nn.MSELoss()(attention_maps[..., 0], gt_maps[..., 0])
+        loss = torch.nn.CrossEntropyLoss()(attention_maps, gt_maps)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
+        
+        
+        print(loss.item())
         
     # print the time it took to optimize
     print(f"optimization took {time.time() - start} seconds")
@@ -449,12 +605,15 @@ def optimize_prompt_informed(ldm, src_img, trg_img, pixel_loc, context=None, dev
     
     # optimize context to maximize attention at pixel_loc
     optimizer = torch.optim.Adam([context], lr=0.001)
+    # optimizer = torch.optim.LBFGS([context], lr=0.01)
     
     # time the optimization
     import time
     start = time.time()
     
     for _ in range(num_steps):
+
+
         
         controller = AttentionStore()
         
@@ -462,7 +621,7 @@ def optimize_prompt_informed(ldm, src_img, trg_img, pixel_loc, context=None, dev
         
         _ = ptp_utils.diffusion_step(ldm, controller, latent_src, context, torch.tensor(1), cfg = False)
         
-        attention_maps = aggregate_attention(controller, 16, ["up", "down"], True, 0)
+        attention_maps = aggregate_attention(controller, 32, ["up", "down"], True, 0)
         
             
         gt_maps = torch.zeros_like(attention_maps)
@@ -478,32 +637,195 @@ def optimize_prompt_informed(ldm, src_img, trg_img, pixel_loc, context=None, dev
         
         
         loss_src = torch.nn.MSELoss()(attention_maps[..., 0], gt_maps[..., 0])
-        # loss = torch.nn.MSELoss()(attention_maps[..., 0], gt_maps[..., 0])
-        # loss.backward()
         
-        controller = AttentionStore()
-        
-        ptp_utils.register_attention_control(ldm, controller)
-        
-        _ = ptp_utils.diffusion_step(ldm, controller, latent_ref, context, torch.tensor(1), cfg = False)
-        
-        attention_maps = aggregate_attention(controller, 16, ["up", "down"], True, 0)
-        
-        # l1 loss on the attention maps
-        loss_trg = (torch.norm(attention_maps[..., 0], p=1)-torch.max(torch.abs(attention_maps[..., 0])))*1e-5
-        
-        print("loss_trg, loss_src")
-        print(loss_trg, loss_src)
-        
-        (loss_src+loss_trg).backward()
+        print("loss_src")
+        print(loss_src)
+        loss_src.backward()
         optimizer.step()
         optimizer.zero_grad()
+        
+        
+        # controller = AttentionStore()
+        
+        
+        
+        # ptp_utils.register_attention_control(ldm, controller)
+        
+        # _ = ptp_utils.diffusion_step(ldm, controller, latent_ref, context, torch.tensor(1), cfg = False)
+        
+        # attention_maps = aggregate_attention(controller, 32, ["up", "down"], True, 0)
+
+
+        # # l1 loss on the attention maps
+        # loss_trg = (torch.norm(attention_maps[..., 0], p=1)-torch.max(torch.abs(attention_maps[..., 0])))*1e-6
+        
+        # print("loss_trg, loss_src")
+        # print(loss_trg, loss_src)
+        
+        # (loss_src+loss_trg).backward()
+        # optimizer.step()
+        # optimizer.zero_grad()
         
     # print the time it took to optimize
     # print(f"optimization took {time.time() - start} seconds")
         
 
     return context
+
+def optimize_prompt_over_subject(ldm, src_img, trg_img, pixel_locs, device="cuda", num_steps=100):
+    
+    print("pixel_locs.shape")
+    print(pixel_locs.shape)
+    
+    # if src_img is a torch.tensor, convert to numpy
+    if type(src_img) == torch.Tensor:
+        src_img = src_img.permute(1, 2, 0).detach().cpu().numpy()
+    if type(trg_img) == torch.Tensor:
+        trg_img = trg_img.permute(1, 2, 0).detach().cpu().numpy()
+    
+    with torch.no_grad():
+        latent_src = image2latent(ldm, src_img, device)
+        latent_ref = image2latent(ldm, trg_img, device)
+        
+
+    contexts = init_random_noise(device)[None].repeat(pixel_locs.shape[1], 1, 1, 1)
+        
+    contexts.requires_grad = True
+    
+    # optimize contexts to maximize attention at pixel_loc
+    optimizer = torch.optim.Adam([contexts], lr=0.01)
+    # SGD
+    # optimizer = torch.optim.SGD([contexts], lr=0.001)
+    
+    # time the optimization
+    import time
+    start = time.time()
+    
+    for step_num in range(num_steps):
+        
+        sum_fitting_loss = 0
+        sum_similarity_loss = 0
+        
+        for i in range(pixel_locs.shape[1]):
+        # for i in range(1):
+        
+            controller = AttentionStore()
+            
+            ptp_utils.register_attention_control(ldm, controller)
+            
+            _ = ptp_utils.diffusion_step(ldm, controller, latent_src, contexts[i], torch.tensor(1), cfg = False)
+            
+            attention_maps = aggregate_attention(controller, 16, ["up", "down"], True, 0)
+            
+            gt_maps = torch.zeros_like(attention_maps)
+            
+            x_loc = pixel_locs[0, i]*gt_maps.shape[0]
+            y_loc = pixel_locs[1, i]*gt_maps.shape[1]
+            
+            # round x_loc and y_loc to the nearest integer
+            x_loc = int(x_loc)
+            y_loc = int(y_loc)
+            
+            gt_maps[int(y_loc), int(x_loc)] = 1
+            
+            
+            fitting_loss = torch.nn.MSELoss()(attention_maps[..., 0], gt_maps[..., 0])
+            
+            
+            similarity_loss = torch.zeros(1).cuda()
+            for j in range(pixel_locs.shape[1]):
+                if i != j:
+                    similarity_loss = similarity_loss + torch.nn.MSELoss()(contexts[i], contexts[j])
+                    
+            similarity_loss = similarity_loss / (pixel_locs.shape[1]-1)
+            
+            sum_fitting_loss += fitting_loss.item()
+            sum_similarity_loss += similarity_loss.item()
+            
+            
+            # if i == 0:
+            #     print("step_num, fitting_loss.item(), similarity_loss.item()")
+            #     print(step_num, fitting_loss.item(), similarity_loss.item())
+            (fitting_loss+similarity_loss).backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            
+        
+        # print("step_num, sum_fitting_loss, sum_similarity_loss")
+        # print(step_num, sum_fitting_loss/pixel_locs.shape[1], sum_similarity_loss/pixel_locs.shape[1])  
+        
+        
+        
+        # controller = AttentionStore()
+        
+        
+        
+        # ptp_utils.register_attention_control(ldm, controller)
+        
+        # _ = ptp_utils.diffusion_step(ldm, controller, latent_ref, context, torch.tensor(1), cfg = False)
+        
+        # attention_maps = aggregate_attention(controller, 32, ["up", "down"], True, 0)
+
+
+        # # l1 loss on the attention maps
+        # loss_trg = (torch.norm(attention_maps[..., 0], p=1)-torch.max(torch.abs(attention_maps[..., 0])))*1e-6
+        
+        # print("loss_trg, loss_src")
+        # print(loss_trg, loss_src)
+        
+        # (loss_src+loss_trg).backward()
+        # optimizer.step()
+        # optimizer.zero_grad()
+        
+    # print the time it took to optimize
+    # print(f"optimization took {time.time() - start} seconds")
+        
+
+    return contexts
+
+
+@torch.no_grad()
+def visualize_keypoints_over_subject(ldm, img, contexts, name, device):
+    
+    
+    # if src_img is a torch.tensor, convert to numpy
+    if type(img) == torch.Tensor:
+        img = img.permute(1, 2, 0).detach().cpu().numpy()
+    
+    latent = image2latent(ldm, img, device)
+    
+    attention_maps = []
+    
+    
+    for context in contexts:
+    
+        controller = AttentionStore()
+            
+        ptp_utils.register_attention_control(ldm, controller)
+        
+        _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(1), cfg = False)
+        
+        attention_map = aggregate_attention(controller, 16, ["up", "down"], True, 0)
+        
+        attention_maps.append(attention_map[..., 0])
+        
+    attention_maps = torch.stack(attention_maps, dim=0)
+        
+    attention_maps_mean = torch.mean(attention_maps, dim=0, keepdim=True)
+    
+    attention_maps -= attention_maps_mean
+    
+    for i in range(attention_maps.shape[0]):
+        attention_map = attention_maps[i]
+        max_pixel = find_max_pixel_value(attention_map)
+        visualize_image_with_points(attention_map[None], max_pixel, f'{name}_{i}')
+        visualize_image_with_points(img, (max_pixel+0.5)*512/16, f'{name}_{i}_img')
+        
+    return attention_maps
+        
+        
+    
+    
 
 def find_max_pixel_value(tens):
     """finds the 2d pixel location that is the max value in the tensor
@@ -541,6 +863,9 @@ if __name__ == "__main__":
 
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     ldm, _ = load_ldm(device)
+    
+    visualize_all_attention_map("/scratch/iamerich/prompt-to-prompt/example_images/gnochi_mirror.jpeg", ldm, device)
+    exit()
 
     source_img = load_512("/scratch/iamerich/prompt-to-prompt/example_images/gnochi_mirror.jpeg")
     

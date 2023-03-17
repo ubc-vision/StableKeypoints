@@ -6,8 +6,9 @@ import torch.nn.functional as F
 from utils_training.utils import flow2kps, visualie_flow, visualize_image_with_points, visualie_correspondences
 from utils_training.evaluation import Evaluator
 from eval.keypoint_to_flow import KeypointToFlow
+import ipdb
 
-from optimize_token import optimize_prompt, optimize_prompt_informed, find_average_attention_from_list, find_max_pixel_value, visualize_image_with_points
+from optimize_token import optimize_prompt, optimize_prompt_informed, find_average_attention, find_max_pixel_value, visualize_image_with_points, optimize_prompt_over_subject, visualize_keypoints_over_subject, run_image_with_tokens
 
 r'''
     loss function implementation from GLU-Net
@@ -74,7 +75,8 @@ def save_img(img, save_path):
 def validate_epoch(ldm,
                    val_loader,
                    device,
-                   epoch):
+                   epoch, 
+                   map_size = 32):
     running_total_loss = 0
 
 
@@ -92,50 +94,109 @@ def validate_epoch(ldm,
         
         est_keypoints = -1*torch.ones_like(mini_batch['src_kps'])
         
+        # # print("mini_batch['src_kps'].shape")
+        # # print(mini_batch['src_kps'].shape)
+        
+        # mask = mini_batch['src_kps'][0, 0, :] != -1
+        
+        # # for i in range(mask.shape[0]):
+        # #     if mask[i] == False:
+        # #         continue
+        # #     visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, i], f"source_img_{i:02d}_gt")
+        # #     visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, i], f"target_img_{i:02d}_gt")
+        
+        # this_context = optimize_prompt_over_subject(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0][:, mask]/512, num_steps=100, device=device)
         
         
-        for j in range(mini_batch['src_kps'].shape[2]):
+        # visualize_keypoints_over_subject(ldm, mini_batch['og_src_img'][0], this_context, "source_img", device=device)
+        # trg_attn = visualize_keypoints_over_subject(ldm, mini_batch['og_trg_img'][0], this_context, "target_img", device=device)
+        
+        # # print("trg_attn.shape")
+        # # print(trg_attn.shape)
+        # # exit()
+        
+        # for j in range(this_context.shape[0]):
+        #     # print("attn.shape")
+        #     # print(attn.shape)
+        #     max_val = find_max_pixel_value(trg_attn[j])
+        #     # print("max_val")
+        #     # print(max_val)
             
-            if mini_batch['src_kps'][0, 0, j] == -1:
-                continue
+        #     est_keypoints[0, :, j] = (max_val+0.5)*512/16
+        # # exit()
+        
+        
+        
+        # for i in range(this_context.shape[0]):
             
-            visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"initial_point_{j:02d}")
-            visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
+        #     visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, i], f"initial_point_{i:02d}")
+        #     visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, i], f"target_point_{i:02d}")
+        
+        #     attn_map = find_average_attention_from_list(mini_batch['og_trg_img'][0], ldm, [this_context[i]], f"attn_trg_{i:02d}", device=device, index=0)
+        #     max_val = find_max_pixel_value(attn_map)
+            
+        #     est_keypoints[0, :, i] = (max_val+0.5)*512/16
+            
+        #     visualize_image_with_points(attn_map[None], max_val, f"largest_loc_trg_{i:02d}")
+        #     visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5)*512/16, f"largest_loc_trg_img_{i:02d}")
             
             
-            contexts = []
-            for i in range(10):
-                # this_context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=100, device=device)
-                this_context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=100, device=device)
-                contexts.append(this_context.detach())
+        #     attn_map = find_average_attention_from_list(mini_batch['og_src_img'][0], ldm, [this_context[i]], f"attn_src_{i:02d}", device=device, index=0)
+        #     max_val = find_max_pixel_value(attn_map)
+        #     visualize_image_with_points(attn_map[None], max_val, f"largest_loc_src_{i:02d}")
+        #     visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5)*512/16, f"largest_loc_src_img_{i:02d}")
+        
+        # exit()
+
+        
+        
+        
+        # # make the learned contexts as similar as possible accross mini_batch['src_kps']
+        # for j in range(mini_batch['src_kps'].shape[2]):
+            
+        #     if mini_batch['src_kps'][0, 0, j] == -1:
+        #         continue
+            
+        #     visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"initial_point_{j:02d}")
+        #     visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
+            
+            
+            
+            
+        #     contexts = []
+        #     for i in range(10):
+        #         # this_context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=100, device=device)
+        #         this_context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=150, device=device)
+        #         contexts.append(this_context.detach())
                 
                 
                 
-            attn_map = find_average_attention_from_list(mini_batch['og_trg_img'][0], ldm, contexts, f"attn_trg_{j:02d}", device=device, index=0)
-            max_val = find_max_pixel_value(attn_map)
+        #     attn_map = find_average_attention_from_list(mini_batch['og_trg_img'][0], ldm, contexts, f"attn_trg_{j:02d}", device=device, index=0)
+        #     max_val = find_max_pixel_value(attn_map)
             
-            est_keypoints[0, :, j] = (max_val+0.5)*512/16
+        #     est_keypoints[0, :, j] = (max_val+0.5)*512/32
             
-            visualize_image_with_points(attn_map[None], max_val, f"largest_loc_trg_{j:02d}")
-            visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5)*512/16, f"largest_loc_trg_img_{j:02d}")
-            
-            
-            attn_map = find_average_attention_from_list(mini_batch['og_src_img'][0], ldm, contexts, f"attn_src_{j:02d}", device=device, index=0)
-            max_val = find_max_pixel_value(attn_map)
-            visualize_image_with_points(attn_map[None], max_val, f"largest_loc_src_{j:02d}")
-            visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5)*512/16, f"largest_loc_src_img_{j:02d}")
-            # exit()
+        #     visualize_image_with_points(attn_map[None], max_val, f"largest_loc_trg_{j:02d}")
+        #     visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5)*512/32, f"largest_loc_trg_img_{j:02d}")
             
             
+        #     attn_map = find_average_attention_from_list(mini_batch['og_src_img'][0], ldm, contexts, f"attn_src_{j:02d}", device=device, index=0)
+        #     max_val = find_max_pixel_value(attn_map)
+        #     visualize_image_with_points(attn_map[None], max_val, f"largest_loc_src_{j:02d}")
+        #     visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5)*512/32, f"largest_loc_src_img_{j:02d}")
+        #     # exit()
             
-        # est_keypoints = torch.cat(est_keypoints, dim=-1)
+            
+            
+        # # est_keypoints = torch.cat(est_keypoints, dim=-1)
         
-        # print("est_keypoints")
-        # print(est_keypoints)
-        # print("mini_batch['trg_kps']")
-        # print(mini_batch['trg_kps'])
+        # # print("est_keypoints")
+        # # print(est_keypoints)
+        # # print("mini_batch['trg_kps']")
+        # # print(mini_batch['trg_kps'])
         
-        visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, "estimated_correspondences")
+        # visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"estimated_correspondences_{i:03d}")
+        # exit()
         # except:
         #     from time import sleep
         #     sleep(0.25)
@@ -145,12 +206,39 @@ def validate_epoch(ldm,
         
         
         
+        for j in range(mini_batch['src_kps'].shape[2]):
+            
+            if mini_batch['src_kps'][0, 0, j] == -1:
+                continue
+            
+            
+            visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"initial_point_{j:02d}")
+            visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
         
+            print("optimizing prompt")
+            context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context=None, device="cuda", map_size = map_size, num_steps=100)
+            
+            print("context.shape")
+            print(context.shape)
+            
+            print("running token")
+            
+            attn_map = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, map_size=map_size)
+            
+            max_val = find_max_pixel_value(attn_map)
+            
+            
+            visualize_image_with_points(attn_map[None], max_val, f"largest_loc_trg_{j:02d}")
+            visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5)*512/map_size, f"largest_loc_trg_img_{j:02d}")
+            
+            est_keypoints[0, :, j] = (max_val+0.5)*512/map_size
+            
+            attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, map_size=map_size)
+            max_val_src = find_max_pixel_value(attn_map_src)
+            visualize_image_with_points(attn_map[None], max_val, f"largest_loc_src_{j:02d}")
+            visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5)*512/map_size, f"largest_loc_src_img_{j:02d}")
         
-        
-        # # optimize_prompt(ldm, image_path, pixel_loc, context=None, device="cuda")
-        
-        
+        visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"estimated_correspondences_{i:03d}")
         
         # visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'], 'src_kps')
         
@@ -278,7 +366,7 @@ def validate_epoch(ldm,
         #     ' validation R_total_loss: %.3f/%.3f' % (running_total_loss / (i + 1), Loss.item()))
         mean_pck = sum(pck_array) / len(pck_array)
         
-        print("mean_pck")
-        print(mean_pck)
+        
+        print(f"{i} this pck ", eval_result['pck'], " mean_pck " , mean_pck)
 
     return running_total_loss / len(val_loader), mean_pck
