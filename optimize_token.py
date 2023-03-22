@@ -28,6 +28,12 @@ from PIL import Image
 
 import torch.nn.functional as F
 
+from eval.dataset import random_crop
+
+from networks.context_estimator import Context_Estimator
+
+import torch.nn as nn
+
 
 # import ipdb
 
@@ -54,6 +60,10 @@ def load_ldm(device):
     GUIDANCE_SCALE = 7.5
     MAX_NUM_WORDS = 77
     scheduler.set_timesteps(NUM_DDIM_STEPS)
+    
+    # import ipdb; ipdb.set_trace()
+    
+    
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     ldm = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", use_auth_token=MY_TOKEN, scheduler=scheduler).to(device)
     # ldm_stable = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-base").to(device)
@@ -73,6 +83,9 @@ def load_ldm(device):
     tokenizer = ldm.tokenizer
 
     # ldm.scheduler.set_timesteps(NUM_DDIM_STEPS)
+    
+    
+
 
 
     for param in ldm.vae.parameters():
@@ -214,27 +227,6 @@ def extract_attention_map(attention_store: AttentionStore, res: int, from_where:
     out = torch.cat(out, dim=0)
     out = out.sum(0) / out.shape[0]
     return out.cpu()
-
-
-
-def show_cross_attention(attention_store: AttentionStore, res: int, from_where: List[str], select: int = 0, prompts: List[str] = None, epoch: int = 0):
-    tokens = tokenizer.encode(prompts[select])
-    decoder = tokenizer.decode
-    attention_maps = aggregate_attention(attention_store, res, from_where, True, select)
-    images = []
-    for i in range(len(tokens)):
-        image = attention_maps[:, :, i]
-        image = 255 * image / image.max()
-        image = image.unsqueeze(-1).expand(*image.shape, 3)
-        image = image.detach().numpy().astype(np.uint8)
-        image = np.array(Image.fromarray(image).resize((256, 256)))
-        image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
-        images.append(image)
-        
-    # ptp_utils.view_images(np.stack(images, axis=0))
-    # save images
-    for i, image in enumerate(images):
-        Image.fromarray(image).save(f"outputs/cross_attention_{i}_{epoch:03d}.png")
     
     
     
@@ -279,8 +271,8 @@ def init_prompt(model, prompt: str):
     
     return context, prompt
 
-def init_random_noise(device):
-    return torch.randn(1, 77, 768).to(device)
+def init_random_noise(device, num_words = 77):
+    return torch.randn(1, num_words, 768).to(device)
 
 def image2latent(model, image, device):
     with torch.no_grad():
@@ -294,30 +286,6 @@ def image2latent(model, image, device):
             latents = model.vae.encode(image)['latent_dist'].mean
             latents = latents * 0.18215
     return latents
-
-
-def run_image(model, image_path, prompt):
-    image = load_512(image_path)
-
-    latent = image2latent(model, image)
-    # image_rec = null_inversion.latent2image(latent)
-
-    ptp_utils.view_images(image)
-    # ptp_utils.view_images(image_rec)
-
-    # take the latents and pass them through a single diffusion step
-    controller = AttentionStore()
-
-    ptp_utils.register_attention_control(ldm_stable, controller)
-
-    context, prompt = init_prompt(model, prompt)
-
-    prompts = [prompt]
-
-    with torch.no_grad():
-        latents = ptp_utils.diffusion_step(ldm_stable, controller, latent, context, ldm_stable.scheduler.timesteps[-1], guidance_scale=GUIDANCE_SCALE)
-
-    show_cross_attention(controller, 16, ["up", "down"])
 
 
 def reshape_attention(attention_map):
@@ -341,7 +309,8 @@ def visualize_attention_map(attention_map, file_name):
     img.save(file_name)
     
 
-def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["up_cross"], index=0, img_size=512):
+@torch.no_grad()
+def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], index=0, upsample_res=512, noise_level=10, layers=[0, 1, 2, 3, 4, 5]):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -353,131 +322,283 @@ def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["up_c
         
     ptp_utils.register_attention_control(ldm, controller)
     
-    latents = ptp_utils.diffusion_step(ldm, controller, latent, tokens, torch.tensor(1), cfg=False)
+    latents = ptp_utils.diffusion_step(ldm, controller, latent, tokens, torch.tensor(noise_level), cfg=False)
     
-    attention_maps = upscale_to_img_size(controller, from_where = from_where, img_size=img_size)
+    attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers=layers)
     # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
-    
-    print("attention_maps.shape")
-    print(attention_maps.shape)
     
     return attention_maps
     
     
 
 
-def upscale_to_img_size(controller, from_where = ["up_cross"], img_size=512):
+def upscale_to_img_size(controller, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res=512, layers=[0, 1, 2, 3, 4, 5]):
     """
     from_where is one of "down_cross" "mid_cross" "up_cross"
     
-    returns the bilinearly upsampled attention map of size img_size x img_size for the first word in the prompt
+    returns the bilinearly upsampled attention map of size upsample_res x upsample_res for the first word in the prompt
     """
+    
+    attention_maps = controller.get_average_attention()
     
     imgs = []
     
+    layer_overall = -1
+    
     for key in from_where:
-        for layer in range(len(controller.attention_store[key])):
+        for layer in range(len(attention_maps[key])):
             
-            img = controller.attention_store[key][layer]
+            layer_overall += 1
+            
+            
+            if layer_overall not in layers:
+                continue
+                
+            
+            img = attention_maps[key][layer]
             
             img = img.reshape(4, int(img.shape[1]**0.5), int(img.shape[1]**0.5), img.shape[2])[None, :, :, :, 0]
             
             # import ipdb; ipdb.set_trace()
             # bilinearly upsample the image to img_sizeximg_size
-            img = F.interpolate(img, size=(img_size, img_size), mode='bilinear', align_corners=False)
+            img = F.interpolate(img, size=(upsample_res, upsample_res), mode='bilinear', align_corners=False)
 
             imgs.append(img)
+            
+    # print("layer_overall")
+    # print(layer_overall)
+    # exit()
+            
             
     imgs = torch.cat(imgs, dim=0)
     
     return imgs
+
+def softargmax2d(input):
+    *_, h, w = input.shape
+
+    input = input.reshape(*_, h * w)
+    input = nn.functional.softmax(input, dim=-1)
+
+    indices_c, indices_r = np.meshgrid(
+        np.linspace(0, 1, w),
+        np.linspace(0, 1, h),
+        indexing='xy'
+    )
+
+    indices_r = torch.tensor(np.reshape(indices_r, (-1, h * w))).cuda().float()
+    indices_c = torch.tensor(np.reshape(indices_c, (-1, h * w))).cuda().float()
+
+    result_r = torch.sum((h - 1) * input * indices_r, dim=-1)
+    result_c = torch.sum((w - 1) * input * indices_c, dim=-1)
+
+    result = torch.stack([result_r, result_c], dim=-1)
+
+    return result
         
     
     
+def forward_step(image, pixel_loc, ldm, context_estimator, optimizer, noise_level=10, bbox = None, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 512, layers=[0, 1, 2, 3, 4, 5]):
+    if bbox is not None:
+        _image, _pixel_loc = random_crop(torch.tensor(image).permute(2, 0, 1), bbox[0], kps = pixel_loc[:, None].clone()*512, p=1.0)
+        # import ipdb; ipdb.set_trace()
+        _pixel_loc = _pixel_loc.T[0]/512
+        _image = _image.numpy().transpose(1, 2, 0)
+        # print(f"_pixel_loc {i}")
+        # print(_pixel_loc)
+        # print("_pixel_loc*512")
+        # print(_pixel_loc*512)
+        # visualize_image_with_points(_image, _pixel_loc*512, f"after_crop_{i:03d}")
+        # exit()
+    else:
+        _image, _pixel_loc = image, pixel_loc
     
-def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["up_cross"], img_size = 64):
+    with torch.no_grad():
+        latent = image2latent(ldm, _image, device)
+        
+    context = context_estimator(latent, _pixel_loc)
+    
+    controller = AttentionStore()
+    
+    ptp_utils.register_attention_control(ldm, controller)
+    
+    _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(noise_level), cfg = False)
+    
+    # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+    attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers=layers)
+    
+    
+    # divide by the mean along the dim=1
+    attention_maps = torch.mean(attention_maps, dim=1)
+    attention_maps = torch.mean(attention_maps, dim=0)
+    
+        
+    gt_maps = torch.zeros_like(attention_maps)
+    
+
+    
+    x_loc = _pixel_loc[0]*upsample_res
+    y_loc = _pixel_loc[1]*upsample_res
+    
+    # round x_loc and y_loc to the nearest integer
+    x_loc = int(x_loc)
+    y_loc = int(y_loc)
+    
+    # import ipdb; ipdb.set_trace()
+    
+    gt_maps[int(y_loc), int(x_loc)] = 1
+    
+    
+    # print("attention_maps[:, int(y_loc), int(x_loc)] ", attention_maps[:, int(y_loc), int(x_loc)])
+    
+    gt_maps = gt_maps.reshape(1, -1)
+    attention_maps = attention_maps.reshape(1, -1)
+    
+    
+    # loss = torch.nn.MSELoss()(attention_maps, gt_maps)
+    loss = torch.nn.CrossEntropyLoss()(attention_maps, gt_maps)
+    loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()
+    
+    # print("forward step ", loss.item())
+    
+    return context
+
+def cycle_step(initial_image, target_image, pixel_loc, ldm, context_estimator, optimizer, noise_level=10, bbox_initial = None, bbox_target = None, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 512, layers=[0, 1, 2, 3, 4, 5]):
+    if bbox_initial is not None and bbox_target is not None:
+        _initial_image, _pixel_loc = random_crop(torch.tensor(initial_image).permute(2, 0, 1), bbox_initial[0], kps=pixel_loc[:, None].clone()*512, p=1.0)
+        _pixel_loc = _pixel_loc.T[0]/512
+        _pixel_loc = _pixel_loc.cuda()
+        _initial_image = _initial_image.numpy().transpose(1, 2, 0)
+        
+        _target_image = random_crop(torch.tensor(target_image).permute(2, 0, 1), bbox_target[0], p=1.0)
+        
+        _target_image = _target_image.numpy().transpose(1, 2, 0)
+        
+    else:
+        _initial_image, _target_image, _pixel_loc = initial_image, target_image, pixel_loc
+    
+    with torch.no_grad():
+        initial_latent = image2latent(ldm, _initial_image, device)
+        
+    initial_context = context_estimator(initial_latent, _pixel_loc.cuda())
+    
+    controller = AttentionStore()
+    
+    ptp_utils.register_attention_control(ldm, controller)
+    
+    _ = ptp_utils.diffusion_step(ldm, controller, initial_latent, initial_context, torch.tensor(noise_level), cfg = False)
+    
+    # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+    attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers=layers)
+    
+    
+    # divide by the mean along the dim=1
+    attention_maps = torch.mean(attention_maps, dim=1)
+    attention_maps = torch.mean(attention_maps, dim=0)
+    argmax = softargmax2d(attention_maps)
+    
+    # print("forward _pixel_loc, argmax")
+    # print(_pixel_loc, argmax)
+    
+    with torch.no_grad():
+        target_latent = image2latent(ldm, _target_image, device)
+    
+    try:
+        target_context = context_estimator(target_latent, argmax[0])
+    except:
+        import ipdb; ipdb.set_trace()
+    
+    controller = AttentionStore()
+    
+    ptp_utils.register_attention_control(ldm, controller)
+    
+    _ = ptp_utils.diffusion_step(ldm, controller, initial_latent, initial_context, torch.tensor(noise_level), cfg = False)
+    
+    # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+    attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers=layers)
+    
+    # divide by the mean along the dim=1
+    attention_maps = torch.mean(attention_maps, dim=1)
+    attention_maps = torch.mean(attention_maps, dim=0)
+    argmax = softargmax2d(attention_maps)/upsample_res
+    
+    # print("cycle complete pixel_loc, argmax")
+    # print(_pixel_loc, argmax)
+    
+    # import ipdb; ipdb.set_trace()
+    
+    # exit()
+    
+    
+    loss = torch.nn.MSELoss()(_pixel_loc, argmax[0])
+    loss.backward()
+    
+    
+    
+    # exit()
+    optimizer.step()
+    optimizer.zero_grad()
+    
+    # print("cycle step ", loss.item())
+    
+    return initial_context, loss.item()
+    
+def optimize_prompt(ldm, image, pixel_loc, target_image = None, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 512, noise_level=10, layers = [0, 1, 2, 3, 4, 5], bbox_initial = None, bbox_target = None, num_words = 77):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
         image = image.permute(1, 2, 0).detach().cpu().numpy()
-    
-    with torch.no_grad():
-        latent = image2latent(ldm, image, device)
+    if type(target_image) == torch.Tensor:
+        target_image = target_image.permute(1, 2, 0).detach().cpu().numpy()
         
-    if context is None:
-        context = init_random_noise(device)
-        
-    context.requires_grad = True
+    image_res = image.shape[0]
     
-    # optimize context to maximize attention at pixel_loc
-    optimizer = torch.optim.Adam([context], lr=1e-2)
+    # visualize_image_with_points(image, pixel_loc*512, "before_crop")
+    
+    # print("pixel_loc")
+    # print(pixel_loc)
+    
+    context_estimator = Context_Estimator(num_words = num_words).cuda()
+    
+    
+        
+    # if context is None:
+    #     context = init_random_noise(device, num_words=num_words)
+    # context.requires_grad = True
+    
+    # # optimize context_estimator parameters
+    optimizer = torch.optim.Adam(context_estimator.parameters(), lr=1e-3)
     
     # time the optimization
     import time
     start = time.time()
     
-    for _ in range(num_steps):
+    losses =  []
+    
+    for i in range(num_steps):
         
-        controller = AttentionStore()
-        
-        ptp_utils.register_attention_control(ldm, controller)
-        
-        _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(1), cfg = False)
-        
-        # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
-        attention_maps = upscale_to_img_size(controller, from_where = from_where, img_size=img_size)
-        num_maps = attention_maps.shape[0]
+        # print("starting forward step")
+        context = forward_step(image, pixel_loc, ldm, context_estimator, optimizer, noise_level=10, bbox = bbox_initial, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
         
         
-        
-        # divide by the mean along the dim=1
-        attention_maps = torch.mean(attention_maps, dim=1)
-
-        
+        if target_image is not None:
+            # print("starting cycle step")
+            context, loss = cycle_step(image, target_image, pixel_loc, ldm, context_estimator, optimizer, noise_level=10, bbox_initial = bbox_initial, bbox_target = bbox_target, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
+            losses.append(loss)
             
-        gt_maps = torch.zeros_like(attention_maps)
-        
-
-        
-        x_loc = pixel_loc[0]*img_size
-        y_loc = pixel_loc[1]*img_size
-        
-        # round x_loc and y_loc to the nearest integer
-        x_loc = int(x_loc)
-        y_loc = int(y_loc)
-        
-        gt_maps[:, int(y_loc), int(x_loc)] = 1
-        
-        gt_maps = gt_maps.reshape(num_maps, -1)
-        attention_maps = attention_maps.reshape(num_maps, -1)
-        
-        print("attention_maps[0]")
-        print(attention_maps[0])
-        
-        attention_maps = torch.softmax(attention_maps, dim=1)
-        
-        print("attention_maps[0]")
-        print(attention_maps[0])
-        
-        
-        # visualize_image_with_points(gt_maps[0], [0, 0], "gt_points")
-        # visualize_image_with_points(image, [(x_loc+0.5), (y_loc+0.5)], "gt_img_point_quantized")
-        # visualize_image_with_points(image, [pixel_loc[0]*512, pixel_loc[1]*512], "gt_img_point")
-        # exit()
-        
-        
-        # loss = torch.nn.MSELoss()(attention_maps[..., 0], gt_maps[..., 0])
-        loss = torch.nn.CrossEntropyLoss()(attention_maps, gt_maps)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        
-        
-        print(loss.item())
         
     # print the time it took to optimize
-    print(f"optimization took {time.time() - start} seconds")
+    # print(f"optimization took {time.time() - start} seconds")
         
+        
+    # plot losses
+    # import matplotlib.pyplot as plt
+    # plt.plot(losses)
+    # plt.show()
+    # plt.savefig("losses.png")
+    # exit()
 
     return context
 
@@ -525,18 +646,26 @@ def visualize_keypoints_over_subject(ldm, img, contexts, name, device):
     
     
 
-def find_max_pixel_value(tens):
+def find_max_pixel_value(tens, img_size=512, ignore_border = True):
     """finds the 2d pixel location that is the max value in the tensor
 
     Args:
         tens (tensor): shape (height, width)
     """
     
-    height = tens.shape[0]
+    _tens = tens.clone()
+    if ignore_border:
+        _tens[0, :] = 0
+        _tens[-1, :] = 0
+        _tens[:, 0] = 0
+        _tens[:, -1] = 0
+    height = _tens.shape[0]
     
-    tens = tens.reshape(-1)
-    max_loc = torch.argmax(tens)
+    _tens = _tens.reshape(-1)
+    max_loc = torch.argmax(_tens)
     max_pixel = torch.stack([max_loc % height, torch.div(max_loc, height, rounding_mode='floor')])
+    
+    max_pixel = max_pixel/height*img_size
     
     return max_pixel
 
@@ -545,12 +674,15 @@ def visualize_image_with_points(image, point, name):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
-        image = image.permute(1, 2, 0).detach().cpu().numpy()
+        try:
+            image = image.permute(1, 2, 0).detach().cpu().numpy()
+        except:
+            import ipdb; ipdb.set_trace()   
     
     plt.imshow(image)
     
     # plot point on image
-    plt.scatter(point[0], point[1], s=3, marker='o', c='r')
+    plt.scatter(point[0].cpu(), point[1].cpu(), s=3, marker='o', c='r')
     
     
     plt.savefig(f'outputs/{name}.png')

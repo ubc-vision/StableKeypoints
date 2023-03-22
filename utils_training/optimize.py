@@ -75,135 +75,28 @@ def save_img(img, save_path):
 def validate_epoch(ldm,
                    val_loader,
                    device,
-                   epoch):
+                   epoch,
+                   upsample_res = 512,
+                   num_steps=100,
+                   noise_level = 10,
+                   layers = [0, 1, 2, 3, 4, 5],
+                   num_words = 77):
     running_total_loss = 0
+    
+    
+    
 
 
     pbar = tqdm(enumerate(val_loader), total=len(val_loader))
     pck_array = []
+    pck_array_ind_layers = [[] for i in range(len(layers))]
     for i, mini_batch in pbar:
         
-        # try:
-        
-        # if i < 5125:
-        #     continue
-        
-        # print("mini_batch['src_kps']")
-        # print(mini_batch['src_kps'])
-        
         est_keypoints = -1*torch.ones_like(mini_batch['src_kps'])
-        
-        # # print("mini_batch['src_kps'].shape")
-        # # print(mini_batch['src_kps'].shape)
-        
-        # mask = mini_batch['src_kps'][0, 0, :] != -1
-        
-        # # for i in range(mask.shape[0]):
-        # #     if mask[i] == False:
-        # #         continue
-        # #     visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, i], f"source_img_{i:02d}_gt")
-        # #     visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, i], f"target_img_{i:02d}_gt")
-        
-        # this_context = optimize_prompt_over_subject(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0][:, mask]/512, num_steps=100, device=device)
+        ind_layers = -1*torch.ones_like(mini_batch['src_kps']).repeat(len(layers), 1, 1)
         
         
-        # visualize_keypoints_over_subject(ldm, mini_batch['og_src_img'][0], this_context, "source_img", device=device)
-        # trg_attn = visualize_keypoints_over_subject(ldm, mini_batch['og_trg_img'][0], this_context, "target_img", device=device)
-        
-        # # print("trg_attn.shape")
-        # # print(trg_attn.shape)
-        # # exit()
-        
-        # for j in range(this_context.shape[0]):
-        #     # print("attn.shape")
-        #     # print(attn.shape)
-        #     max_val = find_max_pixel_value(trg_attn[j])
-        #     # print("max_val")
-        #     # print(max_val)
-            
-        #     est_keypoints[0, :, j] = (max_val+0.5)*512/16
-        # # exit()
-        
-        
-        
-        # for i in range(this_context.shape[0]):
-            
-        #     visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, i], f"initial_point_{i:02d}")
-        #     visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, i], f"target_point_{i:02d}")
-        
-        #     attn_map = find_average_attention_from_list(mini_batch['og_trg_img'][0], ldm, [this_context[i]], f"attn_trg_{i:02d}", device=device, index=0)
-        #     max_val = find_max_pixel_value(attn_map)
-            
-        #     est_keypoints[0, :, i] = (max_val+0.5)*512/16
-            
-        #     visualize_image_with_points(attn_map[None], max_val, f"largest_loc_trg_{i:02d}")
-        #     visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5)*512/16, f"largest_loc_trg_img_{i:02d}")
-            
-            
-        #     attn_map = find_average_attention_from_list(mini_batch['og_src_img'][0], ldm, [this_context[i]], f"attn_src_{i:02d}", device=device, index=0)
-        #     max_val = find_max_pixel_value(attn_map)
-        #     visualize_image_with_points(attn_map[None], max_val, f"largest_loc_src_{i:02d}")
-        #     visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5)*512/16, f"largest_loc_src_img_{i:02d}")
-        
-        # exit()
 
-        
-        
-        
-        # # make the learned contexts as similar as possible accross mini_batch['src_kps']
-        # for j in range(mini_batch['src_kps'].shape[2]):
-            
-        #     if mini_batch['src_kps'][0, 0, j] == -1:
-        #         continue
-            
-        #     visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"initial_point_{j:02d}")
-        #     visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
-            
-            
-            
-            
-        #     contexts = []
-        #     for i in range(10):
-        #         # this_context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=100, device=device)
-        #         this_context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=150, device=device)
-        #         contexts.append(this_context.detach())
-                
-                
-                
-        #     attn_map = find_average_attention_from_list(mini_batch['og_trg_img'][0], ldm, contexts, f"attn_trg_{j:02d}", device=device, index=0)
-        #     max_val = find_max_pixel_value(attn_map)
-            
-        #     est_keypoints[0, :, j] = (max_val+0.5)*512/32
-            
-        #     visualize_image_with_points(attn_map[None], max_val, f"largest_loc_trg_{j:02d}")
-        #     visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5)*512/32, f"largest_loc_trg_img_{j:02d}")
-            
-            
-        #     attn_map = find_average_attention_from_list(mini_batch['og_src_img'][0], ldm, contexts, f"attn_src_{j:02d}", device=device, index=0)
-        #     max_val = find_max_pixel_value(attn_map)
-        #     visualize_image_with_points(attn_map[None], max_val, f"largest_loc_src_{j:02d}")
-        #     visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5)*512/32, f"largest_loc_src_img_{j:02d}")
-        #     # exit()
-            
-            
-            
-        # # est_keypoints = torch.cat(est_keypoints, dim=-1)
-        
-        # # print("est_keypoints")
-        # # print(est_keypoints)
-        # # print("mini_batch['trg_kps']")
-        # # print(mini_batch['trg_kps'])
-        
-        # visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"estimated_correspondences_{i:03d}")
-        # exit()
-        # except:
-        #     from time import sleep
-        #     sleep(0.25)
-        #     continue
-        
-        # exit()
-        
-        
         
         for j in range(mini_batch['src_kps'].shape[2]):
             
@@ -211,158 +104,83 @@ def validate_epoch(ldm,
                 continue
             
             
-            visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"initial_point_{j:02d}")
-            visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
-        
-            print("optimizing prompt")
-            context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context=None, device="cuda", num_steps=100)
+            # visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"initial_point_{j:02d}")
+            # visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
             
-            print("context.shape")
-            print(context.shape)
+            # print("optimizing prompt")
+            context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, target_image = mini_batch['og_trg_img'][0], context=None, device="cuda", num_steps=num_steps, upsample_res=upsample_res, noise_level=noise_level, layers=layers, bbox_initial=mini_batch['src_bbox_og'], bbox_target=mini_batch['trg_bbox_og'], num_words=num_words)
             
-            print("running token")
+            # print("running token")
             
-            attn_map = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0)
-            
-            max_val = find_max_pixel_value(attn_map)
+            attn_maps = run_image_with_tokens(ldm, mini_batch['og_trg_img'][0], context, index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers)
             
             
-            visualize_image_with_points(attn_map[None], max_val, f"largest_loc_trg_{j:02d}")
-            visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
+            
+            
+            maps = []
+            for k in range(attn_maps.shape[0]):
+                avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
+                maps.append(avg.reshape(-1))
+                _max_val = find_max_pixel_value(avg[0], img_size = 512)
+                ind_layers[k, :, j] = (_max_val+0.5)
+                # print('_max_val')
+                # print(_max_val)
+                # print('attn_maps[k].shape')
+                # print(attn_maps[k].shape)
+                # visualize_image_with_points(avg, _max_val/512*upsample_res, f"largest_loc_trg_{j:02d}_{k:02d}")
+            
+            # import ipdb; ipdb.set_trace()
+            
+            maps = torch.stack(maps, dim=0)
+            maps = torch.nn.Softmax(dim=-1)(maps)
+            
+            maps = torch.max(maps, dim=0).values
+            maps = maps.reshape(upsample_res, upsample_res)
+            max_val = find_max_pixel_value(maps, img_size = 512)
+            
+            # import ipdb; ipdb.set_trace()
             
             est_keypoints[0, :, j] = (max_val+0.5)
             
-            attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0)
-            max_val_src = find_max_pixel_value(attn_map_src)
-            visualize_image_with_points(attn_map[None], max_val, f"largest_loc_src_{j:02d}")
-            visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
+            # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
+            
+            
+            
+            # attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers)
+            
+            # maps = []
+            # for k in range(attn_map_src.shape[0]):
+            #     avg = torch.mean(attn_map_src[k], dim=0, keepdim=True)
+            #     maps.append(avg)
+                
+            #     max_val_src = find_max_pixel_value(avg[0], img_size = 512)
+            #     visualize_image_with_points(avg, max_val_src/512*upsample_res, f"largest_loc_src_{j:02d}_{k:02d}")
+            # maps = torch.cat(maps, dim=0)
+            # maps = torch.mean(maps, dim=0)
+            # max_val = find_max_pixel_value(maps, img_size = 512)
+            # visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
+            
+            # exit()
+            
+        for k in range(len(pck_array_ind_layers)):
+            _eval_result = Evaluator.eval_kps_transfer(ind_layers[k].cpu()[None], mini_batch)
+            pck_array_ind_layers[k] += _eval_result['pck']
+            
+            print(f"layer {k} pck {sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])}, this pck {_eval_result['pck']}")
         
-        visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"estimated_correspondences_{i:03d}")
         
-        # visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'], 'src_kps')
-        
-        # visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'], 'trg_kps')
-        # exit()
-        
-        # visualie_flow(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], flow_gt[0], "flow")
-        
-        # print("mini_batch['trg_kps'].shape")
-        # print(mini_batch['trg_kps'].shape)
-        
-        # print("flow_gt")
-        # print(flow_gt)
-        # print entire pytorch tensor without clipping      
-        # torch.set_printoptions(threshold=10_000)
-        
-        # save_img(mini_batch['og_src_img'][0], "src_img.png")
-        # save_img(mini_batch['og_trg_img'][0], "trg_img.png")
-        
-        # flow_gt_img = torch.cat([flow_gt[0], torch.zeros(1, flow_gt[0].shape[1], flow_gt[0].shape[2]).cuda()], dim=0)
-        # save_img(flow_gt_img, "flow_gt.png")
 
-
         
-        # print("flow_gt")
-        # print(flow_gt)
-        
-        
-        
-        # # select nonzero entries of flow_gt
-        # mask = (flow_gt[:,0] == 0) & (flow_gt[:,1] == 0)
-        # print("mask.shape")
-        # print(mask.shape)
-        # flow_gt = flow_gt[~mask[:, None].repeat(1, 2, 1, 1)]
-    
-
-        # # print("flow_gt")
-        # # print(flow_gt)
-        # # exit()
-        
-        
-        
-        # print("mini_batch['trg_img'].shape")
-        # print(mini_batch['trg_img'].shape)
-        # print("flow_gt.shape")
-        # print(flow_gt.shape)
-        # print("flow_gt[0]")
-        # print(flow_gt[0])
-        # print("mini_batch['trg_img'].shape")
-        # print(mini_batch['trg_img'].shape)
-        # print("mini_batch['n_pts'].shape")
-        # print(mini_batch['n_pts'].shape)
-        # print("mini_batch['trg_kps'].shape")
-        # print(mini_batch['trg_kps'].shape)
-        # print("mini_batch['trg_kps'][0]")
-        # print(mini_batch['trg_kps'][0])
-        
-        # # save mini_batch['trg_img'][0] as an image
-        
-        # from PIL import Image
-        
-        # print("torch.max(mini_batch['trg_img'])")
-        # print(torch.max(mini_batch['trg_img']))
-        # print("torch.min(mini_batch['trg_img'])")
-        # print(torch.min(mini_batch['trg_img']))
-        
-        # save_img(mini_batch['og_trg_img'][0], "trg_img.png")
-        # save_img(mini_batch['og_src_img'][0], "src_img.png")
-        # save_img(flow_gt_img, "flow_gt.png")
-        
-        
-        
-        # print("mask.shape")
-        # print(mask.shape)
-        # print("torch.sum(mask)")
-        # print(torch.sum(mask))
-        # print("torch.sum(~mask)")
-        # print(torch.sum(~mask))
-        
-        # pred_flow = net(mini_batch['trg_img'].to(device),
-        #                 mini_batch['src_img'].to(device))
-        # pred_flow = flow_gt.clone()
-        
-        # pred_flow_img = torch.cat([pred_flow[0], torch.zeros(1, pred_flow[0].shape[1], pred_flow[0].shape[2]).cuda()], dim=0)
-        
-        # save_img(pred_flow_img, "pred_flow.png")
-        
-        # visualie_flow(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], pred_flow[0], "flow_est")
-        # exit()
-        
-        # print("pred_flow.shape")
-        # print(pred_flow.shape)
-        # print("flow_gt.shape")
-        # print(flow_gt.shape)
-        # exit()
-        
-        # print("mini_batch['trg_kps']")
-        # print(mini_batch['trg_kps'])
-
-        # estimated_kps = flow2kps(mini_batch['trg_kps'].to(device), pred_flow, mini_batch['n_pts'].to(device))
-        
-        # print("estimated_kps")
-        # print(estimated_kps)
-        # exit()
-        
-        # print("estimated_kps.shape")
-        # print(estimated_kps.shape)
-        # print("estimated_kps")
-        # print(estimated_kps)
-        # print("mini_batch['src_kps'].shape")
-        # print(mini_batch['src_kps'].shape)
-        # print("mini_batch['src_kps']")
-        # print(mini_batch['src_kps'])
-        # exit()
-
 
         eval_result = Evaluator.eval_kps_transfer(est_keypoints.cpu(), mini_batch)
         
-        # Loss = EPE(pred_flow, flow_gt) 
+        
+        
+        visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'])
+        visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'])
 
         pck_array += eval_result['pck']
 
-        # running_total_loss += Loss.item()
-        # pbar.set_description(
-        #     ' validation R_total_loss: %.3f/%.3f' % (running_total_loss / (i + 1), Loss.item()))
         mean_pck = sum(pck_array) / len(pck_array)
         
         

@@ -159,7 +159,7 @@ def visualie_flow(initial_image, final_image, flow, name):
     plt.savefig(f'outputs/{name}.png')
     
     
-def visualie_correspondences(initial_image, final_image, source, target, name):
+def visualie_correspondences(initial_image, final_image, source, target, name, correct_ids=None):
     r"""Visualize correspondences. Show initial image on the left, final image on the right and correspondences connecting corresponding points"""
     
     import matplotlib.pyplot as plt
@@ -187,10 +187,16 @@ def visualie_correspondences(initial_image, final_image, source, target, name):
     # print("correspondences.shape")
     # print(correspondences.shape)
     
+    # import ipdb; ipdb.set_trace()
+    
     for i in range(source.shape[2]):
         if source[0, 0, i] == -1:
             continue
-        plt.plot([source[0, 0, i], target[0, 0, i]+512], [source[0, 1, i], target[0, 1, i]], color="red", linewidth=1)
+        if correct_ids is not None and i in correct_ids:
+            color = "green"
+        else:
+            color = "red"
+        plt.plot([source[0, 0, i], target[0, 0, i]+512], [source[0, 1, i], target[0, 1, i]], color=color, linewidth=1)
         
     plt.axis('on')
 

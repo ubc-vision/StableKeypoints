@@ -45,6 +45,12 @@ if __name__ == "__main__":
     parser.add_argument('--benchmark', type=str, choices=['pfpascal', 'spair', 'pfwillow'], default='spair')
     parser.add_argument('--thres', type=str, default='auto', choices=['auto', 'img', 'bbox'])
     parser.add_argument('--alpha', type=float, default=0.1)
+    
+    parser.add_argument('--num_steps', type=int, default=100)
+    parser.add_argument('--noise_level', type=int, default=1, help='noise level for the test set between 1000 and 1 where 1000 is the highest noise level and 1 is the lowest noise level')
+    parser.add_argument('--upsample_res', type=int, default=32, help='Resolution to upsample the attention maps to')
+    parser.add_argument('--layers', type=int, nargs='+', default= [6, 7, 8, 9, 10])
+    parser.add_argument('--num_words', type=int, default= 2)
 
     # Seed
     args = parser.parse_args()
@@ -76,7 +82,12 @@ if __name__ == "__main__":
     val_loss_grid, val_mean_pck = optimize.validate_epoch(ldm,
                                                     test_dataloader,
                                                     device,
-                                                    epoch=0)
+                                                    epoch=0,
+                                                    num_steps = args.num_steps,
+                                                    noise_level = args.noise_level,
+                                                    upsample_res=args.upsample_res,
+                                                    layers = args.layers,
+                                                    num_words=args.num_words,)
     print(colored('==> ', 'blue') + 'Test average grid loss :',
             val_loss_grid)
     print('mean PCK is {}'.format(val_mean_pck))

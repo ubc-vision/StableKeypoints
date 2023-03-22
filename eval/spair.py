@@ -42,14 +42,14 @@ class SPairDataset(CorrespondenceDataset):
         # idx = 5125
         r"""Constructs and return a batch for SPair-71k dataset"""
         batch = super(SPairDataset, self).__getitem__(idx)
-        
-        print("idx")
-        print(idx)
 
         if self.split == 'trn' and self.augmentation:
             batch['src_img'], batch['src_kps'] = random_crop(batch['src_img'], batch['src_kps'], self.src_bbox[idx].clone(), size=(self.imside,)*2)
             batch['trg_img'], batch['trg_kps'] = random_crop(batch['trg_img'], batch['trg_kps'], self.trg_bbox[idx].clone(), size=(self.imside,)*2)
 
+        batch['src_bbox_og'] = self.src_bbox[idx].clone()
+        batch['trg_bbox_og'] = self.trg_bbox[idx].clone()
+        
         batch['src_bbox'] = self.get_bbox(self.src_bbox, idx, batch['src_imsize'])
         batch['trg_bbox'] = self.get_bbox(self.trg_bbox, idx, batch['trg_imsize'])
         batch['pckthres'] = self.get_pckthres(batch, batch['src_imsize'])

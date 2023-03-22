@@ -29,14 +29,16 @@ class Evaluator:
         hard_match = {'src': [], 'trg': []}
 
         pck = []
-        for idx, (pk, tk) in enumerate(zip(prd_kps, batch['src_kps'])):
+        for idx, (pk, tk) in enumerate(zip(prd_kps, batch['trg_kps'])):
             thres = batch['pckthres'][idx]
             npt = batch['n_pts'][idx]
             _, correct_ids, _ = cls.classify_prd(pk[:, :npt], tk[:, :npt], thres)
 
             pck.append((len(correct_ids) / npt.item()) * 100)
+            
+            # import ipdb; ipdb.set_trace()
 
-        eval_result = {'pck': pck}
+        eval_result = {'pck': pck, 'correct_ids': correct_ids}
 
         return eval_result
 

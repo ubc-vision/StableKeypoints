@@ -25,17 +25,43 @@ def resize(img, kps, size=(512, 512)):
     
     return resized_img, resized_kps.t()
 
-def random_crop(img, kps, bbox, size=(512, 512), p=0.5):
+def random_crop(img, bbox, kps = None, size=(512, 512), p=0.5):
     if random.uniform(0, 1) > p:
         return resize(img, kps, size)
     _, h, w = img.shape
-    kps = kps.t()
+    if kps is not None:
+        kps = kps.t()
+
+    
+    # import ipdb; ipdb.set_trace()
+    
+    # make sure kps are within the new bounding box
     left = random.randint(0, bbox[0])
     top = random.randint(0, bbox[1])
-    height = random.randint(bbox[3], h) - top
-    width = random.randint(bbox[2], w) - left
+    
+    if kps is not None:
+        left = min(left, kps[:, 0].min() - 10)
+        top = min(top, kps[:, 1].min() - 10)
+        
+        
+    try:
+        
+        height = random.randint(bbox[3], h) - top
+        width = random.randint(bbox[2], w) - left
+    except:
+        import ipdb; ipdb.set_trace()
+    
+    
+    if kps is not None:
+        height = max(height, min(kps[:, 1].max() + 10 - top, h - 1 - top))
+        width = max(width, min(kps[:, 0].max() + 10 - left, w - 1 - left))
+
+    # import ipdb; ipdb.set_trace()
     resized_img = torchvision.transforms.functional.resized_crop(
-        img, top, left, height, width, size=size)
+        img, int(top), int(left), int(height), int(width), size=size)
+    
+    if kps is None:
+        return resized_img
     
     resized_kps = torch.zeros_like(kps, dtype=torch.float)
     resized_kps[:, 0] = (kps[:, 0] - left) * (size[1] / width)
@@ -43,6 +69,37 @@ def random_crop(img, kps, bbox, size=(512, 512), p=0.5):
     resized_kps = torch.clamp(resized_kps, 0, size[0] - 1)
     
     return resized_img, resized_kps.t()
+
+
+# def random_crop_optimize(img, kp):
+#     """
+#     Zooms in on the keypoint in question and crops the image around it
+#     """
+    
+#     left = random.randint(0, max(kp[0] - 10, 0))
+#     top = random.randint(0, max(kp[1] - 10, 0))
+    
+#     # height and width will be at least 20 pixels up to the remaining image size
+    
+
+
+#     height = random.randint(0, max(kp[1] - 10, 0))
+    
+    
+    
+#     left = random.randint(0, bbox[0])
+#     top = random.randint(0, bbox[1])
+#     height = random.randint(bbox[3], h) - top
+#     width = random.randint(bbox[2], w) - left
+#     resized_img = torchvision.transforms.functional.resized_crop(
+#         img, top, left, height, width, size=size)
+    
+#     resized_kps = torch.zeros_like(kps, dtype=torch.float)
+#     resized_kps[:, 0] = (kps[:, 0] - left) * (size[1] / width)
+#     resized_kps[:, 1] = (kps[:, 1] - top) * (size[0] / height)
+#     resized_kps = torch.clamp(resized_kps, 0, size[0] - 1)
+    
+#     return resized_img, resized_kps.t()
 
 
 class CorrespondenceDataset(Dataset):
@@ -156,6 +213,8 @@ class CorrespondenceDataset(Dataset):
         # Class of instances in the images
         batch['category_id'] = self.cls_ids[idx]
         batch['category'] = self.cls[batch['category_id']]
+        
+        
 
         # Image as numpy (original width, original height)
         src_pil = self.get_image(self.src_imnames, idx)
@@ -174,7 +233,6 @@ class CorrespondenceDataset(Dataset):
             batch['trg_img'] = self.transform(trg_pil)
         batch['og_src_img'] = self.viz_transform(src_pil)
         batch['og_trg_img'] = self.viz_transform(trg_pil)
-            
         
 
         # Key-points (re-scaled)
