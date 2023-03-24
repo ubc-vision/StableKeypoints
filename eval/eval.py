@@ -25,6 +25,8 @@ from eval import download
 
 from optimize_token import load_ldm
 
+import wandb
+
 
 if __name__ == "__main__":
     # Argument parsing
@@ -48,9 +50,18 @@ if __name__ == "__main__":
     
     parser.add_argument('--num_steps', type=int, default=100)
     parser.add_argument('--noise_level', type=int, default=1, help='noise level for the test set between 1000 and 1 where 1000 is the highest noise level and 1 is the lowest noise level')
-    parser.add_argument('--upsample_res', type=int, default=32, help='Resolution to upsample the attention maps to')
-    parser.add_argument('--layers', type=int, nargs='+', default= [6, 7, 8, 9, 10])
+    parser.add_argument('--upsample_res', type=int, default=512, help='Resolution to upsample the attention maps to')
+    parser.add_argument('--layers', type=int, nargs='+', default= [5, 6, 7])
     parser.add_argument('--num_words', type=int, default= 2)
+    parser.add_argument('--wandb_log', action='store_true', help='whether to use wandb for logging')
+    parser.add_argument('--device', type=str, default = 'cuda:0', help='device to use')
+    parser.add_argument('--validate', action='store_true', help='whether to train of validate')
+    parser.add_argument('--visualize', action='store_true', help='whether to visualize the attention maps')
+    parser.add_argument('--epoch', type=int, default=0, help='what epoch of the model to load')
+    parser.add_argument('--learning_rate', type=float, default=1e-5, help='what epoch of the model to load')
+    
+    
+    
 
     # Seed
     args = parser.parse_args()
@@ -59,6 +70,11 @@ if __name__ == "__main__":
     # torch.manual_seed(args.seed)
     # torch.cuda.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    if args.wandb_log:
+        # initialize wandb
+        wandb.init(project="estimated_correspondences")
+        wandb.config.update(args)
 
     # Initialize Evaluator
     Evaluator.initialize(args.benchmark, args.alpha)
@@ -73,23 +89,40 @@ if __name__ == "__main__":
     
     
     # initialize model
-    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+    # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     # device = torch.device('cpu')
-    ldm, _ = load_ldm(device)
+    ldm, _ = load_ldm(args.device)
 
     train_started = time.time()
 
-    val_loss_grid, val_mean_pck = optimize.validate_epoch(ldm,
-                                                    test_dataloader,
-                                                    device,
-                                                    epoch=0,
-                                                    num_steps = args.num_steps,
-                                                    noise_level = args.noise_level,
-                                                    upsample_res=args.upsample_res,
-                                                    layers = args.layers,
-                                                    num_words=args.num_words,)
-    print(colored('==> ', 'blue') + 'Test average grid loss :',
-            val_loss_grid)
-    print('mean PCK is {}'.format(val_mean_pck))
 
-    print(args.seed, 'Test took:', time.time()-train_started, 'seconds')
+    if args.validate:
+        print("validating")
+        val_loss_grid, val_mean_pck = optimize.validate_epoch(ldm,
+                                                        test_dataloader,
+                                                        num_steps = args.num_steps,
+                                                        noise_level = args.noise_level,
+                                                        upsample_res=args.upsample_res,
+                                                        layers = args.layers,
+                                                        num_words=args.num_words,
+                                                        device = args.device,
+                                                        visualize=args.visualize,
+                                                        epoch=args.epoch)
+        print(colored('==> ', 'blue') + 'Test average grid loss :',
+                val_loss_grid)
+        print('mean PCK is {}'.format(val_mean_pck))
+
+        print(args.seed, 'Test took:', time.time()-train_started, 'seconds')
+    else:
+        print("training")
+        val_loss_grid, val_mean_pck = optimize.train(ldm,
+                                                        test_dataloader,
+                                                        num_steps = args.num_steps,
+                                                        noise_level = args.noise_level,
+                                                        upsample_res=args.upsample_res,
+                                                        layers = args.layers,
+                                                        num_words=args.num_words,
+                                                        wandb_log= args.wandb_log,
+                                                        device = args.device,
+                                                        learning_rate=args.learning_rate,)
+        

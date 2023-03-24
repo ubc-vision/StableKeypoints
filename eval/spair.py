@@ -47,6 +47,9 @@ class SPairDataset(CorrespondenceDataset):
             batch['src_img'], batch['src_kps'] = random_crop(batch['src_img'], batch['src_kps'], self.src_bbox[idx].clone(), size=(self.imside,)*2)
             batch['trg_img'], batch['trg_kps'] = random_crop(batch['trg_img'], batch['trg_kps'], self.trg_bbox[idx].clone(), size=(self.imside,)*2)
 
+
+
+        batch['random_bbox_og'] = self.src_bbox[batch['rand_idx']].clone()
         batch['src_bbox_og'] = self.src_bbox[idx].clone()
         batch['trg_bbox_og'] = self.trg_bbox[idx].clone()
         

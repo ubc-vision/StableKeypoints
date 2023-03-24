@@ -219,6 +219,11 @@ class CorrespondenceDataset(Dataset):
         # Image as numpy (original width, original height)
         src_pil = self.get_image(self.src_imnames, idx)
         trg_pil = self.get_image(self.trg_imnames, idx)
+        # random integer between 0 and length of this dataset
+        rand_idx = random.randint(0, len(self)-1)
+        batch['rand_idx'] = rand_idx
+        random_pil = self.get_image(self.src_imnames, rand_idx)
+        batch['random_imsize'] = random_pil.size
         batch['src_imsize'] = src_pil.size
         batch['trg_imsize'] = trg_pil.size
 
@@ -231,11 +236,14 @@ class CorrespondenceDataset(Dataset):
         else:
             batch['src_img'] = self.transform(src_pil)
             batch['trg_img'] = self.transform(trg_pil)
+            
+        batch['og_random_img'] = self.viz_transform(random_pil)
         batch['og_src_img'] = self.viz_transform(src_pil)
         batch['og_trg_img'] = self.viz_transform(trg_pil)
         
 
         # Key-points (re-scaled)
+        batch['random_kps'], num_pts = self.get_points(self.src_kps, rand_idx, src_pil.size)
         batch['src_kps'], num_pts = self.get_points(self.src_kps, idx, src_pil.size)
         batch['trg_kps'], _ = self.get_points(self.trg_kps, idx, trg_pil.size)
         batch['n_pts'] = torch.tensor(num_pts)
