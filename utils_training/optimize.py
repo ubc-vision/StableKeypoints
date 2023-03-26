@@ -90,11 +90,11 @@ def train(ldm,
             learning_rate = 1e-4,):
     running_total_loss = 0
     
-    ldm = torch.nn.DataParallel(ldm)
+    # ldm = torch.nn.DataParallel(ldm)
     
     context_estimator = Context_Estimator(ldm.tokenizer, ldm.text_encoder, num_words = num_words, device=device).cuda()
     
-    context_estimator = torch.nn.DataParallel(context_estimator)
+    # context_estimator = torch.nn.DataParallel(context_estimator)
     
     optimizer = torch.optim.Adam(context_estimator.parameters(), lr=learning_rate)
     
@@ -208,12 +208,15 @@ def validate_epoch(ldm,
                    num_words = 77,
                    epoch = 6,
                    device = 'cpu',
-                   visualize = False):
+                   visualize = False,
+                   optimize = False,
+                   lr = 1e-3):
     running_total_loss = 0
     
     
-    context_estimator = Context_Estimator(ldm.tokenizer, ldm.text_encoder, num_words = num_words, device = device)
-    context_estimator.load_state_dict(torch.load(f"checkpoints/context_estimator_{epoch:03d}.pt"))
+    if not optimize:
+        context_estimator = Context_Estimator(ldm.tokenizer, ldm.text_encoder, num_words = num_words, device = device)
+        context_estimator.load_state_dict(torch.load(f"checkpoints/context_estimator_{epoch:03d}.pt"))
     
     
 
@@ -243,8 +246,11 @@ def validate_epoch(ldm,
                 visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
         
         
-            # context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context_estimator, optimizer, target_image = mini_batch['og_trg_img'][0], context=None, device="cuda", num_steps=num_steps, upsample_res=upsample_res, noise_level=noise_level, layers=layers, bbox_initial=mini_batch['src_bbox_og'], bbox_target=mini_batch['trg_bbox_og'], num_words=num_words, wandb_log=wandb_log)
-            context = find_context(mini_batch['og_src_img'][0], ldm, mini_batch['src_kps'][0, :, j]/512, context_estimator, device=device)
+            if not optimize:
+                # context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context_estimator, optimizer, target_image = mini_batch['og_trg_img'][0], context=None, device="cuda", num_steps=num_steps, upsample_res=upsample_res, noise_level=noise_level, layers=layers, bbox_initial=mini_batch['src_bbox_og'], bbox_target=mini_batch['trg_bbox_og'], num_words=num_words, wandb_log=wandb_log)
+                context = find_context(mini_batch['og_src_img'][0], ldm, mini_batch['src_kps'][0, :, j]/512, context_estimator, device=device)
+            else:
+                context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr)
             
             # print("context.shape")
             # print(context.shape)
@@ -332,3 +338,4 @@ def validate_epoch(ldm,
         # exit()
 
     return running_total_loss / len(val_loader), mean_pck
+

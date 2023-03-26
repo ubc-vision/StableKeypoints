@@ -21,13 +21,9 @@ class SPairDataset():
         batch = {}
         
         
-        mini_batch['src_kps']
-        mini_batch['og_src_img']
-        mini_batch['og_trg_img']
-
-        
-        batch['src_bbox_og'] = None
-        batch['trg_bbox_og'] = None
+        batch['src_kps'] = torch.tensor([[0.9, 0.4]])
+        batch['og_src_img'] = Image.open("/scratch/iamerich/prompt-to-prompt/example_images/gnochi_mirror.jpeg").convert('RGB')
+        batch['og_trg_img'] = Image.open("/scratch/iamerich/prompt-to-prompt/example_images/cat1.jpeg").convert('RGB')
         
 
         return batch

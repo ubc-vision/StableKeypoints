@@ -1,7 +1,7 @@
 import torch
 
 class Context_Estimator(torch.nn.Module):
-    def __init__(self, tokenizer, text_encoder, num_words = 1, word_size = 768, device="cuda", max_legnth = 77):
+    def __init__(self, tokenizer, text_encoder, num_words = 2, word_size = 768, device="cuda", max_legnth = 77):
         super(Context_Estimator, self).__init__()
         
         self.num_words = num_words

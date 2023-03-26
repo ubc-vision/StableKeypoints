@@ -283,7 +283,8 @@ def image2latent(model, image, device):
         if type(image) is torch.Tensor and image.dim() == 4:
             latents = image
         else:
-            image = torch.from_numpy(image).float() / 127.5 - 1
+            # print the max and min values of the image
+            image = torch.from_numpy(image).float() * 2 - 1
             image = image.permute(2, 0, 1).unsqueeze(0).to(device)
             latents = model.vae.encode(image)['latent_dist'].mean
             latents = latents * 0.18215
@@ -748,7 +749,7 @@ def visualize_image_with_points(image, point, name):
 
 
 
-def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["up_cross"], upsample_res = 32):
+def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -763,7 +764,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     context.requires_grad = True
     
     # optimize context to maximize attention at pixel_loc
-    optimizer = torch.optim.Adam([context], lr=1e-2)
+    optimizer = torch.optim.Adam([context], lr=lr)
     
     # time the optimization
     import time
@@ -778,7 +779,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(1), cfg = False)
         
         # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
-        attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res)
+        attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)
         num_maps = attention_maps.shape[0]
         
         
@@ -804,19 +805,10 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         gt_maps = gt_maps.reshape(num_maps, -1)
         attention_maps = attention_maps.reshape(num_maps, -1)
         
-        print("attention_maps[0]")
-        print(attention_maps[0])
-        
         attention_maps = torch.softmax(attention_maps, dim=1)
         
-        print("attention_maps[0]")
-        print(attention_maps[0])
         
         
-        # visualize_image_with_points(gt_maps[0], [0, 0], "gt_points")
-        # visualize_image_with_points(image, [(x_loc+0.5), (y_loc+0.5)], "gt_img_point_quantized")
-        # visualize_image_with_points(image, [pixel_loc[0]*512, pixel_loc[1]*512], "gt_img_point")
-        # exit()
         
         
         # loss = torch.nn.MSELoss()(attention_maps[..., 0], gt_maps[..., 0])
@@ -826,7 +818,13 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         optimizer.zero_grad()
         
         
-        print(loss.item())
+    #     print(loss.item())
+        
+    # visualize_image_with_points(gt_maps[0].reshape(1, upsample_res, upsample_res), torch.tensor([(x_loc+0.5), (y_loc+0.5)]), "gt_points")
+    # for i in range(attention_maps.shape[0]):
+    #     visualize_image_with_points(attention_maps[i].reshape(1, upsample_res, upsample_res), torch.tensor([(x_loc+0.5), (y_loc+0.5)]), f"attention_maps_{i}")
+    # visualize_image_with_points(image, torch.tensor([pixel_loc[0]*512, pixel_loc[1]*512]), "gt_img_point")
+    # exit()
         
     # print the time it took to optimize
     print(f"optimization took {time.time() - start} seconds")

@@ -55,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_words', type=int, default= 2)
     parser.add_argument('--wandb_log', action='store_true', help='whether to use wandb for logging')
     parser.add_argument('--device', type=str, default = 'cuda:0', help='device to use')
-    parser.add_argument('--validate', action='store_true', help='whether to train of validate')
+    parser.add_argument('--mode', type=str, choices=["train", "evaluate", "optimize"], help='whether to train, validate, or optimize the model')
     parser.add_argument('--visualize', action='store_true', help='whether to visualize the attention maps')
     parser.add_argument('--epoch', type=int, default=0, help='what epoch of the model to load')
     parser.add_argument('--learning_rate', type=float, default=1e-5, help='what epoch of the model to load')
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     train_started = time.time()
 
 
-    if args.validate:
+    if args.mode == "evaluate" or args.mode == "optimize":
         print("validating")
         val_loss_grid, val_mean_pck = optimize.validate_epoch(ldm,
                                                         test_dataloader,
@@ -107,13 +107,15 @@ if __name__ == "__main__":
                                                         num_words=args.num_words,
                                                         device = args.device,
                                                         visualize=args.visualize,
-                                                        epoch=args.epoch)
+                                                        epoch=args.epoch,
+                                                        optimize= args.mode == "optimize",
+                                                        lr= args.learning_rate,)
         print(colored('==> ', 'blue') + 'Test average grid loss :',
                 val_loss_grid)
         print('mean PCK is {}'.format(val_mean_pck))
 
         print(args.seed, 'Test took:', time.time()-train_started, 'seconds')
-    else:
+    elif args.mode == "train":
         print("training")
         val_loss_grid, val_mean_pck = optimize.train(ldm,
                                                         test_dataloader,
@@ -125,4 +127,6 @@ if __name__ == "__main__":
                                                         wandb_log= args.wandb_log,
                                                         device = args.device,
                                                         learning_rate=args.learning_rate,)
+    else:
+        raise ValueError("mode must be one of train, evaluate, or optimize")
         
