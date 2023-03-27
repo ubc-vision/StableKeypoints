@@ -210,6 +210,7 @@ def validate_epoch(ldm,
                    device = 'cpu',
                    visualize = False,
                    optimize = False,
+                   wandb_log = False,
                    lr = 1e-3):
     running_total_loss = 0
     
@@ -325,9 +326,9 @@ def validate_epoch(ldm,
         eval_result = Evaluator.eval_kps_transfer(est_keypoints.cpu(), mini_batch)
         
         
-        # if visualize:
-        visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'])
-        visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'])
+        if visualize:
+            visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'])
+            visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'])
 
         pck_array += eval_result['pck']
 
@@ -336,6 +337,12 @@ def validate_epoch(ldm,
         
         print(f"epoch: {epoch} {i} this pck ", eval_result['pck'], " mean_pck " , mean_pck)
         # exit()
+        
+        if wandb_log:
+            wandb_dict = {"pck": mean_pck}
+            for k in range(len(pck_array_ind_layers)):
+                wandb_dict[f"pck_layer_{k}"] = sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])
+            wandb.log(wandb_dict)
 
     return running_total_loss / len(val_loader), mean_pck
 

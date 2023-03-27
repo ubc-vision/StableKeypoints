@@ -4,5 +4,6 @@ example_images/
 outputs/
 checkpoints/
 wandb/
+.venv/
 
 **.png

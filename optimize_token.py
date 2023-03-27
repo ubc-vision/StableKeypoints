@@ -53,7 +53,7 @@ def get_memory_free_MiB(gpu_index):
     return mem_info.free // 1024 ** 2
 
 
-def load_ldm(device):
+def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
 
     scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
     MY_TOKEN = ''
@@ -67,7 +67,7 @@ def load_ldm(device):
     
     
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    ldm = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", use_auth_token=MY_TOKEN, scheduler=scheduler).to(device)
+    ldm = StableDiffusionPipeline.from_pretrained(type, use_auth_token=MY_TOKEN, scheduler=scheduler).to(device)
     # ldm_stable = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-base").to(device)
 
     
@@ -78,10 +78,10 @@ def load_ldm(device):
     # ldm = StableDiffusionPipeline.from_pretrained(model_id, scheduler=scheduler, torch_dtype=torch.float16)
     # ldm = ldm.to(device)
     
-    try:
-        ldm.disable_xformers_memory_efficient_attention()
-    except AttributeError:
-        print("Attribute disable_xformers_memory_efficient_attention() is missing")
+    # try:
+    #     ldm.disable_xformers_memory_efficient_attention()
+    # except AttributeError:
+    #     print("Attribute disable_xformers_memory_efficient_attention() is missing")
     tokenizer = ldm.tokenizer
 
     # ldm.scheduler.set_timesteps(NUM_DDIM_STEPS)

@@ -50,6 +50,8 @@ if __name__ == "__main__":
     
     parser.add_argument('--num_steps', type=int, default=100)
     parser.add_argument('--noise_level', type=int, default=1, help='noise level for the test set between 1000 and 1 where 1000 is the highest noise level and 1 is the lowest noise level')
+    parser.add_argument('--model_type', type=str, default = 'CompVis/stable-diffusion-v1-4', help='ldm model type')
+    
     parser.add_argument('--upsample_res', type=int, default=512, help='Resolution to upsample the attention maps to')
     parser.add_argument('--layers', type=int, nargs='+', default= [5, 6, 7])
     parser.add_argument('--num_words', type=int, default= 2)
@@ -73,7 +75,7 @@ if __name__ == "__main__":
     
     if args.wandb_log:
         # initialize wandb
-        wandb.init(project="estimated_correspondences")
+        wandb.init(project="estimated_correspondences", name=f"{args.noise_level}_{args.num_steps}_{args.layers}_{args.learning_rate}")
         wandb.config.update(args)
 
     # Initialize Evaluator
@@ -91,7 +93,7 @@ if __name__ == "__main__":
     # initialize model
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     # device = torch.device('cpu')
-    ldm, _ = load_ldm(args.device)
+    ldm, _ = load_ldm(args.device, args.model_type)
 
     train_started = time.time()
 
@@ -109,7 +111,8 @@ if __name__ == "__main__":
                                                         visualize=args.visualize,
                                                         epoch=args.epoch,
                                                         optimize= args.mode == "optimize",
-                                                        lr= args.learning_rate,)
+                                                        lr= args.learning_rate,
+                                                        wandb_log= args.wandb_log,)
         print(colored('==> ', 'blue') + 'Test average grid loss :',
                 val_loss_grid)
         print('mean PCK is {}'.format(val_mean_pck))
