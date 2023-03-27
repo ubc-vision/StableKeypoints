@@ -89,17 +89,28 @@ def flow2kps(trg_kps, flow, n_pts, upsample_size=(512, 512)):
     return torch.stack(src_kps)
 
 
-def visualize_image_with_points(image, point, name):
-    import matplotlib.pyplot as plt
+# def visualize_image_with_points(image, point, name):
+#     import matplotlib.pyplot as plt
     
-    plt.imshow(image.permute(1, 2, 0).detach().cpu().numpy())
+#     print("plotting")
+#     print(name)
     
-    # plot point on image
-    plt.scatter(point[:, 0], point[:, 1], s=10, marker='o', c='r')
+#     # make the figure without a border
+#     fig = plt.figure(frameon=False)
+#     fig.set_size_inches(10, 10)
+    
+#     ax = plt.Axes(fig, [0., 0., 1., 1.])
+#     ax.set_axis_off()
+#     fig.add_axes(ax)
+    
+#     plt.imshow(image.permute(1, 2, 0).detach().cpu().numpy(), aspect='auto')
+    
+#     # plot point on image
+#     plt.scatter(point[:, 0], point[:, 1], s=10, marker='o', c='r')
     
     
-    plt.savefig(f'outputs/{name}.png')
-    plt.close()
+#     plt.savefig(f'outputs/{name}.png', dpi=300)
+#     plt.close()
     
     
 
@@ -169,11 +180,27 @@ def visualie_correspondences(initial_image, final_image, source, target, name, c
     import numpy as np
     
     display_img = torch.cat([initial_image, final_image], dim=2)
+    
+    
+    # make the figure without a border
+    fig = plt.figure(frameon=False)
+    fig.set_size_inches(20, 10)
+    
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+    
+    # print("display_img.permute(1, 2, 0).detach().cpu().numpy().shape")
+    # print(display_img.permute(1, 2, 0).detach().cpu().numpy().shape)
+    # exit()
+    
+    
 
     # visualize initial image
     # plt.subplot(1, 2, 1)
-    plt.imshow(display_img.permute(1, 2, 0).detach().cpu().numpy())
-
+    plt.imshow(display_img.permute(1, 2, 0).detach().cpu().numpy(), aspect='auto')
+    
+    
     # # visualize final image
     # plt.subplot(1, 2, 2)
     # plt.imshow(final_image.permute(1, 2, 0).detach().cpu().numpy())
@@ -214,7 +241,7 @@ def visualie_correspondences(initial_image, final_image, source, target, name, c
     # print("y")
     # print(y)
     # plt.quiver(x*16, y*16, flow[0]/32, flow[1]/32, color='r', scale=1)
-    plt.savefig(f'outputs/{name}.png')
+    plt.savefig(f'outputs/{name}.png', dpi=300)
     plt.close()
 
     
