@@ -738,15 +738,23 @@ def visualize_image_with_points(image, point, name):
         except:
             import ipdb; ipdb.set_trace()   
     
-    plt.imshow(image)
+    
+    # make the figure without a border
+    fig = plt.figure(frameon=False)
+    fig.set_size_inches(10, 10)
+    
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+    
+    plt.imshow(image, aspect='auto')
     
     # plot point on image
-    plt.scatter(point[0].cpu(), point[1].cpu(), s=3, marker='o', c='r')
+    plt.scatter(point[0].cpu(), point[1].cpu(), s=20, marker='o', c='r')
     
     
-    plt.savefig(f'outputs/{name}.png')
+    plt.savefig(f'outputs/{name}.png', dpi=200)
     plt.close()
-
 
 
 def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3):

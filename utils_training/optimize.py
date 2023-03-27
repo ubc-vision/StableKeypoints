@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
-from utils_training.utils import flow2kps, visualie_flow, visualize_image_with_points, visualie_correspondences
+from utils_training.utils import flow2kps, visualie_flow, visualie_correspondences
 from utils_training.evaluation import Evaluator
 from eval.keypoint_to_flow import KeypointToFlow
 import ipdb
@@ -241,9 +241,8 @@ def validate_epoch(ldm,
                 continue
             
             if visualize:
-            
-                visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"initial_point_{j:02d}")
-                visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"target_point_{j:02d}")
+                visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"{i:03d}_initial_point_{j:02d}")
+                visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"{i:03d}_target_point_{j:02d}")
         
         
             if not optimize:
@@ -278,8 +277,8 @@ def validate_epoch(ldm,
 
                 
                 if visualize:
-                    visualize_image_with_points(avg, _max_val/512*upsample_res, f"largest_loc_trg_{j:02d}_{k:02d}")
-                    visualize_image_with_points(avg, argmax[0]*upsample_res, f"largest_loc_trg_softargmax_{j:02d}_{k:02d}")
+                    visualize_image_with_points(avg, mini_batch['trg_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_trg_{j:02d}_{k:02d}")
+                    # visualize_image_with_points(avg, argmax[0]*upsample_res, f"largest_loc_trg_softargmax_{j:02d}_{k:02d}")
             
             maps = torch.stack(maps, dim=0)
             maps = torch.nn.Softmax(dim=-1)(maps)
@@ -294,7 +293,7 @@ def validate_epoch(ldm,
             
             
             if visualize:
-                visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
+                # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
                 
                 attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device)
                 
@@ -304,13 +303,13 @@ def validate_epoch(ldm,
                     maps.append(avg)
                     
                     max_val_src = find_max_pixel_value(avg[0], img_size = 512)
-                    visualize_image_with_points(avg, max_val_src/512*upsample_res, f"largest_loc_src_{j:02d}_{k:02d}")
+                    visualize_image_with_points(avg, mini_batch['src_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_src_{j:02d}_{k:02d}")
                 maps = torch.cat(maps, dim=0)
                 maps = torch.mean(maps, dim=0)
                 max_val = find_max_pixel_value(maps, img_size = 512)
-                visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
+                # visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
                 
-                exit()
+                # exit()
             
         for k in range(len(pck_array_ind_layers)):
             _eval_result = Evaluator.eval_kps_transfer(ind_layers[k].cpu()[None], mini_batch)
