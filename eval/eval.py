@@ -61,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('--visualize', action='store_true', help='whether to visualize the attention maps')
     parser.add_argument('--epoch', type=int, default=0, help='what epoch of the model to load')
     parser.add_argument('--learning_rate', type=float, default=1e-5, help='what epoch of the model to load')
+    parser.add_argument('--save_loc', type=str, default = '/home/iamerich/burst/ldm_keypoints_output/', help='save location for the trained model')
     
     
     
@@ -129,6 +130,7 @@ if __name__ == "__main__":
                                                         num_words=args.num_words,
                                                         wandb_log= args.wandb_log,
                                                         device = args.device,
+                                                        save_loc = args.save_loc,
                                                         learning_rate=args.learning_rate,)
     else:
         raise ValueError("mode must be one of train, evaluate, or optimize")

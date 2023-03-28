@@ -624,22 +624,14 @@ def train_context_estimator(ldm, image, pixel_loc, context_estimator, optimizer,
     
     
     
-    attention_maps_1, gt_maps_1, pixel_loc_1 = forward_step(image, pixel_loc, ldm, context_estimator, noise_level=1, bbox = bbox_initial, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
-    attention_maps_2, gt_maps_2, pixel_loc_2 = forward_step(image, pixel_loc, ldm, context_estimator, noise_level=1, bbox = bbox_initial, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
-    random_attention_map, _, random_pixel_loc = forward_step(random_image, pixel_loc_1, ldm, context_estimator, noise_level=1, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
-    # cycled_point = backward_step(attention_maps_1, target_image, ldm, context_estimator, noise_level=1, bbox_target = bbox_target, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
-    # cycled_point_2 = backward_step(attention_maps_2, target_image, ldm, context_estimator, noise_level=1, bbox_target = bbox_target, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
+    attention_maps, gt_maps, pixel_loc = forward_step(image, pixel_loc, ldm, context_estimator, noise_level=1, bbox = bbox_initial, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
+    cycled_point = backward_step(attention_maps, target_image, ldm, context_estimator, noise_level=1, bbox_target = bbox_target, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
     
-    maps_loss_1 = torch.nn.CrossEntropyLoss()(attention_maps_1.reshape(1, -1), gt_maps_1.reshape(1, -1))
-    maps_loss_2 = torch.nn.CrossEntropyLoss()(attention_maps_2.reshape(1, -1), gt_maps_2.reshape(1, -1))
-    map_consistency_loss = torch.nn.MSELoss()(attention_maps_1, attention_maps_2)*1e1
-    map_consistency_loss = torch.tanh(map_consistency_loss)
-    # multiply by -1 because we want to maximize the difference
-    map_difference_loss = -1*torch.nn.MSELoss()(random_attention_map, attention_maps_1)*1e1
-    map_difference_loss = torch.tanh(map_difference_loss)
-    # cycle_consistency_loss = torch.nn.MSELoss()(cycled_point, pixel_loc_1)*1e1
+    maps_loss = torch.nn.CrossEntropyLoss()(attention_maps.reshape(1, -1), gt_maps.reshape(1, -1))
+    cycle_consistency_loss = torch.nn.MSELoss()(cycled_point, pixel_loc)*1e-2
     
-    (maps_loss_1 + maps_loss_2 + map_consistency_loss + map_difference_loss).backward()
+    (maps_loss + cycle_consistency_loss).backward()
+    # maps_loss.backward()
     # (maps_loss_1 + maps_loss_2 + map_consistency_loss + map_difference_loss + cycle_consistency_loss).backward()
     optimizer.step()
     
@@ -649,15 +641,9 @@ def train_context_estimator(ldm, image, pixel_loc, context_estimator, optimizer,
     optimizer.zero_grad()
     
     
-    
-    
-    # if target_image is not None:
-    #     # print("starting cycle step")
-    #     cycle_loss, context = cycle_step(image, target_image, pixel_loc, ldm, context_estimator, optimizer, noise_level=10, bbox_initial = bbox_initial, bbox_target = bbox_target, device=device, from_where = from_where, upsample_res = upsample_res, layers=layers)
-        
     if wandb_log:
         # log losses to wandb
-        wandb.log({"maps_loss_1": maps_loss_1, "maps_loss_2": maps_loss_2, "map_consistency_loss": map_consistency_loss, "map_difference_loss": map_difference_loss})
+        wandb.log({"maps_loss": maps_loss, "cycle_consistency_loss": cycle_consistency_loss})
             
     return context
 
@@ -712,12 +698,9 @@ def find_max_pixel_value(tens, img_size=512, ignore_border = True):
         tens (tensor): shape (height, width)
     """
     
+    assert len(tens.shape) == 2, "tens must be 2d"
+    
     _tens = tens.clone()
-    if ignore_border:
-        _tens[0, :] = 0
-        _tens[-1, :] = 0
-        _tens[:, 0] = 0
-        _tens[:, -1] = 0
     height = _tens.shape[0]
     
     _tens = _tens.reshape(-1)

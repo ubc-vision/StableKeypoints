@@ -54,6 +54,7 @@ class Context_Estimator(torch.nn.Module):
         # plt.imshow(circle[0,0].cpu().detach().numpy())
         # plt.show()
         # plt.savefig('circle.png')
+        # exit()
         # print("sleeping")
         # sleep(10)
         # print("done sleeping")

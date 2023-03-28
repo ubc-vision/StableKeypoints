@@ -87,6 +87,7 @@ def train(ldm,
             num_words = 77,
             wandb_log = False,
             device = "cuda",
+            save_loc = "outputs",
             learning_rate = 1e-4,):
     running_total_loss = 0
     
@@ -194,7 +195,7 @@ def train(ldm,
             # print(f"epoch: {epoch} {i} this pck ", eval_result['pck'], " mean_pck " , mean_pck)
             
         # save context_estimator
-        torch.save(context_estimator.state_dict(), f"checkpoints/context_estimator_{epoch:03d}.pt")
+        torch.save(context_estimator.state_dict(), f"{save_loc}/context_estimator_{epoch:03d}.pt")
 
     return running_total_loss / len(val_loader), mean_pck
 
@@ -211,7 +212,8 @@ def validate_epoch(ldm,
                    visualize = False,
                    optimize = False,
                    wandb_log = False,
-                   lr = 1e-3):
+                   lr = 1e-3,
+                   num_iterations = 5):
     running_total_loss = 0
     
     
@@ -245,48 +247,61 @@ def validate_epoch(ldm,
                 visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"{i:03d}_initial_point_{j:02d}")
                 visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"{i:03d}_target_point_{j:02d}")
         
+            contexts = []
+
         
             if not optimize:
                 # context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context_estimator, optimizer, target_image = mini_batch['og_trg_img'][0], context=None, device="cuda", num_steps=num_steps, upsample_res=upsample_res, noise_level=noise_level, layers=layers, bbox_initial=mini_batch['src_bbox_og'], bbox_target=mini_batch['trg_bbox_og'], num_words=num_words, wandb_log=wandb_log)
+                
                 context = find_context(mini_batch['og_src_img'][0], ldm, mini_batch['src_kps'][0, :, j]/512, context_estimator, device=device)
+                contexts.append(context)
             else:
-                context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr)
-            
-            # print("context.shape")
-            # print(context.shape)
-            # print("torch.max(context)")
-            # print(torch.max(context))
-            # print("torch.min(context)")
-            # print(torch.min(context))
-            # print("torch.mean(context)")
-            # print(torch.mean(context))
-            # print("torch.std(context)")
-            # print(torch.std(context))
-            # exit()
-            
-            attn_maps = run_image_with_tokens(ldm, mini_batch['og_trg_img'][0], context, index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device)
-            
-            
-            maps = []
-            for k in range(attn_maps.shape[0]):
-                avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
-                maps.append(avg.reshape(-1))
-                _max_val = find_max_pixel_value(avg[0], img_size = 512)
-                ind_layers[k, :, j] = (_max_val+0.5)
                 
-                argmax = softargmax2d(avg)
+                for _ in range(num_iterations):
+                    
+                    print("iterating")
+                    context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr)
+                    contexts.append(context)
+            
+            all_maps = []
+            
+            for context in contexts:
+                
+                maps = []
+            
+                attn_maps = run_image_with_tokens(ldm, mini_batch['og_trg_img'][0], context, index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device)
+                
+                for k in range(attn_maps.shape[0]):
+                    avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
+                    maps.append(avg)
+                    _max_val = find_max_pixel_value(avg[0], img_size = 512)
+                    ind_layers[k, :, j] = (_max_val+0.5)
+                    
+                    # argmax = softargmax2d(avg)
 
+                        # visualize_image_with_points(avg, argmax[0]*upsample_res, f"largest_loc_trg_softargmax_{j:02d}_{k:02d}")
                 
-                if visualize:
-                    visualize_image_with_points(avg, mini_batch['trg_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_trg_{j:02d}_{k:02d}")
-                    # visualize_image_with_points(avg, argmax[0]*upsample_res, f"largest_loc_trg_softargmax_{j:02d}_{k:02d}")
+                maps = torch.stack(maps, dim=0)
+                
+                all_maps.append(maps)
+                
+            all_maps = torch.stack(all_maps, dim=0)
+            # take the average along dim=0
+            all_maps = torch.mean(all_maps, dim=0)
             
-            maps = torch.stack(maps, dim=0)
-            maps = torch.nn.Softmax(dim=-1)(maps)
+            all_maps = torch.nn.Softmax(dim=-1)(all_maps.reshape(len(layers), upsample_res*upsample_res))
             
-            maps = torch.max(maps, dim=0).values
-            maps = maps.reshape(upsample_res, upsample_res)
-            max_val = find_max_pixel_value(maps, img_size = 512)
+            all_maps = all_maps.reshape(len(layers), upsample_res, upsample_res)
+            
+            
+            if visualize:
+                for k in range(all_maps.shape[0]):
+                    visualize_image_with_points(all_maps[k, None], mini_batch['trg_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_trg_{j:02d}_{k:02d}")
+                
+                
+            all_maps = torch.max(all_maps, dim=0).values
+                
+            max_val = find_max_pixel_value(all_maps, img_size = 512)
             
             # # import ipdb; ipdb.set_trace()
             
@@ -294,20 +309,35 @@ def validate_epoch(ldm,
             
             
             if visualize:
-                # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
                 
-                attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device)
+                all_maps = []
                 
-                maps = []
-                for k in range(attn_map_src.shape[0]):
-                    avg = torch.mean(attn_map_src[k], dim=0, keepdim=True)
-                    maps.append(avg)
+                for context in contexts:
+                    # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
                     
-                    max_val_src = find_max_pixel_value(avg[0], img_size = 512)
-                    visualize_image_with_points(avg, mini_batch['src_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_src_{j:02d}_{k:02d}")
-                maps = torch.cat(maps, dim=0)
-                maps = torch.mean(maps, dim=0)
-                max_val = find_max_pixel_value(maps, img_size = 512)
+                    attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device)
+                    
+                    maps = []
+                    for k in range(attn_map_src.shape[0]):
+                        avg = torch.mean(attn_map_src[k], dim=0, keepdim=True)
+                        maps.append(avg)
+                        
+                    maps = torch.stack(maps, dim=0)
+                
+                    all_maps.append(maps)
+                    
+                all_maps = torch.stack(all_maps, dim=0)
+                # take the average along dim=0
+                all_maps = torch.mean(all_maps, dim=0)
+                
+                all_maps = torch.nn.Softmax(dim=-1)(all_maps.reshape(len(layers), upsample_res*upsample_res))
+            
+                all_maps = all_maps.reshape(len(layers), upsample_res, upsample_res)
+                        
+                        
+                for k in range(all_maps.shape[0]):  
+                    visualize_image_with_points(all_maps[k, None], mini_batch['src_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_src_{j:02d}_{k:02d}")
+
                 # visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
                 
                 # exit()
