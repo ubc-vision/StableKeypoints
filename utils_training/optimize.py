@@ -213,7 +213,8 @@ def validate_epoch(ldm,
                    optimize = False,
                    wandb_log = False,
                    lr = 1e-3,
-                   num_iterations = 5):
+                   num_iterations = 5,
+                   sigma = 32):
     running_total_loss = 0
     
     
@@ -253,14 +254,14 @@ def validate_epoch(ldm,
             if not optimize:
                 # context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context_estimator, optimizer, target_image = mini_batch['og_trg_img'][0], context=None, device="cuda", num_steps=num_steps, upsample_res=upsample_res, noise_level=noise_level, layers=layers, bbox_initial=mini_batch['src_bbox_og'], bbox_target=mini_batch['trg_bbox_og'], num_words=num_words, wandb_log=wandb_log)
                 
-                context = find_context(mini_batch['og_src_img'][0], ldm, mini_batch['src_kps'][0, :, j]/512, context_estimator, device=device)
+                context = find_context(mini_batch['og_src_img'][0], ldm, mini_batch['src_kps'][0, :, j]/512, context_estimator, device=device, )
                 contexts.append(context)
             else:
                 
                 for _ in range(num_iterations):
                     
                     print("iterating")
-                    context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr)
+                    context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma)
                     contexts.append(context)
             
             all_maps = []
@@ -299,7 +300,8 @@ def validate_epoch(ldm,
                     visualize_image_with_points(all_maps[k, None], mini_batch['trg_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_trg_{j:02d}_{k:02d}")
                 
                 
-            all_maps = torch.max(all_maps, dim=0).values
+            # all_maps = torch.max(all_maps, dim=0).values
+            all_maps = torch.mean(all_maps, dim=0)
                 
             max_val = find_max_pixel_value(all_maps, img_size = 512)
             

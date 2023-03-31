@@ -712,6 +712,10 @@ def find_max_pixel_value(tens, img_size=512, ignore_border = True):
     return max_pixel
 
 def visualize_image_with_points(image, point, name):
+    
+    """The point is in pixel numbers
+    """
+    
     import matplotlib.pyplot as plt
     
     # if image is a torch.tensor, convert to numpy
@@ -740,14 +744,46 @@ def visualize_image_with_points(image, point, name):
     plt.close()
 
 
-def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3):
+def gaussian_circle(pos, size=64, sigma=16, device = "cuda"):
+    """Create a 2D Gaussian circle with a given size, standard deviation, and center coordinates.
+    
+    pos is in between 0 and 1
+    
+    """
+    # import ipdb; ipdb.set_trace()
+    _pos = pos*size
+    grid = torch.meshgrid(torch.arange(size).to(device), torch.arange(size).to(device))
+    grid = torch.stack(grid, dim=-1)
+    dist_sq = (grid[..., 1] - _pos[0])**2 + (grid[..., 0] - _pos[1])**2
+    dist_sq = -1*dist_sq / (2. * sigma**2.)
+    gaussian = torch.exp(dist_sq)
+    return gaussian
+
+
+def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = 1, sigma = 32):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
         image = image.permute(1, 2, 0).detach().cpu().numpy()
+        
+        
     
     with torch.no_grad():
-        latent = image2latent(ldm, image, device)
+        latent_normal = image2latent(ldm, image, device)
+        pixel_loc_normal = pixel_loc.clone()
+        
+        # visualize_image_with_points(image, pixel_loc_normal*512, "normal")
+        
+        # flip image over x axis
+        image_flipped = np.flip(image, axis=1)
+        pixel_loc_flipped = pixel_loc.clone()
+        # flip pixel loc
+        pixel_loc_flipped[0] = 1 - pixel_loc_flipped[0]
+        
+        # visualize_image_with_points(image_flipped, pixel_loc_flipped*512, "flipped")
+        
+        
+        latent_flipped = image2latent(ldm, image_flipped.copy(), device)
         
     if context is None:
         context = init_random_noise(device)
@@ -763,11 +799,19 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     
     for _ in range(num_steps):
         
+        # 50% change of using the normal latent and 50% chance of using the flipped latent
+        if np.random.rand() > 0.5:
+            latent = latent_normal
+            pixel_loc = pixel_loc_normal.clone()
+        else:
+            latent = latent_flipped
+            pixel_loc = pixel_loc_flipped.clone()
+        
         controller = AttentionStore()
         
         ptp_utils.register_attention_control(ldm, controller)
         
-        _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(1), cfg = False)
+        _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(noise_level), cfg = False)
         
         # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
         attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)
@@ -778,38 +822,53 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         # divide by the mean along the dim=1
         attention_maps = torch.mean(attention_maps, dim=1)
 
+        gt_maps = gaussian_circle(pixel_loc, size=upsample_res, sigma=sigma, device = device)
         
-            
-        gt_maps = torch.zeros_like(attention_maps)
+        # print("gt_maps.shape")
+        # print(gt_maps.shape)
+        # print("attention_maps.shape")
+        # print(attention_maps.shape)
         
-
+        # import matplotlib.pyplot as plt
+        # plt.imshow(gt_maps.cpu().detach().numpy())
+        # plt.show()
+        # plt.savefig('circle.png')
+        # exit()
+        # visualize_image_with_points(gt_maps[None], pixel_loc*upsample_res, f"temp")
+        # exit()
         
-        x_loc = pixel_loc[0]*upsample_res
-        y_loc = pixel_loc[1]*upsample_res
-        
-        # round x_loc and y_loc to the nearest integer
-        x_loc = int(x_loc)
-        y_loc = int(y_loc)
-        
-        gt_maps[:, int(y_loc), int(x_loc)] = 1
-        
-        gt_maps = gt_maps.reshape(num_maps, -1)
+        gt_maps = gt_maps.reshape(1, -1).repeat(num_maps, 1)
         attention_maps = attention_maps.reshape(num_maps, -1)
         
-        attention_maps = torch.softmax(attention_maps, dim=1)
         
+        # print("gt_maps")
+        # print(torch.max(gt_maps))
+        # print(torch.min(gt_maps))
+        # print(gt_maps.shape)
+        # print("torch.sum(gt_maps> 0.5)")
+        # print(torch.sum(gt_maps> 0.5))
+        # print(gt_maps)
         
+        # attention_maps = torch.softmax(attention_maps, dim=1)
+        # gt_maps = torch.softmax(gt_maps, dim=1)
         
+ 
+        # print("torch.sum(gt_maps, dim=1)")
+        # print(torch.sum(gt_maps, dim=1))
+        # print("gt_maps")
+        # print(torch.max(gt_maps))
+        # print(torch.min(gt_maps))
+        # print(gt_maps)
+        # exit()
         
-        
-        # loss = torch.nn.MSELoss()(attention_maps[..., 0], gt_maps[..., 0])
-        loss = torch.nn.CrossEntropyLoss()(attention_maps, gt_maps)
+        loss = torch.nn.MSELoss()(attention_maps, gt_maps)
+        # loss = torch.nn.CrossEntropyLoss()(attention_maps, gt_maps)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
         
         
-    #     print(loss.item())
+        # print(loss.item())
         
     # visualize_image_with_points(gt_maps[0].reshape(1, upsample_res, upsample_res), torch.tensor([(x_loc+0.5), (y_loc+0.5)]), "gt_points")
     # for i in range(attention_maps.shape[0]):
