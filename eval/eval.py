@@ -55,6 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--upsample_res', type=int, default=512, help='Resolution to upsample the attention maps to')
     parser.add_argument('--layers', type=int, nargs='+', default= [5, 6, 7])
     parser.add_argument('--num_words', type=int, default= 2)
+    parser.add_argument('--sigma', type=float, default= 16, help='sigma for the gaussian kernel')
     parser.add_argument('--wandb_log', action='store_true', help='whether to use wandb for logging')
     parser.add_argument('--device', type=str, default = 'cuda:0', help='device to use')
     parser.add_argument('--mode', type=str, choices=["train", "evaluate", "optimize"], help='whether to train, validate, or optimize the model')
@@ -113,7 +114,8 @@ if __name__ == "__main__":
                                                         epoch=args.epoch,
                                                         optimize= args.mode == "optimize",
                                                         lr= args.learning_rate,
-                                                        wandb_log= args.wandb_log,)
+                                                        wandb_log= args.wandb_log,
+                                                        sigma = args.sigma)
         print(colored('==> ', 'blue') + 'Test average grid loss :',
                 val_loss_grid)
         print('mean PCK is {}'.format(val_mean_pck))
