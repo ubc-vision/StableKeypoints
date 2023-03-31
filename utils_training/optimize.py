@@ -233,10 +233,10 @@ def validate_epoch(ldm,
         
         
         # select an index from mini_batch['src_kps'][0, 0, :] that is not -1
-        non_negative_one = torch.where(mini_batch['src_kps'][0, 0, :] != -1)[0]
+        # non_negative_one = torch.where(mini_batch['src_kps'][0, 0, :] != -1)[0]
         # import ipdb; ipdb.set_trace()
         
-        j = random.randint(0, non_negative_one.shape[0]-1)
+        # j = random.randint(0, non_negative_one.shape[0]-1)
         
         for j in range(mini_batch['src_kps'].shape[2]):
             
@@ -299,7 +299,8 @@ def validate_epoch(ldm,
                     visualize_image_with_points(all_maps[k, None], mini_batch['trg_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_trg_{j:02d}_{k:02d}")
                 
                 
-            all_maps = torch.max(all_maps, dim=0).values
+            # all_maps = torch.max(all_maps, dim=0).values
+            all_maps = torch.mean(all_maps, dim=0)
                 
             max_val = find_max_pixel_value(all_maps, img_size = 512)
             

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Gallery</title>
+    <style>
+      .image-container {
+        position: relative;
+        display: inline-block;
+        width: 1000px;
+        height: 500px;
+        margin: 5px;
+      }
+
+      .image-container img {
+        width: 100%;
+        height: 100%;
+      }
+
+      .image-text {
+        position: absolute;
+        top: -1%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: rgba(0, 0, 0, 0);
+        color: black;
+        padding: 2px 5px;
+        font-size: 14px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Image Gallery</h1>
+    {% for i in range(n) %}
+    <p>Correspondences {{ i }}</p>
+    <div class="image-container">
+      <a href="{{ url_for('view', gallery_id=gallery_id, image_id=i) }}">
+        <div class="image-text">Estimated Correspondence</div>
+        <img
+          src="{{ url_for('custom_static', filename='correspondences_estimated_%03d.png' % (i),  v=cache_buster) }}"
+          alt="Estimated Image {{ i }}"
+        />
+      </a>
+    </div>
+    <div class="image-container">
+      <a href="{{ url_for('view', gallery_id=gallery_id, image_id=i) }}">
+        <div class="image-text">Ground Truth Correspondence</div>
+        <img
+          src="{{ url_for('custom_static', filename='correspondences_gt_%03d.png' % (i),  v=cache_buster) }}"
+          alt="Ground Truth Image {{ i }}"
+        />
+      </a>
+    </div>
+    {% endfor %}
+  </body>
+</html>
