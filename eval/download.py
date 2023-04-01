@@ -10,7 +10,7 @@ from . import caltech
 from . import spair
 
 
-def load_dataset(benchmark, datapath, thres, device, split='test', augmentation=False, feature_size=16):
+def load_dataset(benchmark, datapath, thres, device, split='test', augmentation=False, feature_size=16, sub_class = "all", item_index=-1):
     r"""Instantiates desired correspondence dataset"""
     correspondence_benchmark = {
         'pfpascal': pfpascal.PFPascalDataset,
@@ -23,7 +23,7 @@ def load_dataset(benchmark, datapath, thres, device, split='test', augmentation=
     if dataset is None:
         raise Exception('Invalid benchmark dataset %s.' % benchmark)
 
-    return dataset(benchmark, datapath, thres, device, split, augmentation, feature_size)
+    return dataset(benchmark, datapath, thres, device, split, augmentation, feature_size, sub_class=sub_class, item_index=item_index)
 
 
 def download_from_google(token_id, filename):

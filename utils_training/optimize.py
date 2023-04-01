@@ -235,9 +235,11 @@ def validate_epoch(ldm,
         
         # select an index from mini_batch['src_kps'][0, 0, :] that is not -1
         non_negative_one = torch.where(mini_batch['src_kps'][0, 0, :] != -1)[0]
+        print("non_negative_one.shape")
+        print(non_negative_one.shape)
         # import ipdb; ipdb.set_trace()
         
-        j = random.randint(0, non_negative_one.shape[0]-1)
+        # j = random.randint(0, non_negative_one.shape[0]-1)
         
         for j in range(mini_batch['src_kps'].shape[2]):
             
@@ -375,5 +377,5 @@ def validate_epoch(ldm,
                 wandb_dict[f"pck_layer_{k}"] = sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])
             wandb.log(wandb_dict)
 
-    return running_total_loss / len(val_loader), mean_pck
+    return pck_array
 
