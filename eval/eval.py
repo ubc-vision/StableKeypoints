@@ -23,6 +23,8 @@ from utils_training.evaluation import Evaluator
 from utils_training.utils import parse_list, log_args, load_checkpoint, save_checkpoint, boolean_string
 from eval import download
 
+from diffusers import StableDiffusionPipeline, DDIMScheduler
+
 from optimize_token import load_ldm
 
 import wandb
@@ -49,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('--alpha', type=float, default=0.1)
     
     parser.add_argument('--num_steps', type=int, default=100)
-    parser.add_argument('--noise_level', type=int, default=1, help='noise level for the test set between 1000 and 1 where 1000 is the highest noise level and 1 is the lowest noise level')
+    parser.add_argument('--noise_level', type=int, default=-1, help='noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level')
     parser.add_argument('--model_type', type=str, default = 'CompVis/stable-diffusion-v1-4', help='ldm model type')
     
     parser.add_argument('--upsample_res', type=int, default=512, help='Resolution to upsample the attention maps to')
@@ -91,14 +93,27 @@ if __name__ == "__main__":
         num_workers=0,
         shuffle=True)
     
+    results = test_dataset.collect_results()
+    # results is a dict with values being lists
+    # import ipdb ; ipdb.set_trace()
+    this_avg = []
+    for key in results.keys():
+        print(key, sum(results[key])/len(results[key]))
+        this_avg.append(sum(results[key])/len(results[key]))
+        
+    overal_avg = sum(this_avg)/len(this_avg)
+    
+    print("overall average", overal_avg)
+
+    # exit()
+    
     
     # initialize model
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     # device = torch.device('cpu')
-    ldm, _ = load_ldm(args.device, args.model_type)
+    ldm = load_ldm(args.device, args.model_type)
 
     train_started = time.time()
-
 
     if args.mode == "evaluate" or args.mode == "optimize":
         print("validating")

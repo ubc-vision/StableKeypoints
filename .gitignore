@@ -7,3 +7,4 @@ wandb/
 .venv/
 
 **.png
+results/

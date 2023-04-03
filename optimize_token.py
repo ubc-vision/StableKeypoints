@@ -56,6 +56,18 @@ def get_memory_free_MiB(gpu_index):
 def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
 
     scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
+    
+    # images = torch.randn(1, 3, 512, 512).to("cuda")
+    # noise = torch.randn(1, 3, 512, 512).to("cuda")
+    
+    # for i in range(1, 11):
+    #     noisy_image = scheduler.add_noise(images, noise, scheduler.timesteps[-100*i])
+    #     print()
+    #     print(torch.max(torch.abs(noisy_image-images)))
+    #     print(torch.max(torch.abs(noisy_image-noise)))
+    # import ipdb; ipdb.set_trace()
+    
+    
     MY_TOKEN = ''
     LOW_RESOURCE = False 
     NUM_DDIM_STEPS = 50
@@ -68,23 +80,9 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     ldm = StableDiffusionPipeline.from_pretrained(type, use_auth_token=MY_TOKEN, scheduler=scheduler).to(device)
+    
+    # import ipdb; ipdb.set_trace()
     # ldm_stable = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-base").to(device)
-
-    
-    
-    # model_id = "stabilityai/stable-diffusion-2-1-base"
-
-    # scheduler = EulerDiscreteScheduler.from_pretrained(model_id, subfolder="scheduler")
-    # ldm = StableDiffusionPipeline.from_pretrained(model_id, scheduler=scheduler, torch_dtype=torch.float16)
-    # ldm = ldm.to(device)
-    
-    # try:
-    #     ldm.disable_xformers_memory_efficient_attention()
-    # except AttributeError:
-    #     print("Attribute disable_xformers_memory_efficient_attention() is missing")
-    tokenizer = ldm.tokenizer
-
-    # ldm.scheduler.set_timesteps(NUM_DDIM_STEPS)
     
     
 
@@ -97,7 +95,7 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     for param in ldm.unet.parameters():
         param.requires_grad = False
         
-    return ldm, tokenizer
+    return ldm
         
 
     
@@ -760,7 +758,7 @@ def gaussian_circle(pos, size=64, sigma=16, device = "cuda"):
     return gaussian
 
 
-def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = 1, sigma = 32):
+def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -806,12 +804,14 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         else:
             latent = latent_flipped
             pixel_loc = pixel_loc_flipped.clone()
+            
+        noisy_image = ldm.scheduler.add_noise(latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level])
         
         controller = AttentionStore()
         
         ptp_utils.register_attention_control(ldm, controller)
         
-        _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(noise_level), cfg = False)
+        _ = ptp_utils.diffusion_step(ldm, controller, latent, context, ldm.scheduler.timesteps[noise_level], cfg = False)
         
         # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
         attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)

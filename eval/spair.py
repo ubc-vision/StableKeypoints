@@ -18,6 +18,7 @@ class SPairDataset(CorrespondenceDataset):
 
         self.train_data = open(self.spt_path).read().split('\n')
         self.train_data = self.train_data[:len(self.train_data) - 1]
+        
         self.src_imnames = list(map(lambda x: x.split('-')[1] + '.jpg', self.train_data))
         self.trg_imnames = list(map(lambda x: x.split('-')[2].split(':')[0] + '.jpg', self.train_data))
         self.cls = os.listdir(self.img_path)
@@ -67,6 +68,33 @@ class SPairDataset(CorrespondenceDataset):
         batch['flow'] = self.kps_to_flow(batch)
 
         return batch
+    
+    def collect_results(self):
+        # create a dict to store the results
+        # the keys will be each item in self.cls
+        # the values will be initialized to empty lists
+        results = {cls: [] for cls in self.cls}
+        
+        from glob import glob
+        files = sorted(glob("results/*"))
+        
+        for file in files:
+            file_number = int(file.split("_")[-1].split(".")[0])
+            
+            data_name = self.train_data[file_number]
+            obj_name = data_name.split(":")[-1]
+            
+            assert obj_name in results.keys()
+            
+            # open file and append the value to the list
+            file = open(file, "r").read()
+            # the number will be the only thing in the file to read
+            performance = float(file)
+
+            
+            results[obj_name].append(performance)
+            
+        return results
 
     def get_image(self, img_names, idx):
         r"""Returns image tensor"""
