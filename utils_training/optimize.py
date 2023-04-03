@@ -375,5 +375,5 @@ def validate_epoch(ldm,
                 wandb_dict[f"pck_layer_{k}"] = sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])
             wandb.log(wandb_dict)
 
-    return running_total_loss / len(val_loader), mean_pck
+    return pck_array
 

@@ -798,7 +798,8 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     for _ in range(num_steps):
         
         # 50% change of using the normal latent and 50% chance of using the flipped latent
-        if np.random.rand() > 0.5:
+        # if np.random.rand() > 0.5:
+        if True:
             latent = latent_normal
             pixel_loc = pixel_loc_normal.clone()
         else:

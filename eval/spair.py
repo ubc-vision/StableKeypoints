@@ -12,17 +12,32 @@ from .dataset import CorrespondenceDataset, random_crop
 
 class SPairDataset(CorrespondenceDataset):
     r"""Inherits CorrespondenceDataset"""
-    def __init__(self, benchmark, datapath, thres, device, split, augmentation, feature_size):
+    def __init__(self, benchmark, datapath, thres, device, split, augmentation, feature_size, sub_class="all", item_index=-1):
         r"""SPair-71k dataset constructor"""
         super(SPairDataset, self).__init__(benchmark, datapath, thres, device, split, augmentation, feature_size)
 
         self.train_data = open(self.spt_path).read().split('\n')
         self.train_data = self.train_data[:len(self.train_data) - 1]
         
+        if sub_class is not "all":
+            
+            new_data = []
+            for i in range(len(self.train_data)):
+                if sub_class in self.train_data[i]:
+                    new_data.append(self.train_data[i])
+                    
+            self.train_data = new_data
+            
+        if item_index is not -1:
+            self.train_data = [self.train_data[item_index]]
+                    
+        
         self.src_imnames = list(map(lambda x: x.split('-')[1] + '.jpg', self.train_data))
         self.trg_imnames = list(map(lambda x: x.split('-')[2].split(':')[0] + '.jpg', self.train_data))
         self.cls = os.listdir(self.img_path)
         self.cls.sort()
+        
+        # import ipdb; ipdb.set_trace()
 
         anntn_files = []
         for data_name in self.train_data:
