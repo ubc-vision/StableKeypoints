@@ -28,7 +28,7 @@ class SPairDataset(CorrespondenceDataset):
                     
             self.train_data = new_data
             
-        if item_index is not -1:
+        if item_index != -1:
             self.train_data = [self.train_data[item_index]]
                     
         

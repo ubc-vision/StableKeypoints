@@ -214,8 +214,8 @@ def validate_epoch(ldm,
                    wandb_log = False,
                    lr = 1e-3,
                    num_iterations = 5,
-                   sigma = 32):
-    running_total_loss = 0
+                   sigma = 32,
+                   flip_prob = 0.5):
     
     
     if not optimize:
@@ -261,7 +261,7 @@ def validate_epoch(ldm,
                 for _ in range(num_iterations):
                     
                     print("iterating")
-                    context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma)
+                    context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob)
                     contexts.append(context)
             
             all_maps = []
@@ -360,6 +360,9 @@ def validate_epoch(ldm,
         if visualize:
             visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'])
             visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'])
+            # save est_keypoints
+            torch.save (est_keypoints, f"outputs/est_keypoints_{i:03d}.pt")
+            torch.save (eval_result['correct_ids'], f"outputs/correct_ids_{i:03d}.pt")
 
         pck_array += eval_result['pck']
 

@@ -758,7 +758,7 @@ def gaussian_circle(pos, size=64, sigma=16, device = "cuda"):
     return gaussian
 
 
-def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32):
+def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32, flip_prob = 0.5):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -798,8 +798,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     for _ in range(num_steps):
         
         # 50% change of using the normal latent and 50% chance of using the flipped latent
-        # if np.random.rand() > 0.5:
-        if True:
+        if np.random.rand() > flip_prob:
             latent = latent_normal
             pixel_loc = pixel_loc_normal.clone()
         else:

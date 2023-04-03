@@ -45,29 +45,34 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=2021,
                         help='Pseudo-RNG seed')
                         
+    # Dataset
     parser.add_argument('--datapath', type=str, default='../Datasets_CATs')
     parser.add_argument('--benchmark', type=str, choices=['pfpascal', 'spair', 'pfwillow'], default='spair')
     parser.add_argument('--thres', type=str, default='auto', choices=['auto', 'img', 'bbox'])
-    parser.add_argument('--alpha', type=float, default=0.1)
-    
-    parser.add_argument('--num_steps', type=int, default=148)
-    parser.add_argument('--noise_level', type=int, default=-1, help='noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level')
-    parser.add_argument('--model_type', type=str, default = 'CompVis/stable-diffusion-v1-4', help='ldm model type')
-    
-    parser.add_argument('--upsample_res', type=int, default=512, help='Resolution to upsample the attention maps to')
-    parser.add_argument('--layers', type=int, nargs='+', default= [5, 6, 7])
-    parser.add_argument('--num_words', type=int, default= 2)
+    parser.add_argument('--alpha', type=float, default=0.1, help='alpha for the pck threshold')
     parser.add_argument('--sub_class', type=str, default= "all", choices = ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'train', 'tvmonitor', 'all'])
     parser.add_argument('--item_index', type=int, default= -1)
     
+    # hyperparameters
+    parser.add_argument('--num_steps', type=int, default=148)
+    parser.add_argument('--noise_level', type=int, default=-1, help='noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level')
+    parser.add_argument('--flip_prob', type=float, default= 0.5, help='sigma for the gaussian kernel')
     parser.add_argument('--sigma', type=float, default= 16, help='sigma for the gaussian kernel')
+    parser.add_argument('--layers', type=int, nargs='+', default= [5, 6, 7])
+    parser.add_argument('--learning_rate', type=float, default=0.002265700481018651, help='learning rate for the optimizer')
+    
+    # network details
+    parser.add_argument('--model_type', type=str, default = 'CompVis/stable-diffusion-v1-4', help='ldm model type')
+    parser.add_argument('--upsample_res', type=int, default=512, help='Resolution to upsample the attention maps to')
+    parser.add_argument('--num_words', type=int, default= 2)
+    
+    # run details
     parser.add_argument('--wandb_log', action='store_true', help='whether to use wandb for logging')
     parser.add_argument('--device', type=str, default = 'cuda:0', help='device to use')
     parser.add_argument('--wandb_name', type=str, default = 'test', help='name of the wandb run')
     parser.add_argument('--mode', type=str, choices=["train", "evaluate", "optimize"], help='whether to train, validate, or optimize the model')
     parser.add_argument('--visualize', action='store_true', help='whether to visualize the attention maps')
     parser.add_argument('--epoch', type=int, default=0, help='what epoch of the model to load')
-    parser.add_argument('--learning_rate', type=float, default=0.002265700481018651, help='learning rate for the optimizer')
     parser.add_argument('--save_loc', type=str, default = '/home/iamerich/burst/ldm_keypoints_output/', help='save location for the trained model')
     
 
@@ -132,7 +137,8 @@ if __name__ == "__main__":
                                             optimize= args.mode == "optimize",
                                             lr= args.learning_rate,
                                             wandb_log= args.wandb_log,
-                                            sigma = args.sigma)
+                                            sigma = args.sigma,
+                                            flip_prob = args.flip_prob,)
         if args.item_index != -1:
             # save the pck array to a text file
             np.savetxt(f"{args.save_loc}/pck_array_{args.item_index:06d}.txt", pck_array)
