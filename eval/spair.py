@@ -19,7 +19,7 @@ class SPairDataset(CorrespondenceDataset):
         self.train_data = open(self.spt_path).read().split('\n')
         self.train_data = self.train_data[:len(self.train_data) - 1]
         
-        if sub_class is not "all":
+        if sub_class != "all":
             
             new_data = []
             for i in range(len(self.train_data)):

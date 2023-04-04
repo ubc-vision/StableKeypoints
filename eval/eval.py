@@ -87,18 +87,18 @@ if __name__ == "__main__":
         num_workers=0,
         shuffle=True)
     
-    results = test_dataset.collect_results()
-    # results is a dict with values being lists
-    # import ipdb ; ipdb.set_trace()
-    this_avg = []
-    for key in results.keys():
-        print(key, sum(results[key])/len(results[key]))
-        this_avg.append(sum(results[key])/len(results[key]))
+    # results = test_dataset.collect_results()
+    # # results is a dict with values being lists
+    # # import ipdb ; ipdb.set_trace()
+    # this_avg = []
+    # for key in results.keys():
+    #     print(key, sum(results[key])/len(results[key]))
+    #     this_avg.append(sum(results[key])/len(results[key]))
         
-    overal_avg = sum(this_avg)/len(this_avg)
+    # overal_avg = sum(this_avg)/len(this_avg)
     
-    print("overall average", overal_avg)
-    exit()
+    # print("overall average", overal_avg)
+    # exit()
     
     
     # initialize model
