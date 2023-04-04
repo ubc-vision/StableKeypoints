@@ -809,7 +809,7 @@ def crop_image(image, pixel, crop_percent=80, margin=0.15):
     return cropped_image.permute(1, 2, 0).numpy(), new_pixel
 
 
-def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32, flip_prob = 0.5):
+def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32, flip_prob = 0.5, crop_percent=80):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -863,7 +863,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
                 
                 # visualize_image_with_points(image, pixel_loc*512, "unflipped_original")
                 
-                cropped_image, cropped_pixel = crop_image(image, pixel_loc*512)
+                cropped_image, cropped_pixel = crop_image(image, pixel_loc*512, crop_percent = crop_percent)
                 
                 latent = image2latent(ldm, cropped_image, device)
                 
@@ -878,7 +878,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
                 # flip pixel loc
                 pixel_loc_flipped[0] = 1 - pixel_loc_flipped[0]
                 
-                cropped_image, cropped_pixel = crop_image(image_flipped, pixel_loc_flipped*512)
+                cropped_image, cropped_pixel = crop_image(image_flipped, pixel_loc_flipped*512, crop_percent = crop_percent)
                 
                 # visualize_image_with_points(cropped_image, cropped_pixel*512, "flipped_cropped")
                 # exit()
