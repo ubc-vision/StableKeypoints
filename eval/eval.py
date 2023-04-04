@@ -33,17 +33,6 @@ import wandb
 if __name__ == "__main__":
     # Argument parsing
     parser = argparse.ArgumentParser(description='CATs Test Script')
-    # Paths
-    parser.add_argument('--name_exp', type=str,
-                        default=time.strftime('%Y_%m_%d_%H_%M'),
-                        help='name of the experiment to save')
-    parser.add_argument('--snapshots', type=str, default='./eval')
-    parser.add_argument('--batch-size', type=int, default=1,
-                        help='training batch size')
-    parser.add_argument('--n_threads', type=int, default=8,
-                        help='number of parallel threads for dataloaders')
-    parser.add_argument('--seed', type=int, default=2021,
-                        help='Pseudo-RNG seed')
                         
     # Dataset
     parser.add_argument('--datapath', type=str, default='../Datasets_CATs')
@@ -51,9 +40,12 @@ if __name__ == "__main__":
     parser.add_argument('--thres', type=str, default='auto', choices=['auto', 'img', 'bbox'])
     parser.add_argument('--alpha', type=float, default=0.1, help='alpha for the pck threshold')
     parser.add_argument('--sub_class', type=str, default= "all", choices = ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'train', 'tvmonitor', 'all'])
+    parser.add_argument('--split', type=str, default= "test", choices = ['test', 'trn', 'val'])
     parser.add_argument('--item_index', type=int, default= -1)
+    parser.add_argument('--batch-size', type=int, default=1,
+                        help='training batch size')
     
-    # hyperparameters
+    # Hyperparameters
     parser.add_argument('--num_steps', type=int, default=148)
     parser.add_argument('--noise_level', type=int, default=-1, help='noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level')
     parser.add_argument('--flip_prob', type=float, default= 0.5, help='sigma for the gaussian kernel')
@@ -61,27 +53,22 @@ if __name__ == "__main__":
     parser.add_argument('--layers', type=int, nargs='+', default= [5, 6, 7])
     parser.add_argument('--learning_rate', type=float, default=0.002265700481018651, help='learning rate for the optimizer')
     
-    # network details
+    # Network details
     parser.add_argument('--model_type', type=str, default = 'CompVis/stable-diffusion-v1-4', help='ldm model type')
     parser.add_argument('--upsample_res', type=int, default=512, help='Resolution to upsample the attention maps to')
     parser.add_argument('--num_words', type=int, default= 2)
     
-    # run details
+    # Run details
     parser.add_argument('--wandb_log', action='store_true', help='whether to use wandb for logging')
     parser.add_argument('--device', type=str, default = 'cuda:0', help='device to use')
     parser.add_argument('--wandb_name', type=str, default = 'test', help='name of the wandb run')
-    parser.add_argument('--mode', type=str, choices=["train", "evaluate", "optimize"], help='whether to train, validate, or optimize the model')
+    parser.add_argument('--mode', type=str, default = "optimize"  ,choices=["train", "evaluate", "optimize"], help='whether to train, validate, or optimize the model')
     parser.add_argument('--visualize', action='store_true', help='whether to visualize the attention maps')
     parser.add_argument('--epoch', type=int, default=0, help='what epoch of the model to load')
     parser.add_argument('--save_loc', type=str, default = '/home/iamerich/burst/ldm_keypoints_output/', help='save location for the trained model')
     
 
-    # Seed
     args = parser.parse_args()
-    # random.seed(args.seed)
-    # np.random.seed(args.seed)
-    # torch.manual_seed(args.seed)
-    # torch.cuda.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     if args.wandb_log:
@@ -94,7 +81,7 @@ if __name__ == "__main__":
     
     # Dataloader
     download.download_dataset(args.datapath, args.benchmark)
-    test_dataset = download.load_dataset(args.benchmark, args.datapath, args.thres, device, 'test', False, 16, sub_class=args.sub_class, item_index=args.item_index)
+    test_dataset = download.load_dataset(args.benchmark, args.datapath, args.thres, device, args.split, False, 16, sub_class=args.sub_class, item_index=args.item_index)
     test_dataloader = DataLoader(test_dataset,
         batch_size=args.batch_size,
         num_workers=0,
@@ -111,8 +98,7 @@ if __name__ == "__main__":
     overal_avg = sum(this_avg)/len(this_avg)
     
     print("overall average", overal_avg)
-
-    # exit()
+    exit()
     
     
     # initialize model
@@ -143,7 +129,7 @@ if __name__ == "__main__":
             # save the pck array to a text file
             np.savetxt(f"{args.save_loc}/pck_array_{args.item_index:06d}.txt", pck_array)
 
-        print(args.seed, 'Test took:', time.time()-train_started, 'seconds')
+        print('Test took:', time.time()-train_started, 'seconds')
     elif args.mode == "train":
         print("training")
         val_loss_grid, val_mean_pck = optimize.train(ldm,

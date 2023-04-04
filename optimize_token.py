@@ -758,30 +758,90 @@ def gaussian_circle(pos, size=64, sigma=16, device = "cuda"):
     return gaussian
 
 
+import torch
+
+def crop_image(image, pixel, crop_percent=80, margin=0.15):
+    
+    """pixel is an integer between 0 and image.shape[1] or image.shape[2]
+    """
+    
+    # pixel = torch.tensor([  [456.4720],
+    #                         [154.0180]])
+    
+    assert 0 < crop_percent <= 100, "crop_percent should be between 0 and 100"
+
+    height, width, channels = image.shape
+    crop_height = int(height * crop_percent / 100)
+    crop_width = int(width * crop_percent / 100)
+
+    # Calculate the crop region's top-left corner
+    x, y = pixel
+    
+    # Calculate safe margin
+    safe_margin_x = int(crop_width * margin)
+    safe_margin_y = int(crop_height * margin)
+    
+    x_start_min = max(0, x - crop_width + safe_margin_x)
+    x_start_min = min(x_start_min, width - crop_width)
+    x_start_max = max(0, x - safe_margin_x)
+    x_start_max = min(x_start_max, width - crop_width)
+    
+    y_start_min = max(0, y - crop_height + safe_margin_y)
+    y_start_min = min(y_start_min, height - crop_height)
+    y_start_max = max(0, y - safe_margin_y)
+    y_start_max = min(y_start_max, height - crop_height)
+
+    # Choose a random top-left corner within the allowed bounds
+    x_start = torch.randint(int(x_start_min), int(x_start_max) + 1, (1,)).item()
+    y_start = torch.randint(int(y_start_min), int(y_start_max) + 1, (1,)).item()
+
+    # Crop the image
+    cropped_image = image[y_start:y_start + crop_height, x_start:x_start + crop_width]
+    
+    # bilinearly upsample to 512x512
+    cropped_image = torch.nn.functional.interpolate(torch.tensor(cropped_image[None]).permute(0, 3, 1, 2), size=(512, 512), mode='bilinear', align_corners=False)[0]
+    
+    # import ipdb; ipdb.set_trace()
+    # calculate new pixel location
+    new_pixel = torch.stack([x-x_start, y-y_start])
+    new_pixel = new_pixel/crop_width
+
+    return cropped_image.permute(1, 2, 0).numpy(), new_pixel
+
+
 def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32, flip_prob = 0.5):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
         image = image.permute(1, 2, 0).detach().cpu().numpy()
         
+    # visualize_image_with_points(image, pixel_loc*512, "original")
+    
+    # for i in range(100):
+        
+    # cropped_image, cropped_pixel = crop_image(image, pixel_loc*512)
+        
+        # visualize_image_with_points(cropped_image, cropped_pixel*512, f"cropped_{i:03d}")
+    # exit()
+        
         
     
-    with torch.no_grad():
-        latent_normal = image2latent(ldm, image, device)
-        pixel_loc_normal = pixel_loc.clone()
+    # with torch.no_grad():
+    #     latent_normal = image2latent(ldm, image, device)
+    #     pixel_loc_normal = pixel_loc.clone()
         
-        # visualize_image_with_points(image, pixel_loc_normal*512, "normal")
+    #     # visualize_image_with_points(image, pixel_loc_normal*512, "normal")
         
-        # flip image over x axis
-        image_flipped = np.flip(image, axis=1)
-        pixel_loc_flipped = pixel_loc.clone()
-        # flip pixel loc
-        pixel_loc_flipped[0] = 1 - pixel_loc_flipped[0]
+    #     # flip image over x axis
+    #     image_flipped = np.flip(image, axis=1)
+    #     pixel_loc_flipped = pixel_loc.clone()
+    #     # flip pixel loc
+    #     pixel_loc_flipped[0] = 1 - pixel_loc_flipped[0]
         
-        # visualize_image_with_points(image_flipped, pixel_loc_flipped*512, "flipped")
+    #     # visualize_image_with_points(image_flipped, pixel_loc_flipped*512, "flipped")
         
         
-        latent_flipped = image2latent(ldm, image_flipped.copy(), device)
+    #     latent_flipped = image2latent(ldm, image_flipped.copy(), device)
         
     if context is None:
         context = init_random_noise(device)
@@ -797,13 +857,38 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     
     for _ in range(num_steps):
         
-        # 50% change of using the normal latent and 50% chance of using the flipped latent
-        if np.random.rand() > flip_prob:
-            latent = latent_normal
-            pixel_loc = pixel_loc_normal.clone()
-        else:
-            latent = latent_flipped
-            pixel_loc = pixel_loc_flipped.clone()
+        with torch.no_grad():
+        
+            if np.random.rand() > flip_prob:
+                
+                # visualize_image_with_points(image, pixel_loc*512, "unflipped_original")
+                
+                cropped_image, cropped_pixel = crop_image(image, pixel_loc*512)
+                
+                latent = image2latent(ldm, cropped_image, device)
+                
+                _pixel_loc = cropped_pixel.clone()
+            else:
+                
+                # visualize_image_with_points(image, pixel_loc*512, "flipped_original")
+                
+                image_flipped = np.flip(image, axis=1).copy()
+                
+                pixel_loc_flipped = pixel_loc.clone()
+                # flip pixel loc
+                pixel_loc_flipped[0] = 1 - pixel_loc_flipped[0]
+                
+                cropped_image, cropped_pixel = crop_image(image_flipped, pixel_loc_flipped*512)
+                
+                # visualize_image_with_points(cropped_image, cropped_pixel*512, "flipped_cropped")
+                # exit()
+                
+                _pixel_loc = cropped_pixel.clone()
+                
+                latent = image2latent(ldm, cropped_image, device)
+            
+            
+        # TODO just updated to using noisy_image, random flip and crop all at once, need to test
             
         noisy_image = ldm.scheduler.add_noise(latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level])
         
@@ -811,7 +896,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         
         ptp_utils.register_attention_control(ldm, controller)
         
-        _ = ptp_utils.diffusion_step(ldm, controller, latent, context, ldm.scheduler.timesteps[noise_level], cfg = False)
+        _ = ptp_utils.diffusion_step(ldm, controller, noisy_image, context, ldm.scheduler.timesteps[noise_level], cfg = False)
         
         # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
         attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)
@@ -822,7 +907,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         # divide by the mean along the dim=1
         attention_maps = torch.mean(attention_maps, dim=1)
 
-        gt_maps = gaussian_circle(pixel_loc, size=upsample_res, sigma=sigma, device = device)
+        gt_maps = gaussian_circle(_pixel_loc, size=upsample_res, sigma=sigma, device = device)
         
         # print("gt_maps.shape")
         # print(gt_maps.shape)
