@@ -361,6 +361,8 @@ def upscale_to_img_size(controller, from_where = ["down_cross", "mid_cross", "up
             img = img.reshape(4, int(img.shape[1]**0.5), int(img.shape[1]**0.5), img.shape[2])[None, :, :, :, 1]
             
             # import ipdb; ipdb.set_trace()
+            
+            # import ipdb; ipdb.set_trace()
             # bilinearly upsample the image to img_sizeximg_size
             img = F.interpolate(img, size=(upsample_res, upsample_res), mode='bilinear', align_corners=False)
 
@@ -1026,6 +1028,7 @@ def optimize_prompt_informed(ldm, src_img, trg_img, pixel_loc, context=None, dev
         
         attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)
         num_maps = attention_maps.shape[0]
+        
 
         # # l1 loss on the attention maps
         loss_trg = (torch.norm(attention_maps, p=1)-torch.max(torch.abs(attention_maps)))
