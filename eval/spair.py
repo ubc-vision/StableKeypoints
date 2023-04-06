@@ -79,6 +79,8 @@ class SPairDataset(CorrespondenceDataset):
         batch['scvar'] = self.scvar[idx]
         batch['trncn'] = self.trncn[idx]
         batch['occln'] = self.occln[idx]
+        
+        batch['idx'] = idx
 
         batch['flow'] = self.kps_to_flow(batch)
 

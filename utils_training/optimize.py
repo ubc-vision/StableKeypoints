@@ -216,7 +216,8 @@ def validate_epoch(ldm,
                    num_iterations = 5,
                    sigma = 32,
                    flip_prob = 0.5,
-                   crop_percent=80):
+                   crop_percent=80,
+                   save_folder = "outputs"):
     
     
     if not optimize:
@@ -246,8 +247,8 @@ def validate_epoch(ldm,
                 continue
             
             if visualize:
-                visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"{i:03d}_initial_point_{j:02d}")
-                visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"{i:03d}_target_point_{j:02d}")
+                visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"{i:03d}_initial_point_{j:02d}", save_folder=save_folder)
+                visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"{i:03d}_target_point_{j:02d}", save_folder=save_folder)
         
             contexts = []
 
@@ -299,7 +300,7 @@ def validate_epoch(ldm,
             
             if visualize:
                 for k in range(all_maps.shape[0]):
-                    visualize_image_with_points(all_maps[k, None], mini_batch['trg_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_trg_{j:02d}_{k:02d}")
+                    visualize_image_with_points(all_maps[k, None], mini_batch['trg_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_trg_{j:02d}_{k:02d}", save_folder=save_folder)
                 
                 
             # all_maps = torch.max(all_maps, dim=0).values
@@ -340,7 +341,7 @@ def validate_epoch(ldm,
                         
                         
                 for k in range(all_maps.shape[0]):  
-                    visualize_image_with_points(all_maps[k, None], mini_batch['src_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_src_{j:02d}_{k:02d}")
+                    visualize_image_with_points(all_maps[k, None], mini_batch['src_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_src_{j:02d}_{k:02d}", save_folder=save_folder)
 
                 # visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
                 
@@ -360,12 +361,11 @@ def validate_epoch(ldm,
         
         
         if visualize:
-            visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'])
-            visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'])
-            # save data as dict
-            dict = {"est_keypoints": est_keypoints, "correct_ids": eval_result['correct_ids'], "src_kps": mini_batch['src_kps'], "trg_kps": mini_batch['trg_kps']}
+            visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'], save_folder=save_folder)
+            visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'], save_folder=save_folder)
+            dict = {"est_keypoints": est_keypoints, "correct_ids": eval_result['correct_ids'], "src_kps": mini_batch['src_kps'], "trg_kps": mini_batch['trg_kps'], "idx": mini_batch['idx'], "contexts": torch.stack(contexts)}
             # save dict 
-            torch.save(dict, f"outputs/correspondence_data_{i:03d}.pt")
+            torch.save(dict, f"{save_folder}/correspondence_data_{i:03d}.pt")
 
         pck_array += eval_result['pck']
 

@@ -84,7 +84,7 @@ if __name__ == "__main__":
                         help='whether to visualize the attention maps')
     parser.add_argument('--epoch', type=int, default=0,
                         help='what epoch of the model to load')
-    parser.add_argument('--save_loc', type=str, default='/home/iamerich/burst/ldm_keypoints_output/',
+    parser.add_argument('--save_loc', type=str, default='outputs',
                         help='save location for the trained model')
 
     args = parser.parse_args()
@@ -144,7 +144,8 @@ if __name__ == "__main__":
                                             wandb_log=args.wandb_log,
                                             sigma=args.sigma,
                                             flip_prob=args.flip_prob,
-                                            crop_percent=args.crop_percent)
+                                            crop_percent=args.crop_percent,
+                                            save_folder = args.save_loc)
         if args.item_index != -1:
             # save the pck array to a text file
             np.savetxt(

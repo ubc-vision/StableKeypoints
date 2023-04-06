@@ -170,7 +170,7 @@ def visualie_flow(initial_image, final_image, flow, name):
     plt.savefig(f'outputs/{name}.png')
     
     
-def visualie_correspondences(initial_image, final_image, source, target, name, correct_ids=None):
+def visualie_correspondences(initial_image, final_image, source, target, name, correct_ids=None, save_folder = "outputs"):
     r"""Visualize correspondences. Show initial image on the left, final image on the right and correspondences connecting corresponding points"""
     
     import matplotlib.pyplot as plt
@@ -241,7 +241,7 @@ def visualie_correspondences(initial_image, final_image, source, target, name, c
     # print("y")
     # print(y)
     # plt.quiver(x*16, y*16, flow[0]/32, flow[1]/32, color='r', scale=1)
-    plt.savefig(f'outputs/{name}.png', dpi=300)
+    plt.savefig(f'{save_folder}/{name}.png', dpi=300)
     plt.close()
 
     
