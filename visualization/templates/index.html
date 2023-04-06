@@ -39,7 +39,7 @@
       <a href="{{ url_for('view', gallery_id=gallery_id, image_id=i) }}">
         <div class="image-text">Estimated Correspondence</div>
         <img
-          src="{{ url_for('custom_static', filename='correspondences_estimated_%03d.png' % (i),  v=cache_buster) }}"
+          src="{{ url_for('custom_static', filename=gallery_id ~ '/correspondences_estimated_' ~ '%03d' % i ~ '.png',  v=cache_buster) }}"
           alt="Estimated Image {{ i }}"
         />
       </a>
@@ -48,7 +48,7 @@
       <a href="{{ url_for('view', gallery_id=gallery_id, image_id=i) }}">
         <div class="image-text">Ground Truth Correspondence</div>
         <img
-          src="{{ url_for('custom_static', filename='correspondences_gt_%03d.png' % (i),  v=cache_buster) }}"
+          src="{{ url_for('custom_static', filename=gallery_id ~ '/correspondences_gt_' ~ '%03d' % i ~ '.png',  v=cache_buster) }}"
           alt="Ground Truth Image {{ i }}"
         />
       </a>

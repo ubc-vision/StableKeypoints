@@ -966,3 +966,87 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         
 
     return context
+
+
+
+def optimize_prompt_informed(ldm, src_img, trg_img, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32, flip_prob = 0.5, crop_percent=80):
+        
+        
+    # if src_img is a torch.tensor, convert to numpy
+    if type(src_img) == torch.Tensor:
+        src_img = src_img.permute(1, 2, 0).detach().cpu().numpy()
+    if type(trg_img) == torch.Tensor:
+        trg_img = trg_img.permute(1, 2, 0).detach().cpu().numpy()
+    
+    with torch.no_grad():
+        latent_src = image2latent(ldm, src_img, device)
+        latent_ref = image2latent(ldm, trg_img, device)
+        
+    if context is None:
+        context = init_random_noise(device)
+        
+    context.requires_grad = True
+    
+    # optimize context to maximize attention at pixel_loc
+    optimizer = torch.optim.Adam([context], lr=lr)
+    
+    # time the optimization
+    import time
+    start = time.time()
+    
+    for _ in range(num_steps):
+        
+        noisy_image = ldm.scheduler.add_noise(latent_src, torch.rand_like(latent_src), ldm.scheduler.timesteps[noise_level])
+        
+        controller = AttentionStore()
+        
+        ptp_utils.register_attention_control(ldm, controller)
+        
+        _ = ptp_utils.diffusion_step(ldm, controller, noisy_image, context, ldm.scheduler.timesteps[noise_level], cfg = False)
+        
+        # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+        attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)
+        num_maps = attention_maps.shape[0]
+        
+        # divide by the mean along the dim=1
+        attention_maps = torch.mean(attention_maps, dim=1)
+
+        gt_maps = gaussian_circle(pixel_loc, size=upsample_res, sigma=sigma, device = device)
+        
+        gt_maps = gt_maps.reshape(1, -1).repeat(num_maps, 1)
+        attention_maps = attention_maps.reshape(num_maps, -1)
+        
+        loss_src = torch.nn.MSELoss()(attention_maps, gt_maps)
+        
+        controller = AttentionStore()
+        
+        ptp_utils.register_attention_control(ldm, controller)
+        
+        _ = ptp_utils.diffusion_step(ldm, controller, latent_ref, context, torch.tensor(1), cfg = False)
+        
+        attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)
+        num_maps = attention_maps.shape[0]
+
+        # # l1 loss on the attention maps
+        loss_trg = (torch.norm(attention_maps, p=1)-torch.max(torch.abs(attention_maps)))
+        
+        (loss_src+loss_trg*1e-7).backward()
+        # loss_src.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        
+        
+        # print(loss.item())
+        
+    # visualize_image_with_points(gt_maps[0].reshape(1, upsample_res, upsample_res), torch.tensor([(x_loc+0.5), (y_loc+0.5)]), "gt_points")
+    # for i in range(attention_maps.shape[0]):
+    #     visualize_image_with_points(attention_maps[i].reshape(1, upsample_res, upsample_res), torch.tensor([(x_loc+0.5), (y_loc+0.5)]), f"attention_maps_{i}")
+    # visualize_image_with_points(image, torch.tensor([pixel_loc[0]*512, pixel_loc[1]*512]), "gt_img_point")
+    # exit()
+        
+    # print the time it took to optimize
+    print(f"optimization took {time.time() - start} seconds")
+    # exit()
+        
+
+    return context

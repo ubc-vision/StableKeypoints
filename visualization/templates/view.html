@@ -17,14 +17,16 @@
     {% for j in range(x) %}
     <p>Keypoint {{ j }}</p>
     <img
-      src="{{ url_for('custom_static', filename='%03d_initial_point_%02d.png' % (image_id, j), v=cache_buster)  }}"
+
+
+      src="{{ url_for('custom_static', filename=gallery_id ~ '/%03d_initial_point_%02d.png' % (image_id, j), v=cache_buster)  }}"
       alt="Initial Image {{ j }}"
       width="300"
       height="300"
     />
     {% for k in range(y) %}
     <img
-      src="{{ url_for('custom_static', filename='%03d_largest_loc_src_%02d_%02d.png' % (image_id, j, k), v=cache_buster)  }}"
+      src="{{ url_for('custom_static', filename=gallery_id ~ '/%03d_largest_loc_src_%02d_%02d.png' % (image_id, j, k), v=cache_buster)  }}"
       alt="Source Image {{ j }}"
       width="300"
       height="300"
@@ -34,14 +36,14 @@
     {% for j in range(x) %}
     <p>Keypoint {{ j }}</p>
     <img
-      src="{{ url_for('custom_static', filename='%03d_target_point_%02d.png' % (image_id, j), v=cache_buster)  }}"
+      src="{{ url_for('custom_static', filename=gallery_id ~ '/%03d_target_point_%02d.png' % (image_id, j), v=cache_buster)  }}"
       alt="Target Image {{ j }}"
       width="300"
       height="300"
     />
     {% for k in range(y) %}
     <img
-      src="{{ url_for('custom_static', filename='%03d_largest_loc_trg_%02d_%02d.png' % (image_id, j, k), v=cache_buster)  }}"
+      src="{{ url_for('custom_static', filename=gallery_id ~ '/%03d_largest_loc_trg_%02d_%02d.png' % (image_id, j, k), v=cache_buster)  }}"
       alt="Target Image {{ j }}"
       width="300"
       height="300"

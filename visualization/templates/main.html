@@ -13,7 +13,7 @@
     <ul>
       {% for name in gallery_names %}
       <li>
-        <a href="{{ url_for('gallery', gallery_id=loop.index0) }}"
+        <a href="{{ url_for('gallery', gallery_id=name) }}"
           >{{ name }}</a
         >
       </li>

@@ -10,7 +10,7 @@ import ipdb
 
 from networks.context_estimator import Context_Estimator
 
-from optimize_token import optimize_prompt, find_max_pixel_value, visualize_image_with_points, run_image_with_tokens, find_context, softargmax2d, train_context_estimator
+from optimize_token import optimize_prompt, find_max_pixel_value, visualize_image_with_points, run_image_with_tokens, find_context, softargmax2d, train_context_estimator, optimize_prompt_informed
 
 import wandb
 
@@ -262,7 +262,8 @@ def validate_epoch(ldm,
                 for _ in range(num_iterations):
                     
                     print("iterating")
-                    context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
+                    # context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
+                    context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                     contexts.append(context)
             
             all_maps = []
@@ -361,9 +362,10 @@ def validate_epoch(ldm,
         if visualize:
             visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'])
             visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'])
-            # save est_keypoints
-            torch.save (est_keypoints, f"outputs/est_keypoints_{i:03d}.pt")
-            torch.save (eval_result['correct_ids'], f"outputs/correct_ids_{i:03d}.pt")
+            # save data as dict
+            dict = {"est_keypoints": est_keypoints, "correct_ids": eval_result['correct_ids'], "src_kps": mini_batch['src_kps'], "trg_kps": mini_batch['trg_kps']}
+            # save dict 
+            torch.save(dict, f"outputs/correspondence_data_{i:03d}.pt")
 
         pck_array += eval_result['pck']
 
