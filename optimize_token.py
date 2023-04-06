@@ -709,7 +709,7 @@ def find_max_pixel_value(tens, img_size=512, ignore_border = True):
     
     return max_pixel
 
-def visualize_image_with_points(image, point, name):
+def visualize_image_with_points(image, point, name, save_folder = "outputs"):
     
     """The point is in pixel numbers
     """
@@ -738,7 +738,7 @@ def visualize_image_with_points(image, point, name):
     plt.scatter(point[0].cpu(), point[1].cpu(), s=20, marker='o', c='r')
     
     
-    plt.savefig(f'outputs/{name}.png', dpi=200)
+    plt.savefig(f'{save_folder}/{name}.png', dpi=200)
     plt.close()
 
 
