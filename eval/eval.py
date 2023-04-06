@@ -86,8 +86,14 @@ if __name__ == "__main__":
                         help='what epoch of the model to load')
     parser.add_argument('--save_loc', type=str, default='outputs',
                         help='save location for the trained model')
+    parser.add_argument('--seed', type=int, default=2023,
+                        help='Pseudo-RNG seed')
 
     args = parser.parse_args()
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if args.wandb_log:
@@ -124,7 +130,11 @@ if __name__ == "__main__":
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     # device = torch.device('cpu')
     ldm = load_ldm(args.device, args.model_type)
-
+    
+    # if args.save_loc doesnt exist, create it
+    if not os.path.exists(args.save_loc):
+        os.makedirs(args.save_loc)
+        
     train_started = time.time()
 
     if args.mode == "evaluate" or args.mode == "optimize":
