@@ -54,15 +54,17 @@ if __name__ == "__main__":
     parser.add_argument('--num_steps', type=int, default=148)
     parser.add_argument('--noise_level', type=int, default=-1,
                         help='noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level')
-    parser.add_argument('--flip_prob', type=float, default=0.5,
-                        help='sigma for the gaussian kernel')
+    parser.add_argument('--flip_prob', type=float, default=0.0,
+                        help='probability of flipping the image during optimization')
     parser.add_argument('--sigma', type=float, default=16,
                         help='sigma for the gaussian kernel')
     parser.add_argument('--layers', type=int, nargs='+', default=[5, 6, 7])
     parser.add_argument('--learning_rate', type=float,
                         default=0.002265700481018651, help='learning rate for the optimizer')
-    parser.add_argument('--crop_percent', type=float, default=99.0,
-                        help='sigma for the gaussian kernel')
+    parser.add_argument('--crop_percent', type=float, default=100.0,
+                        help='the percent of the image to crop to')
+    parser.add_argument('--num_iterations', type=int, default=5,
+                        help='number of iterations to run the optimization for')
 
     # Network details
     parser.add_argument('--model_type', type=str,
@@ -154,6 +156,7 @@ if __name__ == "__main__":
                                             wandb_log=args.wandb_log,
                                             sigma=args.sigma,
                                             flip_prob=args.flip_prob,
+                                            num_iterations=args.num_iterations,
                                             crop_percent=args.crop_percent,
                                             save_folder = args.save_loc)
         if args.item_index != -1:
