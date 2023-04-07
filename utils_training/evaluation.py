@@ -27,6 +27,8 @@ class Evaluator:
 
         easy_match = {'src': [], 'trg': [], 'dist': []}
         hard_match = {'src': [], 'trg': []}
+        
+        # import ipdb; ipdb.set_trace()
 
         pck = []
         for idx, (pk, tk) in enumerate(zip(prd_kps, batch['trg_kps'])):

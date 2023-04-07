@@ -90,6 +90,8 @@ if __name__ == "__main__":
                         help='save location for the trained model')
     parser.add_argument('--seed', type=int, default=2023,
                         help='Pseudo-RNG seed')
+    parser.add_argument('--ablate', action='store_true',
+                        help='evaluate over a smaller number of points')
 
     args = parser.parse_args()
     random.seed(args.seed)
@@ -158,7 +160,8 @@ if __name__ == "__main__":
                                             flip_prob=args.flip_prob,
                                             num_iterations=args.num_iterations,
                                             crop_percent=args.crop_percent,
-                                            save_folder = args.save_loc)
+                                            save_folder = args.save_loc,
+                                            ablate = args.ablate,)
         if args.item_index != -1:
             # save the pck array to a text file
             np.savetxt(
