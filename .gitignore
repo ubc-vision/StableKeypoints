@@ -8,3 +8,4 @@ wandb/
 
 **.png
 results/
+.vscode/

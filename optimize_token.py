@@ -939,7 +939,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
                 
                 latent = image2latent(ldm, cropped_image, device)
                 
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
             
             
         # TODO just updated to using noisy_image, random flip and crop all at once, need to test
