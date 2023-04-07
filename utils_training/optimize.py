@@ -217,7 +217,8 @@ def validate_epoch(ldm,
                    sigma = 32,
                    flip_prob = 0.5,
                    crop_percent=80,
-                   save_folder = "outputs"):
+                   save_folder = "outputs",
+                   ablate=False):
     
     
     if not optimize:
@@ -235,16 +236,18 @@ def validate_epoch(ldm,
         ind_layers = -1*torch.ones_like(mini_batch['src_kps']).repeat(len(layers), 1, 1)
         
         
-        # select an index from mini_batch['src_kps'][0, 0, :] that is not -1
-        # non_negative_one = torch.where(mini_batch['src_kps'][0, 0, :] != -1)[0]
-        # import ipdb; ipdb.set_trace()
         
-        # j = random.randint(0, non_negative_one.shape[0]-1)
+        if ablate:
+            # only evaluate the correspondence for the first point
+            
+            mini_batch['n_pts'] = torch.ones(1).int()
+            mini_batch['src_kps'][0, 0, 1] = -1
+
         
         for j in range(mini_batch['src_kps'].shape[2]):
             
             if mini_batch['src_kps'][0, 0, j] == -1:
-                continue
+                break
             
             if visualize:
                 visualize_image_with_points(mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j], f"{i:03d}_initial_point_{j:02d}", save_folder=save_folder)
@@ -263,8 +266,8 @@ def validate_epoch(ldm,
                 for _ in range(num_iterations):
                     
                     print("iterating")
-                    # context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
-                    context = optimize_prompt_faster(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
+                    context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
+                    # context = optimize_prompt_faster(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                     # context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                     contexts.append(context)
             
