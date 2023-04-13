@@ -81,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument('--wandb_name', type=str,
                         default='test', help='name of the wandb run')
     parser.add_argument('--mode', type=str, default="optimize", choices=[
-                        "train", "evaluate", "optimize"], help='whether to train, validate, or optimize the model')
+                        "train", "evaluate", "optimize", "retest"], help='whether to train, validate, or optimize the model')
     parser.add_argument('--visualize', action='store_true',
                         help='whether to visualize the attention maps')
     parser.add_argument('--epoch', type=int, default=0,
@@ -182,5 +182,24 @@ if __name__ == "__main__":
                                                      device=args.device,
                                                      save_loc=args.save_loc,
                                                      learning_rate=args.learning_rate,)
+    elif args.mode == "retest":
+        print("retesting")
+        pck_array = optimize.retest(ldm,
+                                    test_dataset,
+                                    num_steps=args.num_steps,
+                                    noise_level=args.noise_level,
+                                    upsample_res=args.upsample_res,
+                                    layers=args.layers,
+                                    num_words=args.num_words,
+                                    device=args.device,
+                                    visualize=args.visualize,
+                                    epoch=args.epoch,
+                                    optimize=args.mode == "optimize",
+                                    # lr=args.learning_rate,
+                                    wandb_log=args.wandb_log,
+                                    # sigma=args.sigma,
+                                    # flip_prob=args.flip_prob,
+                                    # num_iterations=args.num_iterations,
+                                    save_folder = args.save_loc,)
     else:
         raise ValueError("mode must be one of train, evaluate, or optimize")

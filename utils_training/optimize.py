@@ -242,6 +242,8 @@ def validate_epoch(ldm,
             
             mini_batch['n_pts'] = torch.ones(1).int()
             mini_batch['src_kps'][0, 0, 1] = -1
+            
+        all_contexts = []
 
         
         for j in range(mini_batch['src_kps'].shape[2]):
@@ -269,6 +271,8 @@ def validate_epoch(ldm,
                     # context = optimize_prompt_faster(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                     # context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                     contexts.append(context)
+                    
+            all_contexts.append(torch.stack(contexts))
             
             all_maps = []
             
@@ -356,9 +360,6 @@ def validate_epoch(ldm,
             
             print(f"layer {k} pck {sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])}, this pck {_eval_result['pck']}")
         
-        g
-
-        
 
         eval_result = Evaluator.eval_kps_transfer(est_keypoints.cpu(), mini_batch)
         
@@ -366,9 +367,172 @@ def validate_epoch(ldm,
         if visualize:
             visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'], save_folder=save_folder)
             visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'], save_folder=save_folder)
-            dict = {"est_keypoints": est_keypoints, "correct_ids": eval_result['correct_ids'], "src_kps": mini_batch['src_kps'], "trg_kps": mini_batch['trg_kps'], "idx": mini_batch['idx'], "contexts": torch.stack(contexts)}
-            # save dict 
-            torch.save(dict, f"{save_folder}/correspondence_data_{i:03d}.pt")
+            
+        dict = {"est_keypoints": est_keypoints, "correct_ids": eval_result['correct_ids'], "src_kps": mini_batch['src_kps'], "trg_kps": mini_batch['trg_kps'], "idx": mini_batch['idx'], "contexts": torch.stack(all_contexts)}
+        # save dict 
+        torch.save(dict, f"{save_folder}/correspondence_data_{i:03d}.pt")
+
+        pck_array += eval_result['pck']
+
+        mean_pck = sum(pck_array) / len(pck_array)
+        
+        
+        print(f"epoch: {epoch} {i} this pck ", eval_result['pck'], " mean_pck " , mean_pck)
+        # exit()
+        
+        if wandb_log:
+            wandb_dict = {"pck": mean_pck}
+            for k in range(len(pck_array_ind_layers)):
+                wandb_dict[f"pck_layer_{k}"] = sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])
+            wandb.log(wandb_dict)
+
+    return pck_array
+
+
+
+def retest(ldm,
+            test_dataset,
+            upsample_res = 512,
+            num_steps=100,
+            noise_level = 10,
+            layers = [0, 1, 2, 3, 4, 5],
+            num_words = 77,
+            epoch = 6,
+            device = 'cpu',
+            visualize = False,
+            optimize = False,
+            wandb_log = False,
+            save_folder = "outputs"):
+    
+    from glob import glob
+    
+    correspondences = glob("/scratch/iamerich/prompt-to-prompt/outputs/0041_*_faster/correspondence_data_*.pt")
+    
+    
+
+    pck_array = []
+    pck_array_ind_layers = [[] for i in range(len(layers))]
+    for i, correspondence in enumerate(correspondences):
+        
+        data = torch.load(correspondence)
+        
+        contexts = data["contexts"]
+        
+        idx = data['idx']
+        
+        mini_batch = test_dataset[idx]
+        
+        mini_batch['pckthres'] = mini_batch['pckthres'][None]
+        mini_batch['n_pts'] = mini_batch['n_pts'][None]
+        mini_batch['trg_kps'] = mini_batch['trg_kps'][None]
+        
+        est_keypoints = -1*torch.ones_like(mini_batch['src_kps'])
+        ind_layers = -1*torch.ones_like(mini_batch['src_kps']).repeat(len(layers), 1, 1)
+        
+        # for j in [mini_batch['src_kps'].shape[1]-1]:
+        for j in range(contexts.shape[0]):
+        # for _ in range(1):
+            
+            assert mini_batch['src_kps'][0, j] != -1
+            
+            if visualize:
+                visualize_image_with_points(mini_batch['og_src_img'], mini_batch['src_kps'][:, j], f"{i:03d}_initial_point_{j:02d}", save_folder=save_folder)
+                visualize_image_with_points(mini_batch['og_trg_img'], mini_batch['trg_kps'][0, :, j], f"{i:03d}_target_point_{j:02d}", save_folder=save_folder)
+            
+            all_maps = []
+            
+            # for context in contexts:
+            for l in range(contexts.shape[1]):
+                
+                maps = []
+            
+                attn_maps = run_image_with_tokens(ldm, mini_batch['og_trg_img'], contexts[j, l].to(device), index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device)
+                
+                for k in range(attn_maps.shape[0]):
+                    avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
+                    maps.append(avg)
+                    _max_val = find_max_pixel_value(avg[0], img_size = 512)
+                    ind_layers[k, :, j] = (_max_val+0.5)
+                    
+                    # argmax = softargmax2d(avg)
+
+                        # visualize_image_with_points(avg, argmax[0]*upsample_res, f"largest_loc_trg_softargmax_{j:02d}_{k:02d}")
+                
+                maps = torch.stack(maps, dim=0)
+                
+                all_maps.append(maps)
+                
+            all_maps = torch.stack(all_maps, dim=0)
+            # take the average along dim=0
+            all_maps = torch.mean(all_maps, dim=0)
+            
+            all_maps = torch.nn.Softmax(dim=-1)(all_maps.reshape(len(layers), upsample_res*upsample_res))
+            
+            all_maps = all_maps.reshape(len(layers), upsample_res, upsample_res)
+            
+            
+            if visualize:
+                for k in range(all_maps.shape[0]):
+                    visualize_image_with_points(all_maps[k, None], mini_batch['trg_kps'][0, :, j]/512*upsample_res, f"{i:03d}_largest_loc_trg_{j:02d}_{k:02d}", save_folder=save_folder)
+                
+                
+            # all_maps = torch.max(all_maps, dim=0).values
+            all_maps = torch.mean(all_maps, dim=0)
+                
+            max_val = find_max_pixel_value(all_maps, img_size = 512)
+            
+            # # import ipdb; ipdb.set_trace()
+            
+            est_keypoints[:, j] = (max_val+0.5)
+            
+            
+            if visualize:
+                
+                all_maps = []
+                
+                for l in range(contexts.shape[1]):
+                    # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
+                    
+                    attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'], contexts[j, l], index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device)
+                    
+                    maps = []
+                    for k in range(attn_map_src.shape[0]):
+                        avg = torch.mean(attn_map_src[k], dim=0, keepdim=True)
+                        maps.append(avg)
+                        
+                    maps = torch.stack(maps, dim=0)
+                
+                    all_maps.append(maps)
+                    
+                all_maps = torch.stack(all_maps, dim=0)
+                # take the average along dim=0
+                all_maps = torch.mean(all_maps, dim=0)
+                
+                all_maps = torch.nn.Softmax(dim=-1)(all_maps.reshape(len(layers), upsample_res*upsample_res))
+            
+                all_maps = all_maps.reshape(len(layers), upsample_res, upsample_res)
+                        
+                        
+                for k in range(all_maps.shape[0]):  
+                    visualize_image_with_points(all_maps[k, None], mini_batch['src_kps'][:, j]/512*upsample_res, f"{i:03d}_largest_loc_src_{j:02d}_{k:02d}", save_folder=save_folder)
+
+                # visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
+                
+                # exit()
+            
+        for k in range(len(pck_array_ind_layers)):
+            _eval_result = Evaluator.eval_kps_transfer(ind_layers[k].cpu()[None], mini_batch)
+            pck_array_ind_layers[k] += _eval_result['pck']
+            
+            print(f"layer {k} pck {sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])}, this pck {_eval_result['pck']}")
+        
+
+        eval_result = Evaluator.eval_kps_transfer(est_keypoints[None].cpu(), mini_batch)
+        
+        
+        if visualize:
+            visualie_correspondences(mini_batch['og_src_img'], mini_batch['og_trg_img'], mini_batch['src_kps'][None], est_keypoints[None], f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'], save_folder=save_folder)
+            visualie_correspondences(mini_batch['og_src_img'], mini_batch['og_trg_img'], mini_batch['src_kps'][None], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'], save_folder=save_folder)
 
         pck_array += eval_result['pck']
 

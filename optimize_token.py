@@ -311,22 +311,35 @@ def visualize_attention_map(attention_map, file_name):
     
 
 @torch.no_grad()
-def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], index=0, upsample_res=512, noise_level=10, layers=[0, 1, 2, 3, 4, 5]):
+def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], index=0, upsample_res=512, noise_level=10, layers=[0, 1, 2, 3, 4, 5], num_iterations=20):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
         image = image.permute(1, 2, 0).detach().cpu().numpy()
     
-    latent = image2latent(ldm, image, device=device)
+    latents = image2latent(ldm, image, device=device)
     
-    controller = AttentionStore()
+    attention_maps = []
+    
+    for _ in range(num_iterations):
+    
+        controller = AttentionStore()
+            
+        ptp_utils.register_attention_control(ldm, controller)
         
-    ptp_utils.register_attention_control(ldm, controller)
-    
-    latents = ptp_utils.diffusion_step(ldm, controller, latent, tokens, torch.tensor(noise_level), cfg=False)
-    
-    attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers=layers)
+        latents = ldm.scheduler.add_noise(latents, torch.rand_like(latents), ldm.scheduler.timesteps[-3])
+        
+        latents = ptp_utils.diffusion_step(ldm, controller, latents, tokens, ldm.scheduler.timesteps[-3], cfg=False)
+        
+        _attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers=layers)
+        
+        attention_maps.append(_attention_maps)
+        
+        
+    attention_maps = torch.stack(attention_maps)
     # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+    
+    attention_maps = torch.mean(attention_maps, dim=0)
     
     return attention_maps
     
@@ -360,9 +373,6 @@ def upscale_to_img_size(controller, from_where = ["down_cross", "mid_cross", "up
             
             img = img.reshape(4, int(img.shape[1]**0.5), int(img.shape[1]**0.5), img.shape[2])[None, :, :, :, 1]
             
-            # import ipdb; ipdb.set_trace()
-            
-            # import ipdb; ipdb.set_trace()
             # bilinearly upsample the image to img_sizeximg_size
             img = F.interpolate(img, size=(upsample_res, upsample_res), mode='bilinear', align_corners=False)
 
@@ -1226,11 +1236,17 @@ def optimize_prompt_informed(ldm, src_img, trg_img, pixel_loc, context=None, dev
         attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)
         num_maps = attention_maps.shape[0]
         
+        attention_maps = attention_maps.reshape(num_maps, -1)
+        
+        attention_maps = torch.nn.Softmax(dim=1)(attention_maps)
 
         # # l1 loss on the attention maps
-        loss_trg = (torch.norm(attention_maps, p=1)-torch.max(torch.abs(attention_maps)))
+        loss_trg = (1-torch.max(attention_maps, dim=1).values).mean()
+
         
-        (loss_src+loss_trg*1e-7).backward()
+        print(1-loss_trg)
+        
+        (loss_src*0+loss_trg).backward()
         # loss_src.backward()
         optimizer.step()
         optimizer.zero_grad()
