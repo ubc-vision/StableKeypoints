@@ -235,8 +235,6 @@ def validate_epoch(ldm,
         est_keypoints = -1*torch.ones_like(mini_batch['src_kps'])
         ind_layers = -1*torch.ones_like(mini_batch['src_kps']).repeat(len(layers), 1, 1)
         
-        
-        
         if ablate:
             # only evaluate the correspondence for the first point
             
@@ -359,6 +357,7 @@ def validate_epoch(ldm,
             pck_array_ind_layers[k] += _eval_result['pck']
             
             print(f"layer {k} pck {sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])}, this pck {_eval_result['pck']}")
+
         
 
         eval_result = Evaluator.eval_kps_transfer(est_keypoints.cpu(), mini_batch)

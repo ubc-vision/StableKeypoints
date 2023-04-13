@@ -1086,14 +1086,16 @@ def optimize_prompt_faster(ldm, image, pixel_loc, context=None, device="cuda", n
         
             if np.random.rand() > flip_prob:
                 
-                latent, cropped_pixel = crop_latents(latent_normal, pixel_loc, crop_percent = crop_percent)
+                # latent, cropped_pixel = crop_latents(latent_normal, pixel_loc, crop_percent = crop_percent)
+                latent = latent_normal.clone()
                 
-                _pixel_loc = cropped_pixel.clone()
+                _pixel_loc = pixel_loc.clone()
             else:
                 
-                latent, cropped_pixel = crop_latents(latent_flipped, pixel_loc_flipped, crop_percent = crop_percent)
+                # latent, cropped_pixel = crop_latents(latent_flipped, pixel_loc_flipped, crop_percent = crop_percent)
+                latent = latent_flipped.clone()
                 
-                _pixel_loc = cropped_pixel.clone()
+                _pixel_loc = pixel_loc_flipped.clone()
 
             
             
