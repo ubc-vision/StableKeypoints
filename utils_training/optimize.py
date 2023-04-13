@@ -235,13 +235,13 @@ def validate_epoch(ldm,
         est_keypoints = -1*torch.ones_like(mini_batch['src_kps'])
         ind_layers = -1*torch.ones_like(mini_batch['src_kps']).repeat(len(layers), 1, 1)
         
-        
-        
         if ablate:
             # only evaluate the correspondence for the first point
             
             mini_batch['n_pts'] = torch.ones(1).int()
             mini_batch['src_kps'][0, 0, 1] = -1
+            
+        all_contexts = []
 
         
         for j in range(mini_batch['src_kps'].shape[2]):
@@ -269,6 +269,8 @@ def validate_epoch(ldm,
                     # context = optimize_prompt_faster(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                     # context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                     contexts.append(context)
+                    
+            all_contexts.append(torch.stack(contexts))
             
             all_maps = []
             
@@ -355,8 +357,6 @@ def validate_epoch(ldm,
             pck_array_ind_layers[k] += _eval_result['pck']
             
             print(f"layer {k} pck {sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])}, this pck {_eval_result['pck']}")
-        
-        g
 
         
 
@@ -366,7 +366,7 @@ def validate_epoch(ldm,
         if visualize:
             visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'], save_folder=save_folder)
             visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'], save_folder=save_folder)
-            dict = {"est_keypoints": est_keypoints, "correct_ids": eval_result['correct_ids'], "src_kps": mini_batch['src_kps'], "trg_kps": mini_batch['trg_kps'], "idx": mini_batch['idx'], "contexts": torch.stack(contexts)}
+            dict = {"est_keypoints": est_keypoints, "correct_ids": eval_result['correct_ids'], "src_kps": mini_batch['src_kps'], "trg_kps": mini_batch['trg_kps'], "idx": mini_batch['idx'], "contexts": torch.stack(all_contexts)}
             # save dict 
             torch.save(dict, f"{save_folder}/correspondence_data_{i:03d}.pt")
 

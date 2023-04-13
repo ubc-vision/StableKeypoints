@@ -323,7 +323,7 @@ def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["down
         
     ptp_utils.register_attention_control(ldm, controller)
     
-    latents = ptp_utils.diffusion_step(ldm, controller, latent, tokens, torch.tensor(noise_level), cfg=False)
+    latents = ptp_utils.diffusion_step(ldm, controller, latent, tokens, ldm.scheduler.timesteps[-1], cfg=False)
     
     attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers=layers)
     # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
@@ -1076,14 +1076,16 @@ def optimize_prompt_faster(ldm, image, pixel_loc, context=None, device="cuda", n
         
             if np.random.rand() > flip_prob:
                 
-                latent, cropped_pixel = crop_latents(latent_normal, pixel_loc, crop_percent = crop_percent)
+                # latent, cropped_pixel = crop_latents(latent_normal, pixel_loc, crop_percent = crop_percent)
+                latent = latent_normal.clone()
                 
-                _pixel_loc = cropped_pixel.clone()
+                _pixel_loc = pixel_loc.clone()
             else:
                 
-                latent, cropped_pixel = crop_latents(latent_flipped, pixel_loc_flipped, crop_percent = crop_percent)
+                # latent, cropped_pixel = crop_latents(latent_flipped, pixel_loc_flipped, crop_percent = crop_percent)
+                latent = latent_flipped.clone()
                 
-                _pixel_loc = cropped_pixel.clone()
+                _pixel_loc = pixel_loc_flipped.clone()
 
             
             
