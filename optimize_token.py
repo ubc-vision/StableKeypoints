@@ -342,6 +342,71 @@ def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["down
     attention_maps = torch.mean(attention_maps, dim=0)
     
     return attention_maps
+
+
+
+@torch.no_grad()
+def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], index=0, upsample_res=512, noise_level=10, layers=[0, 1, 2, 3, 4, 5], num_iterations=20, crop_percent=100.0):
+    
+    # if image is a torch.tensor, convert to numpy
+    if type(image) == torch.Tensor:
+        image = image.permute(1, 2, 0).detach().cpu().numpy()
+    
+    num_samples = torch.zeros(len(layers), 4, 512, 512).to(device)
+    sum_samples = torch.zeros(len(layers), 4, 512, 512).to(device)
+    
+    pixel_locs = torch.tensor([[0, 0], [0, 512], [512, 0], [512, 512]]).float()
+    
+    attention_maps = []
+    
+    for i in range(num_iterations):
+        
+        if i < 4:
+            pixel_loc = pixel_locs[i]
+        else:
+            
+            _attention_maps = sum_samples/num_samples
+            
+            _attention_maps = torch.mean(_attention_maps, dim=0)
+            _attention_maps = torch.mean(_attention_maps, dim=0)
+            
+            pixel_loc = find_max_pixel_value(_attention_maps, img_size = 512)+0.5
+        
+        cropped_image, cropped_pixel, y_start, height, x_start, width = crop_image(image, pixel_loc, crop_percent = crop_percent)
+                
+        latents = image2latent(ldm, cropped_image, device)
+    
+        controller = AttentionStore()
+            
+        ptp_utils.register_attention_control(ldm, controller)
+        
+        latents = ldm.scheduler.add_noise(latents, torch.rand_like(latents), ldm.scheduler.timesteps[-3])
+        
+        latents = ptp_utils.diffusion_step(ldm, controller, latents, tokens, ldm.scheduler.timesteps[-3], cfg=False)
+        
+        assert height == width
+        
+        _attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=height, layers=layers)
+        
+        # bilinearly interpolate resized_attention_maps to be heightxwidth
+        # resized_attention_maps = torch.nn.functional.interpolate(_attention_maps, size=(height, width), mode='bilinear', align_corners=False)
+        
+        num_samples[:, :, y_start:y_start+height, x_start:x_start+width] += 1
+        sum_samples[:, :, y_start:y_start+height, x_start:x_start+width] += _attention_maps
+        
+    # visualize sum_samples/num_samples
+    attention_maps = sum_samples/num_samples
+    
+    
+    
+    # visualize_image_with_points(image, None, f"initial_image")
+    # visualize_image_with_points(torch.mean(torch.mean(attention_maps, dim=0), dim=0)[None], None, f"cropped_avg")
+    # visualize_image_with_points(num_samples[0, 0, None]/torch.max(num_samples), None, f"sum_crops")
+    # exit()
+    
+        
+    
+    return attention_maps
     
     
 
@@ -746,8 +811,9 @@ def visualize_image_with_points(image, point, name, save_folder = "outputs"):
     
     plt.imshow(image, aspect='auto')
     
-    # plot point on image
-    plt.scatter(point[0].cpu(), point[1].cpu(), s=20, marker='o', c='r')
+    if point is not None:
+        # plot point on image
+        plt.scatter(point[0].cpu(), point[1].cpu(), s=20, marker='o', c='r')
     
     
     plt.savefig(f'{save_folder}/{name}.png', dpi=200)
@@ -818,7 +884,7 @@ def crop_image(image, pixel, crop_percent=80, margin=0.15):
     new_pixel = torch.stack([x-x_start, y-y_start])
     new_pixel = new_pixel/crop_width
 
-    return cropped_image.permute(1, 2, 0).numpy(), new_pixel
+    return cropped_image.permute(1, 2, 0).numpy(), new_pixel, y_start, crop_height, x_start, crop_width
 
 
 def crop_latents(image, pixel, crop_percent=80, margin=0.15):
@@ -925,7 +991,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
                 
                 # visualize_image_with_points(image, pixel_loc*512, "unflipped_original")
                 
-                cropped_image, cropped_pixel = crop_image(image, pixel_loc*512, crop_percent = crop_percent)
+                cropped_image, cropped_pixel, _, _, _, _ = crop_image(image, pixel_loc*512, crop_percent = crop_percent)
                 
                 latent = image2latent(ldm, cropped_image, device)
                 
@@ -940,7 +1006,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
                 # flip pixel loc
                 pixel_loc_flipped[0] = 1 - pixel_loc_flipped[0]
                 
-                cropped_image, cropped_pixel = crop_image(image_flipped, pixel_loc_flipped*512, crop_percent = crop_percent)
+                cropped_image, cropped_pixel, _, _, _, _ = crop_image(image_flipped, pixel_loc_flipped*512, crop_percent = crop_percent)
                 
                 # visualize_image_with_points(cropped_image, cropped_pixel*512, "flipped_cropped")
                 # exit()

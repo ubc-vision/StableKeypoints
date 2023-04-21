@@ -10,7 +10,7 @@ import ipdb
 
 from networks.context_estimator import Context_Estimator
 
-from optimize_token import optimize_prompt, find_max_pixel_value, visualize_image_with_points, run_image_with_tokens, find_context, softargmax2d, train_context_estimator, optimize_prompt_informed, optimize_prompt_faster
+from optimize_token import optimize_prompt, find_max_pixel_value, visualize_image_with_points, run_image_with_tokens, find_context, softargmax2d, train_context_estimator, optimize_prompt_informed, optimize_prompt_faster, run_image_with_tokens_cropped
 
 import wandb
 
@@ -397,6 +397,7 @@ def retest(ldm,
             layers = [0, 1, 2, 3, 4, 5],
             num_words = 77,
             epoch = 6,
+            crop_percent=100.0,
             device = 'cpu',
             visualize = False,
             optimize = False,
@@ -405,21 +406,28 @@ def retest(ldm,
     
     from glob import glob
     
-    correspondences = glob("/scratch/iamerich/prompt-to-prompt/outputs/0041_*_faster/correspondence_data_*.pt")
+    correspondences = sorted(glob("/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020/*/correspondence_data_*.pt"))
+    
+    # create a random permutation
+    randperm = torch.randperm(len(correspondences))
+    
+    # shuffle correspondences
+    # random.shuffle(correspondences)
     
     
 
     pck_array = []
     pck_array_ind_layers = [[] for i in range(len(layers))]
-    for i, correspondence in enumerate(correspondences):
+    # for i, correspondence in enumerate(correspondences):
+    for i in range(len(correspondences)):
         
-        data = torch.load(correspondence)
+        data = torch.load(correspondences[randperm[i]])
         
-        contexts = data["contexts"]
+        contexts = data["contexts"].to(device)
         
-        idx = data['idx']
+        # idx = data['idx']
         
-        mini_batch = test_dataset[idx]
+        mini_batch = test_dataset[randperm[i]]
         
         mini_batch['pckthres'] = mini_batch['pckthres'][None]
         mini_batch['n_pts'] = mini_batch['n_pts'][None]
@@ -445,7 +453,8 @@ def retest(ldm,
                 
                 maps = []
             
-                attn_maps = run_image_with_tokens(ldm, mini_batch['og_trg_img'], contexts[j, l].to(device), index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device)
+                # attn_maps = run_image_with_tokens(ldm, mini_batch['og_trg_img'], contexts[j, l].to(device), index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device)
+                attn_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_trg_img'], contexts[j, l].to(device), index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent)
                 
                 for k in range(attn_maps.shape[0]):
                     avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
@@ -492,7 +501,7 @@ def retest(ldm,
                 for l in range(contexts.shape[1]):
                     # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
                     
-                    attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'], contexts[j, l], index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device)
+                    attn_map_src = run_image_with_tokens_cropped(ldm, mini_batch['og_src_img'], contexts[j, l], index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent)
                     
                     maps = []
                     for k in range(attn_map_src.shape[0]):
@@ -549,3 +558,19 @@ def retest(ldm,
 
     return pck_array
 
+def rewrite_idxs():
+    
+    from glob import glob
+    
+    correspondences = sorted(glob("/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020/*/correspondence_data_*.pt"))
+    
+    for i in tqdm(range(len(correspondences))):
+        
+        data = torch.load(correspondences[i])
+        
+        data['idx'] = i
+        
+        # save the data
+        torch.save(data, correspondences[i])
+        
+        

@@ -51,17 +51,17 @@ if __name__ == "__main__":
                         help='training batch size')
 
     # Hyperparameters
-    parser.add_argument('--num_steps', type=int, default=148)
-    parser.add_argument('--noise_level', type=int, default=-1,
+    parser.add_argument('--num_steps', type=int, default=129)
+    parser.add_argument('--noise_level', type=int, default=-8,
                         help='noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level')
-    parser.add_argument('--flip_prob', type=float, default=0.0,
+    parser.add_argument('--flip_prob', type=float, default=0.36270331047928606,
                         help='probability of flipping the image during optimization')
-    parser.add_argument('--sigma', type=float, default=16,
+    parser.add_argument('--sigma', type=float, default=27.97853316316864,
                         help='sigma for the gaussian kernel')
-    parser.add_argument('--layers', type=int, nargs='+', default=[5, 6, 7])
+    parser.add_argument('--layers', type=int, nargs='+', default=[5, 6, 7, 8])
     parser.add_argument('--learning_rate', type=float,
-                        default=0.002265700481018651, help='learning rate for the optimizer')
-    parser.add_argument('--crop_percent', type=float, default=100.0,
+                        default=0.0023755632081200314, help='learning rate for the optimizer')
+    parser.add_argument('--crop_percent', type=float, default=93.16549294381423,
                         help='the percent of the image to crop to')
     parser.add_argument('--num_iterations', type=int, default=5,
                         help='number of iterations to run the optimization for')
@@ -118,10 +118,13 @@ if __name__ == "__main__":
                                  batch_size=args.batch_size,
                                  num_workers=0,
                                  shuffle=True)
+    
+    # optimize.rewrite_idxs()
+    # exit()
 
     # results = test_dataset.collect_results()
-    # # results is a dict with values being lists
-    # # import ipdb ; ipdb.set_trace()
+    # results is a dict with values being lists
+    # import ipdb ; ipdb.set_trace()
     # this_avg = []
     # for key in results.keys():
     #     print(key, sum(results[key])/len(results[key]))
@@ -130,6 +133,7 @@ if __name__ == "__main__":
     # overal_avg = sum(this_avg)/len(this_avg)
 
     # print("overall average", overal_avg)
+    # exit()
 
     # initialize model
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
@@ -197,6 +201,7 @@ if __name__ == "__main__":
                                     optimize=args.mode == "optimize",
                                     # lr=args.learning_rate,
                                     wandb_log=args.wandb_log,
+                                    crop_percent=args.crop_percent,
                                     # sigma=args.sigma,
                                     # flip_prob=args.flip_prob,
                                     # num_iterations=args.num_iterations,

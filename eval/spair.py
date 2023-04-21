@@ -93,7 +93,7 @@ class SPairDataset(CorrespondenceDataset):
         results = {cls: [] for cls in self.cls}
         
         from glob import glob
-        files = sorted(glob("results/*"))
+        files = sorted(glob("/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020/*/*.txt"))
         
         for file in files:
             file_number = int(file.split("_")[-1].split(".")[0])
