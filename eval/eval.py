@@ -82,6 +82,7 @@ if __name__ == "__main__":
                         default='test', help='name of the wandb run')
     parser.add_argument('--mode', type=str, default="optimize", choices=[
                         "train", "evaluate", "optimize", "retest"], help='whether to train, validate, or optimize the model')
+    parser.add_argument('--ablate_results', action='store_true', help='whether to ablate the results')
     parser.add_argument('--visualize', action='store_true',
                         help='whether to visualize the attention maps')
     parser.add_argument('--epoch', type=int, default=0,
@@ -112,8 +113,13 @@ if __name__ == "__main__":
 
     # Dataloader
     download.download_dataset(args.datapath, args.benchmark)
-    test_dataset = download.load_dataset(args.benchmark, args.datapath, args.thres, device,
-                                         args.split, False, 16, sub_class=args.sub_class, item_index=args.item_index)
+    if args.mode == "optimize":
+        
+        test_dataset = download.load_dataset(args.benchmark, args.datapath, args.thres, device,
+                                            args.split, False, 16, sub_class=args.sub_class, item_index=args.item_index)
+    else:
+        test_dataset = download.load_dataset(args.benchmark, args.datapath, args.thres, device,
+                                            args.split, False, 16, sub_class=args.sub_class, item_index=-1)
     test_dataloader = DataLoader(test_dataset,
                                  batch_size=args.batch_size,
                                  num_workers=0,
@@ -205,6 +211,8 @@ if __name__ == "__main__":
                                     # sigma=args.sigma,
                                     # flip_prob=args.flip_prob,
                                     # num_iterations=args.num_iterations,
-                                    save_folder = args.save_loc,)
+                                    item_index=args.item_index,
+                                    save_folder = args.save_loc,
+                                    ablate_results = args.ablate_results,)
     else:
         raise ValueError("mode must be one of train, evaluate, or optimize")

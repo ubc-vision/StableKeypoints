@@ -355,9 +355,9 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
     num_samples = torch.zeros(len(layers), 4, 512, 512).to(device)
     sum_samples = torch.zeros(len(layers), 4, 512, 512).to(device)
     
-    pixel_locs = torch.tensor([[0, 0], [0, 512], [512, 0], [512, 512]]).float()
+    pixel_locs = torch.tensor([[0, 0], [0, 512], [512, 0], [512, 512]]).float().cuda()
     
-    attention_maps = []
+    collected_attention_maps = []
     
     for i in range(num_iterations):
         
@@ -370,7 +370,9 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
             _attention_maps = torch.mean(_attention_maps, dim=0)
             _attention_maps = torch.mean(_attention_maps, dim=0)
             
-            pixel_loc = find_max_pixel_value(_attention_maps, img_size = 512)+0.5
+            max_val = find_max_pixel_value(_attention_maps, img_size = 512)+0.5
+            
+            pixel_loc = max_val.clone()
         
         cropped_image, cropped_pixel, y_start, height, x_start, width = crop_image(image, pixel_loc, crop_percent = crop_percent)
                 
@@ -394,6 +396,8 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
         num_samples[:, :, y_start:y_start+height, x_start:x_start+width] += 1
         sum_samples[:, :, y_start:y_start+height, x_start:x_start+width] += _attention_maps
         
+        collected_attention_maps.append((sum_samples/num_samples).clone())
+        
     # visualize sum_samples/num_samples
     attention_maps = sum_samples/num_samples
     
@@ -406,7 +410,7 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
     
         
     
-    return attention_maps
+    return attention_maps, collected_attention_maps
     
     
 
