@@ -172,6 +172,7 @@ if __name__ == "__main__":
                                             num_iterations=args.num_iterations,
                                             crop_percent=args.crop_percent,
                                             save_folder = args.save_loc,
+                                            item_index = args.item_index,
                                             ablate = args.ablate,)
         if args.item_index != -1:
             # save the pck array to a text file

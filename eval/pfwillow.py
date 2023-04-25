@@ -10,11 +10,15 @@ from .dataset import CorrespondenceDataset
 
 class PFWillowDataset(CorrespondenceDataset):
     r"""Inherits CorrespondenceDataset"""
-    def __init__(self, benchmark, datapath, thres, device, split, augmentation, feature_size):
+    def __init__(self, benchmark, datapath, thres, device, split, augmentation, feature_size, sub_class=None, item_index=-1):
         r"""PF-WILLOW dataset constructor"""
         super(PFWillowDataset, self).__init__(benchmark, datapath, thres, device, split, augmentation, feature_size)
 
         self.train_data = pd.read_csv(self.spt_path)
+        
+        if item_index != -1:
+            self.train_data = self.train_data.iloc[[item_index]]
+        
         self.src_imnames = np.array(self.train_data.iloc[:, 0])
         self.trg_imnames = np.array(self.train_data.iloc[:, 1])
         self.src_kps = self.train_data.iloc[:, 2:22].values
@@ -23,6 +27,7 @@ class PFWillowDataset(CorrespondenceDataset):
                     'motorbike(G)', 'motorbike(M)', 'motorbike(S)',
                     'winebottle(M)', 'winebottle(wC)', 'winebottle(woC)']
         self.cls_ids = list(map(lambda names: self.cls.index(names.split('/')[1]), self.src_imnames))
+        
         self.src_imnames = list(map(lambda x: os.path.join(*x.split('/')[1:]), self.src_imnames))
         self.trg_imnames = list(map(lambda x: os.path.join(*x.split('/')[1:]), self.trg_imnames))
 
@@ -35,6 +40,8 @@ class PFWillowDataset(CorrespondenceDataset):
         # batch['trg_kpidx'] = self.match_idx(batch['trg_kps'], batch['n_pts'])
 
         batch['flow'] = self.kps_to_flow(batch)
+        
+        batch['idx'] = idx
         
         return batch
 
