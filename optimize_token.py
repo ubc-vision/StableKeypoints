@@ -355,7 +355,7 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
     num_samples = torch.zeros(len(layers), 4, 512, 512).to(device)
     sum_samples = torch.zeros(len(layers), 4, 512, 512).to(device)
     
-    pixel_locs = torch.tensor([[0, 0], [0, 512], [512, 0], [512, 512]]).float().cuda()
+    pixel_locs = torch.tensor([[0, 0], [0, 512], [512, 0], [512, 512]]).float().to(device)
     
     collected_attention_maps = []
     

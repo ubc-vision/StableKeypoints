@@ -405,6 +405,7 @@ def retest(ldm,
             wandb_log = False,
             item_index = -1,
             ablate_results = False,
+            results_loc = "/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020",
             save_folder = "outputs"):
     """
     if ablate_results:
@@ -415,7 +416,9 @@ def retest(ldm,
     
     from glob import glob
     
-    correspondences = sorted(glob("/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020/*/correspondence_data_*.pt"))
+    correspondences = sorted(glob(f"{results_loc}/*/correspondence_data_*.pt"))
+    print("len(correspondences)")
+    print(len(correspondences))
     
     if item_index != -1:
         correspondences = [correspondences[item_index]]
@@ -431,7 +434,7 @@ def retest(ldm,
     # for i, correspondence in enumerate(correspondences):
     for i in range(len(correspondences)):
         
-        data = torch.load(correspondences[i])
+        data = torch.load(correspondences[i], map_location=device)
         
         contexts = data["contexts"].to(device)
         

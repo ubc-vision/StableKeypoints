@@ -89,6 +89,8 @@ if __name__ == "__main__":
                         help='what epoch of the model to load')
     parser.add_argument('--save_loc', type=str, default='outputs',
                         help='save location for the trained model')
+    parser.add_argument('--results_loc', type=str, default='/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020',
+                        help='save location for the trained model')
     parser.add_argument('--seed', type=int, default=2023,
                         help='Pseudo-RNG seed')
     parser.add_argument('--ablate', action='store_true',
@@ -129,10 +131,12 @@ if __name__ == "__main__":
     # exit()
 
     # results = test_dataset.collect_results()
-    # results is a dict with values being lists
-    # import ipdb ; ipdb.set_trace()
+    # # results is a dict with values being lists
+    # # import ipdb ; ipdb.set_trace()
     # this_avg = []
     # for key in results.keys():
+    #     if len(results[key]) == 0:
+    #         continue
     #     print(key, sum(results[key])/len(results[key]))
     #     this_avg.append(sum(results[key])/len(results[key]))
 
@@ -214,6 +218,7 @@ if __name__ == "__main__":
                                     # num_iterations=args.num_iterations,
                                     item_index=args.item_index,
                                     save_folder = args.save_loc,
+                                    results_loc = args.results_loc,
                                     ablate_results = args.ablate_results,)
     else:
         raise ValueError("mode must be one of train, evaluate, or optimize")
