@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Gallery</title>
+    <style>
+      img {
+        max-width: 250px;
+        max-height: 250px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Image Gallery</h1>
+    <div>
+      {% for image in images %}
+      <img src="{{ url_for('serve_image', image_path=image) }}" alt="{{ image }}" />
+      {% endfor %}
+    </div>
+    <a href="/{{ img_num }}">Go back</a>
+  </body>
+</html>

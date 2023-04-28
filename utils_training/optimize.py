@@ -210,7 +210,6 @@ def validate_epoch(ldm,
                    epoch = 6,
                    device = 'cpu',
                    visualize = False,
-                   optimize = False,
                    wandb_log = False,
                    lr = 1e-3,
                    num_iterations = 5,
@@ -219,13 +218,8 @@ def validate_epoch(ldm,
                    crop_percent=80,
                    save_folder = "outputs",
                    item_index = -1,
+                   alpha=0.1,
                    ablate=False):
-    
-    
-    if not optimize:
-        context_estimator = Context_Estimator(ldm.tokenizer, ldm.text_encoder, num_words = num_words, device = device)
-        context_estimator.load_state_dict(torch.load(f"checkpoints/context_estimator_{epoch:03d}.pt"))
-    
     
 
     pbar = tqdm(enumerate(val_loader), total=len(val_loader))
@@ -255,21 +249,13 @@ def validate_epoch(ldm,
                 visualize_image_with_points(mini_batch['og_trg_img'][0], mini_batch['trg_kps'][0, :, j], f"{i:03d}_target_point_{j:02d}", save_folder=save_folder)
         
             contexts = []
-
-        
-            if not optimize:
-                # context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context_estimator, optimizer, target_image = mini_batch['og_trg_img'][0], context=None, device="cuda", num_steps=num_steps, upsample_res=upsample_res, noise_level=noise_level, layers=layers, bbox_initial=mini_batch['src_bbox_og'], bbox_target=mini_batch['trg_bbox_og'], num_words=num_words, wandb_log=wandb_log)
                 
-                context = find_context(mini_batch['og_src_img'][0], ldm, mini_batch['src_kps'][0, :, j]/512, context_estimator, device=device, )
+            for _ in range(num_iterations):
+                
+                context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
+                # context = optimize_prompt_faster(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
+                # context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                 contexts.append(context)
-            else:
-                
-                for _ in range(num_iterations):
-                    
-                    context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
-                    # context = optimize_prompt_faster(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
-                    # context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
-                    contexts.append(context)
                     
             all_contexts.append(torch.stack(contexts))
             
@@ -405,6 +391,7 @@ def retest(ldm,
             wandb_log = False,
             item_index = -1,
             ablate_results = False,
+            alpha=0.1,
             results_loc = "/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020",
             save_folder = "outputs"):
     """

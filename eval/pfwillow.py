@@ -8,6 +8,12 @@ import torch
 from .dataset import CorrespondenceDataset
 
 
+# car from 0-269, 
+# duck from 270-359,
+# motorbike from 360-629,
+# wine bottle from 630-899
+
+
 class PFWillowDataset(CorrespondenceDataset):
     r"""Inherits CorrespondenceDataset"""
     def __init__(self, benchmark, datapath, thres, device, split, augmentation, feature_size, sub_class=None, item_index=-1):

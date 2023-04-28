@@ -34,13 +34,14 @@ class Evaluator:
         for idx, (pk, tk) in enumerate(zip(prd_kps, batch['trg_kps'])):
             thres = batch['pckthres'][idx]
             npt = batch['n_pts'][idx]
-            _, correct_ids, _ = cls.classify_prd(pk[:, :npt], tk[:, :npt], thres)
-
-            pck.append((len(correct_ids) / npt.item()) * 100)
             
-            # import ipdb; ipdb.set_trace()
+            _, correct_ids_five_percent, _ = cls.classify_prd(pk[:, :npt], tk[:, :npt], thres, 0.05)
+            _, correct_ids_ten_percent, _ = cls.classify_prd(pk[:, :npt], tk[:, :npt], thres, 0.1)
 
-        eval_result = {'pck': pck, 'correct_ids': correct_ids}
+            pck.append((len(correct_ids_five_percent) / npt.item()) * 100)
+            pck.append((len(correct_ids_ten_percent) / npt.item()) * 100)
+
+        eval_result = {'pck': pck, 'correct_ids': correct_ids_ten_percent}
 
         return eval_result
 
@@ -92,10 +93,10 @@ class Evaluator:
         return eval_result
 
     @classmethod
-    def classify_prd(cls, prd_kps, trg_kps, pckthres):
+    def classify_prd(cls, prd_kps, trg_kps, pckthres, alpha):
         r"""Compute the number of correctly transferred key-points"""
         l2dist = (prd_kps - trg_kps).pow(2).sum(dim=0).pow(0.5)
-        thres = pckthres.expand_as(l2dist).float() * cls.alpha
+        thres = pckthres.expand_as(l2dist).float() * alpha
         correct_pts = torch.le(l2dist, thres)
 
         correct_ids = utils.where(correct_pts == 1)

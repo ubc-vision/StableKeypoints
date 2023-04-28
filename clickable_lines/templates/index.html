@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clickable Line</title>
+    <style>
+      line {
+        stroke-width: 2;
+        cursor: pointer;
+      }
+
+      line.highlighted {
+        stroke-width: 3;
+        filter: url(#shadow);
+      }
+    </style>
+    <script>
+      function onLineClick(event) {
+        const tag = event.target.getAttribute("data-tag");
+        const imgNum = {{ img_num }};
+        window.location.href = `/images/${imgNum}/${tag}`;
+      }
+
+      function highlightLine(event) {
+        event.target.classList.add("highlighted");
+      }
+
+      function unhighlightLine(event) {
+        event.target.classList.remove("highlighted");
+      }
+    </script>
+  </head>
+  <body>
+    <div>
+      <button onclick="window.location.href = '/{{ img_num - 1 }}'" {% if img_num == 0 %}disabled{% endif %}>
+        Previous
+      </button>
+      <button onclick="window.location.href = '/{{ img_num + 1 }}'" {% if img_num == 100 %}disabled{% endif %}>
+        Next
+      </button>
+    </div>
+    <svg width="1024" height="512">
+      <image
+        href="{{ url_for('serve_image', image_path='correspondences_estimated_%03d.png' % img_num) }}"
+        x="0"
+        y="0"
+        width="100%"
+        height="100%"
+      />
+      <defs>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+          <feOffset dx="0" dy="0" result="offsetblur" />
+          <feFlood flood-color="rgba(0, 0, 0, 0.5)" />
+          <feComposite in2="offsetblur" operator="in" />
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {% for line in lines %}
+      <line
+        data-tag="{{ line.tag }}"
+        x1="{{ line.x1 }}"
+        y1="{{ line.y1 }}"
+        x2="{{ line.x2 }}"
+        y2="{{ line.y2 }}"
+        stroke="{{ line.color }}"
+        onclick="onLineClick(event)"
+        onmouseover="highlightLine(event)"
+        onmouseout="unhighlightLine(event)"
+      />
+      {% endfor %}
+    </svg>
+  </body>
+</html>

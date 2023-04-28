@@ -81,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument('--wandb_name', type=str,
                         default='test', help='name of the wandb run')
     parser.add_argument('--mode', type=str, default="optimize", choices=[
-                        "train", "evaluate", "optimize", "retest"], help='whether to train, validate, or optimize the model')
+                        "optimize", "retest"], help='whether to train, validate, or optimize the model')
     parser.add_argument('--ablate_results', action='store_true', help='whether to ablate the results')
     parser.add_argument('--visualize', action='store_true',
                         help='whether to visualize the attention maps')
@@ -156,7 +156,7 @@ if __name__ == "__main__":
         
     train_started = time.time()
 
-    if args.mode == "evaluate" or args.mode == "optimize":
+    if args.mode == "optimize":
         print("validating")
         pck_array = optimize.validate_epoch(ldm,
                                             test_dataloader,
@@ -168,7 +168,6 @@ if __name__ == "__main__":
                                             device=args.device,
                                             visualize=args.visualize,
                                             epoch=args.epoch,
-                                            optimize=args.mode == "optimize",
                                             lr=args.learning_rate,
                                             wandb_log=args.wandb_log,
                                             sigma=args.sigma,
@@ -177,6 +176,7 @@ if __name__ == "__main__":
                                             crop_percent=args.crop_percent,
                                             save_folder = args.save_loc,
                                             item_index = args.item_index,
+                                            alpha=args.alpha,
                                             ablate = args.ablate,)
         if args.item_index != -1:
             # save the pck array to a text file
@@ -184,19 +184,6 @@ if __name__ == "__main__":
                 f"{args.save_loc}/pck_array_{args.item_index:06d}.txt", pck_array)
 
         print('Test took:', time.time()-train_started, 'seconds')
-    elif args.mode == "train":
-        print("training")
-        val_loss_grid, val_mean_pck = optimize.train(ldm,
-                                                     test_dataloader,
-                                                     num_steps=args.num_steps,
-                                                     noise_level=args.noise_level,
-                                                     upsample_res=args.upsample_res,
-                                                     layers=args.layers,
-                                                     num_words=args.num_words,
-                                                     wandb_log=args.wandb_log,
-                                                     device=args.device,
-                                                     save_loc=args.save_loc,
-                                                     learning_rate=args.learning_rate,)
     elif args.mode == "retest":
         print("retesting")
         pck_array = optimize.retest(ldm,
@@ -219,6 +206,7 @@ if __name__ == "__main__":
                                     item_index=args.item_index,
                                     save_folder = args.save_loc,
                                     results_loc = args.results_loc,
+                                    alpha=args.alpha,
                                     ablate_results = args.ablate_results,)
     else:
         raise ValueError("mode must be one of train, evaluate, or optimize")
