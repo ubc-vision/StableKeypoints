@@ -71,37 +71,6 @@ def random_crop(img, bbox, kps = None, size=(512, 512), p=0.5):
     return resized_img, resized_kps.t()
 
 
-# def random_crop_optimize(img, kp):
-#     """
-#     Zooms in on the keypoint in question and crops the image around it
-#     """
-    
-#     left = random.randint(0, max(kp[0] - 10, 0))
-#     top = random.randint(0, max(kp[1] - 10, 0))
-    
-#     # height and width will be at least 20 pixels up to the remaining image size
-    
-
-
-#     height = random.randint(0, max(kp[1] - 10, 0))
-    
-    
-    
-#     left = random.randint(0, bbox[0])
-#     top = random.randint(0, bbox[1])
-#     height = random.randint(bbox[3], h) - top
-#     width = random.randint(bbox[2], w) - left
-#     resized_img = torchvision.transforms.functional.resized_crop(
-#         img, top, left, height, width, size=size)
-    
-#     resized_kps = torch.zeros_like(kps, dtype=torch.float)
-#     resized_kps[:, 0] = (kps[:, 0] - left) * (size[1] / width)
-#     resized_kps[:, 1] = (kps[:, 1] - top) * (size[0] / height)
-#     resized_kps = torch.clamp(resized_kps, 0, size[0] - 1)
-    
-#     return resized_img, resized_kps.t()
-
-
 class CorrespondenceDataset(Dataset):
     r"""Parent class of PFPascal, PFWillow, Caltech, and SPair"""
     def __init__(self, benchmark, datapath, thres, device, split, augmentation, feature_size):

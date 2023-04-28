@@ -63,8 +63,10 @@ if __name__ == "__main__":
                         default=0.0023755632081200314, help='learning rate for the optimizer')
     parser.add_argument('--crop_percent', type=float, default=93.16549294381423,
                         help='the percent of the image to crop to')
-    parser.add_argument('--num_iterations', type=int, default=5,
+    parser.add_argument('--num_opt_iterations', type=int, default=5,
                         help='number of iterations to run the optimization for')
+    parser.add_argument('--num_iterations', type=int, default=20,
+                        help='number of inference iterations to run')
 
     # Network details
     parser.add_argument('--model_type', type=str,
@@ -173,6 +175,7 @@ if __name__ == "__main__":
                                             wandb_log=args.wandb_log,
                                             sigma=args.sigma,
                                             flip_prob=args.flip_prob,
+                                            num_opt_iterations=args.num_opt_iterations,
                                             num_iterations=args.num_iterations,
                                             crop_percent=args.crop_percent,
                                             save_folder = args.save_loc,
@@ -215,7 +218,7 @@ if __name__ == "__main__":
                                     crop_percent=args.crop_percent,
                                     # sigma=args.sigma,
                                     # flip_prob=args.flip_prob,
-                                    # num_iterations=args.num_iterations,
+                                    # num_opt_iterations=args.num_opt_iterations,
                                     item_index=args.item_index,
                                     save_folder = args.save_loc,
                                     results_loc = args.results_loc,
