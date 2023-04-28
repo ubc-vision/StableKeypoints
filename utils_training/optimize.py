@@ -78,127 +78,6 @@ def save_img(img, save_path):
     img.save(f"outputs/{save_path}")
 
 
-def train(ldm,
-            val_loader,
-            upsample_res = 512,
-            num_steps=100,
-            noise_level = 10,
-            layers = [0, 1, 2, 3, 4, 5],
-            num_words = 77,
-            wandb_log = False,
-            device = "cuda",
-            save_loc = "outputs",
-            learning_rate = 1e-4,):
-    running_total_loss = 0
-    
-    # ldm = torch.nn.DataParallel(ldm)
-    
-    context_estimator = Context_Estimator(ldm.tokenizer, ldm.text_encoder, num_words = num_words, device=device).cuda()
-    
-    # context_estimator = torch.nn.DataParallel(context_estimator)
-    
-    optimizer = torch.optim.Adam(context_estimator.parameters(), lr=learning_rate)
-    
-    
-    for epoch in range(100):
-
-        pbar = tqdm(enumerate(val_loader), total=len(val_loader))
-        # pck_array = []
-        # pck_array_ind_layers = [[] for i in range(len(layers))]
-        for i, mini_batch in pbar:
-            
-            # est_keypoints = -1*torch.ones_like(mini_batch['src_kps'])
-            # ind_layers = -1*torch.ones_like(mini_batch['src_kps']).repeat(len(layers), 1, 1)
-            
-            
-            # select an index from mini_batch['src_kps'][0, 0, :] that is not -1
-            non_negative_one = torch.where(mini_batch['src_kps'][0, 0, :] != -1)[0]
-            random_non_negative_one = torch.where(mini_batch['random_kps'][0, 0, :] != -1)[0]
-            
-            j = random.randint(0, non_negative_one.shape[0]-1)
-            k = random.randint(0, random_non_negative_one.shape[0]-1)
-            
-            # for j in range(mini_batch['src_kps'].shape[2]):
-                
-            #     if mini_batch['src_kps'][0, 0, j] == -1:
-            #         continue
-            
-            
-            
-            
-            
-            context = train_context_estimator(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, context_estimator, optimizer, target_image = mini_batch['og_trg_img'][0], random_image = mini_batch['og_random_img'][0], rand_img_keypoint=mini_batch['random_kps'][0, :, k]/512, context=None, device="cuda", num_steps=num_steps, upsample_res=upsample_res, noise_level=noise_level, layers=layers, bbox_initial=mini_batch['src_bbox_og'], bbox_target=mini_batch['trg_bbox_og'], bbox_random = mini_batch['random_bbox_og'], num_words=num_words, wandb_log=wandb_log)
-                
-                # attn_maps = run_image_with_tokens(ldm, mini_batch['og_trg_img'][0], context, index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers)
-                
-                
-                # maps = []
-                # for k in range(attn_maps.shape[0]):
-                #     avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
-                #     maps.append(avg.reshape(-1))
-                #     _max_val = find_max_pixel_value(avg[0], img_size = 512)
-                #     ind_layers[k, :, j] = (_max_val+0.5)
-                
-                # maps = torch.stack(maps, dim=0)
-                # maps = torch.nn.Softmax(dim=-1)(maps)
-                
-                # maps = torch.max(maps, dim=0).values
-                # maps = maps.reshape(upsample_res, upsample_res)
-                # max_val = find_max_pixel_value(maps, img_size = 512)
-                
-                # # import ipdb; ipdb.set_trace()
-                
-                # est_keypoints[0, :, j] = (max_val+0.5)
-                
-                # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
-                
-                
-                
-                # attn_map_src = run_image_with_tokens(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers)
-                
-                # maps = []
-                # for k in range(attn_map_src.shape[0]):
-                #     avg = torch.mean(attn_map_src[k], dim=0, keepdim=True)
-                #     maps.append(avg)
-                    
-                #     max_val_src = find_max_pixel_value(avg[0], img_size = 512)
-                #     visualize_image_with_points(avg, max_val_src/512*upsample_res, f"largest_loc_src_{j:02d}_{k:02d}")
-                # maps = torch.cat(maps, dim=0)
-                # maps = torch.mean(maps, dim=0)
-                # max_val = find_max_pixel_value(maps, img_size = 512)
-                # visualize_image_with_points(mini_batch['og_src_img'][0], (max_val+0.5), f"largest_loc_src_img_{j:02d}")
-                
-                # exit()
-                
-            # for k in range(len(pck_array_ind_layers)):
-            #     _eval_result = Evaluator.eval_kps_transfer(ind_layers[k].cpu()[None], mini_batch)
-            #     pck_array_ind_layers[k] += _eval_result['pck']
-                
-            #     print(f"layer {k} pck {sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])}, this pck {_eval_result['pck']}")
-            
-            
-
-            
-
-            # eval_result = Evaluator.eval_kps_transfer(est_keypoints.cpu(), mini_batch)
-            
-            
-            
-            # visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], est_keypoints, f"correspondences_estimated_{i:03d}", correct_ids = eval_result['correct_ids'])
-            # visualie_correspondences(mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'], mini_batch['trg_kps'], f"correspondences_gt_{i:03d}", correct_ids = eval_result['correct_ids'])
-
-            # pck_array += eval_result['pck']
-
-            # mean_pck = sum(pck_array) / len(pck_array)
-            
-            
-            # print(f"epoch: {epoch} {i} this pck ", eval_result['pck'], " mean_pck " , mean_pck)
-            
-        # save context_estimator
-        torch.save(context_estimator.state_dict(), f"{save_loc}/context_estimator_{epoch:03d}.pt")
-
-    return running_total_loss / len(val_loader), mean_pck
-
 
 def validate_epoch(ldm,
                    val_loader,
@@ -212,13 +91,14 @@ def validate_epoch(ldm,
                    visualize = False,
                    wandb_log = False,
                    lr = 1e-3,
-                   num_iterations = 5,
+                   num_opt_iterations = 5,
                    sigma = 32,
                    flip_prob = 0.5,
                    crop_percent=80,
                    save_folder = "outputs",
                    item_index = -1,
                    alpha=0.1,
+                   num_iterations=20,
                    ablate=False):
     
 
@@ -250,7 +130,7 @@ def validate_epoch(ldm,
         
             contexts = []
                 
-            for _ in range(num_iterations):
+            for _ in range(num_opt_iterations):
                 
                 context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                 # context = optimize_prompt_faster(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
@@ -265,7 +145,7 @@ def validate_epoch(ldm,
                 
                 maps = []
             
-                attn_maps, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_trg_img'][0], context, index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent)
+                attn_maps, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_trg_img'][0], context, index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent, num_iterations=num_iterations)
                 
                 for k in range(attn_maps.shape[0]):
                     avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
@@ -312,7 +192,7 @@ def validate_epoch(ldm,
                 for context in contexts:
                     # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
                     
-                    attn_map_src, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent)
+                    attn_map_src, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent, num_iterations=num_iterations)
                     
                     maps = []
                     for k in range(attn_map_src.shape[0]):
