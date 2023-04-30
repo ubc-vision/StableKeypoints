@@ -94,7 +94,7 @@ import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 
-class CustomDataset(Dataset):
+class CUB2011(Dataset):
     def __init__(self, root_dir, train=True, num_classes=3):
         self.root_dir = root_dir
         self.train = train
@@ -141,7 +141,14 @@ class CustomDataset(Dataset):
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float()  # Convert image to PyTorch tensor
 
         # pad the outside of image with 0s to make it 512x512
-        image = torch.nn.functional.pad(image, (0, 512 - image.shape[2], 0, 512 - image.shape[1]))
+        # Calculate padding for width and height
+        padding_left = (512 - image.shape[2]) // 2
+        padding_right = 512 - image.shape[2] - padding_left
+        padding_top = (512 - image.shape[1]) // 2
+        padding_bottom = 512 - image.shape[1] - padding_top
+
+        # Pad the image to make it 512x512, centered within the black canvas
+        image = torch.nn.functional.pad(image, (padding_left, padding_right, padding_top, padding_bottom))
 
         # Load keypoints and visibility
         keypoints = torch.tensor(self.part_locs[img_id], dtype=torch.float)
@@ -152,11 +159,18 @@ class CustomDataset(Dataset):
     # rest of the code remains the same
 
 # Creating DataLoader for training and testing sets
-root_dir = "/scratch/iamerich/Download/CUB_200_2011"
+root_dir = "/scratch/iamerich/Datasets_CATs/CUB_200_2011"
 
 test_dataset = CustomDataset(root_dir, train=False)
 test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
 # get the next batch from train_dataloader
 img, keypoints, visibility = next(iter(test_dataloader))
+
+
+# visualize the image with matplotlib
+import matplotlib.pyplot as plt
+plt.imshow(img[0].permute(1, 2, 0).numpy().astype(np.uint8))
+plt.savefig("test.png")
+
 pass
