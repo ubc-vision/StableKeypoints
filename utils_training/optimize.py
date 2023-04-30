@@ -272,6 +272,7 @@ def retest(ldm,
             item_index = -1,
             ablate_results = False,
             alpha=0.1,
+            num_iterations = 20,
             results_loc = "/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020",
             save_folder = "outputs"):
     """
@@ -282,19 +283,19 @@ def retest(ldm,
     """
     
     from glob import glob
+    import re
     
-    correspondences = sorted(glob(f"{results_loc}/*/correspondence_data_*.pt"))
-    print("len(correspondences)")
-    print(len(correspondences))
+    files = glob(f"{results_loc}/*/correspondence_data_*.pt")
+    
+    correspondences = sorted(files, key=lambda path: int(re.search(r'/(\d+)/', path).group(1)))
+
+    
+    # correspondences = sorted(glob(f"{results_loc}/*/correspondence_data_*.pt"))
+    # print("len(correspondences)")
+    # print(len(correspondences))
     
     if item_index != -1:
         correspondences = [correspondences[item_index]]
-    
-    
-    
-    
-    
-    
 
     pck_array = []
     pck_array_ind_layers = [[] for _ in range(len(layers))]
@@ -315,11 +316,14 @@ def retest(ldm,
         
         est_keypoints = -1*torch.ones_like(mini_batch['src_kps'])
         ind_layers = -1*torch.ones_like(mini_batch['src_kps']).repeat(len(layers), 1, 1)
-        ind_opt_iterations = -1*torch.ones_like(mini_batch['src_kps']).repeat(5, 1, 1)
-        ind_inf_iterations = -1*torch.ones_like(mini_batch['src_kps']).repeat(20, 1, 1)
+        ind_opt_iterations = -1*torch.ones_like(mini_batch['src_kps']).repeat(10, 1, 1)
+        ind_inf_iterations = -1*torch.ones_like(mini_batch['src_kps']).repeat(num_iterations, 1, 1)
+        
+        # import ipdb; ipdb.set_trace()
         
         # for j in [mini_batch['src_kps'].shape[1]-1]:
         for j in range(contexts.shape[0]):
+            print(j)
         # for _ in range(1):
             
             assert mini_batch['src_kps'][0, j] != -1
@@ -338,9 +342,9 @@ def retest(ldm,
                 maps = []
             
                 # attn_maps = run_image_with_tokens(ldm, mini_batch['og_trg_img'], contexts[j, l].to(device), index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device)
-                attn_maps, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_trg_img'], contexts[j, l].to(device), index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent)
+                attn_maps, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_trg_img'], contexts[j, l].to(device), index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent, num_iterations = num_iterations)
                 
-                collected_attention_maps.append(torch.stack(_collected_attention_maps, dim=0))
+                collected_attention_maps.append(torch.stack(_collected_attention_maps, dim=0).detach().cpu())
                 
                 for k in range(attn_maps.shape[0]):
                     avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
@@ -410,7 +414,7 @@ def retest(ldm,
                 for l in range(contexts.shape[1]):
                     # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
                     
-                    attn_map_src, _ = run_image_with_tokens_cropped(ldm, mini_batch['og_src_img'], contexts[j, l], index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent)
+                    attn_map_src, _ = run_image_with_tokens_cropped(ldm, mini_batch['og_src_img'], contexts[j, l], index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent, num_iterations=num_iterations)
                     
                     maps = []
                     for k in range(attn_map_src.shape[0]):

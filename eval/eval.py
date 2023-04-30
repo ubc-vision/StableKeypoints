@@ -209,6 +209,7 @@ if __name__ == "__main__":
                                     item_index=args.item_index,
                                     save_folder = args.save_loc,
                                     results_loc = args.results_loc,
+                                    num_iterations = args.num_iterations,
                                     alpha=args.alpha,
                                     ablate_results = args.ablate_results,)
     else:
