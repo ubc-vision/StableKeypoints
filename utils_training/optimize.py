@@ -240,14 +240,14 @@ def validate_epoch(ldm,
 
         pck_array += eval_result['pck']
 
-        mean_pck = sum(pck_array) / len(pck_array)
+        mean_pck_ten = sum(pck_array[1::2]) / len(pck_array[1::2])
         
         
-        print(f"epoch: {epoch} {i} this pck ", eval_result['pck'], " mean_pck " , mean_pck)
+        print(f"epoch: {epoch} {i} this pck ", eval_result['pck'], " mean_pck " , mean_pck_ten)
         # exit()
         
         if wandb_log:
-            wandb_dict = {"pck": mean_pck}
+            wandb_dict = {"pck": mean_pck_ten}
             for k in range(len(pck_array_ind_layers)):
                 wandb_dict[f"pck_layer_{k}"] = sum(pck_array_ind_layers[k]) / len(pck_array_ind_layers[k])
             wandb.log(wandb_dict)

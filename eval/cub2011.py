@@ -89,27 +89,29 @@
 
 
 import os
+import math
 import torch
+import itertools
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 
-class CUB2011(Dataset):
-    def __init__(self, root_dir, train=True, num_classes=3):
-        self.root_dir = root_dir
-        self.train = train
+class CUBDataset(Dataset):
+    def __init__(self, datapath="/scratch/iamerich/Datasets_CATs", split="test", num_classes=3, item_index=-1, *args, **kwargs):
+        self.datapath = f"{datapath}/CUB_200_2011"
+        self.train = split!="test"
         self.num_classes = num_classes
 
         # Load image list
-        with open(os.path.join(root_dir, "images.txt"), "r") as f:
+        with open(os.path.join(self.datapath, "images.txt"), "r") as f:
             self.images = [line.strip().split() for line in f.readlines()]
 
         # Load train/test split
-        with open(os.path.join(root_dir, "train_test_split.txt"), "r") as f:
+        with open(os.path.join(self.datapath, "train_test_split.txt"), "r") as f:
             self.train_test_split = [line.strip().split() for line in f.readlines()]
 
         # Load part locations
-        with open(os.path.join(root_dir, "parts/part_locs.txt"), "r") as f:
+        with open(os.path.join(self.datapath, "parts/part_locs.txt"), "r") as f:
             self.part_locs = {}
             for line in f.readlines():
                 img_id, part_id, x, y, visible = line.strip().split()
@@ -118,7 +120,7 @@ class CUB2011(Dataset):
                 self.part_locs[img_id].append((int(part_id), float(x), float(y), int(visible)))
 
         # Load image class labels
-        with open(os.path.join(root_dir, "image_class_labels.txt"), "r") as f:
+        with open(os.path.join(self.datapath, "image_class_labels.txt"), "r") as f:
             self.image_class_labels = {line.split()[0]: int(line.split()[1]) for line in f.readlines()}
 
         # Filter images based on train/test split and class labels
@@ -128,49 +130,110 @@ class CUB2011(Dataset):
             class_id = self.image_class_labels[img_id]
             if ((self.train and is_training_image) or (not self.train and not is_training_image)) and (class_id <= self.num_classes):
                 self.filtered_images.append((img_id, img_name))
+        
+        # Generate all pairs for each class
+        pairs = []
+        for class_id in range(1, self.num_classes + 1):
+            class_images = [img for img in self.filtered_images if self.image_class_labels[img[0]] == class_id]
+            class_pairs = list(itertools.combinations(class_images, 2))
+            pairs.extend(class_pairs)
+
+        # Use only the specified pair index if provided
+        if item_index != -1:
+            if 0 <= item_index < len(pairs):
+                self.pairs = [pairs[item_index]]
+            else:
+                raise IndexError("The specified pair index is out of range.")
+        else:
+            self.pairs = pairs
+            
+        # Load bounding box data
+        with open(os.path.join(self.datapath, "bounding_boxes.txt"), "r") as f:
+            self.bounding_boxes = {line.split()[0]: list(map(float, line.strip().split()[1:])) for line in f.readlines()}
                 
     def __len__(self):
-        return len(self.filtered_images)
+        return len(self.pairs)
 
     def __getitem__(self, idx):
-        img_id, img_name = self.filtered_images[idx]
-        img_path = os.path.join(self.root_dir, "images", img_name)
+        (img1_id, img1_name), (img2_id, img2_name) = self.pairs[idx]
 
-        # Load image
+        # Load images
+        img1, pad_left_1, pad_top_1 = self.load_image(img1_name)
+        img2, pad_left_2, pad_top_2 = self.load_image(img2_name)
+
+        # Load keypoints and visibility
+        keypoints1 = torch.tensor(self.part_locs[img1_id], dtype=torch.float)
+        keypoints1[:, 1] += pad_left_1
+        keypoints1[:, 2] += pad_top_1
+        visibility1 = keypoints1[:, -1].bool()
+        keypoints2 = torch.tensor(self.part_locs[img2_id], dtype=torch.float)
+        keypoints2[:, 1] += pad_left_2
+        keypoints2[:, 2] += pad_top_2
+        visibility2 = keypoints2[:, -1].bool()
+
+        # Find overlapping visible keypoints
+        overlapping = visibility1 & visibility2
+        num_overlapping = overlapping.sum().item()
+        num_total_keypoints = keypoints1.shape[0]
+
+        # Create new keypoints tensors with overlapping keypoints first, followed by -1s
+        reordered_keypoints1 = torch.full((num_total_keypoints, 2), -1, dtype=torch.float)
+        reordered_keypoints2 = torch.full((num_total_keypoints, 2), -1, dtype=torch.float)
+
+        reordered_keypoints1[:num_overlapping] = keypoints1[overlapping, 1:3]
+        reordered_keypoints2[:num_overlapping] = keypoints2[overlapping, 1:3]
+        
+        # Load bounding box for the image
+        bbox = self.bounding_boxes[img2_id]
+
+        # Compute PCK threshold for the image
+        pck_threshold = self.compute_pck_threshold_per_image(bbox)
+
+        return {'pckthres': pck_threshold, 'og_src_img': img1/255.0, 'og_trg_img': img2/255.0, 'src_kps': reordered_keypoints1.permute(1, 0), 'trg_kps': reordered_keypoints2.permute(1, 0), 'n_pts': num_overlapping, 'bbox': bbox, 'idx': idx}
+
+    def load_image(self, img_name):
+        img_path = os.path.join(self.datapath, "images", img_name)
         image = Image.open(img_path).convert('RGB')
-        image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float()  # Convert image to PyTorch tensor
+        image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float()
 
-        # pad the outside of image with 0s to make it 512x512
-        # Calculate padding for width and height
         padding_left = (512 - image.shape[2]) // 2
         padding_right = 512 - image.shape[2] - padding_left
         padding_top = (512 - image.shape[1]) // 2
         padding_bottom = 512 - image.shape[1] - padding_top
 
-        # Pad the image to make it 512x512, centered within the black canvas
         image = torch.nn.functional.pad(image, (padding_left, padding_right, padding_top, padding_bottom))
-
-        # Load keypoints and visibility
-        keypoints = torch.tensor(self.part_locs[img_id], dtype=torch.float)
-        visibility = keypoints[:, -1].bool()
-
-        return image, keypoints[:, 1:3], visibility
-
-    # rest of the code remains the same
-
-# Creating DataLoader for training and testing sets
-root_dir = "/scratch/iamerich/Datasets_CATs/CUB_200_2011"
-
-test_dataset = CustomDataset(root_dir, train=False)
-test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
-
-# get the next batch from train_dataloader
-img, keypoints, visibility = next(iter(test_dataloader))
+        return image, padding_left, padding_top
+    
+    def compute_pck_threshold_per_image(self, bbox):
+        width, height = bbox[2], bbox[3]
+        pck_threshold = (width + height) / 2
+        return pck_threshold
 
 
-# visualize the image with matplotlib
-import matplotlib.pyplot as plt
-plt.imshow(img[0].permute(1, 2, 0).numpy().astype(np.uint8))
-plt.savefig("test.png")
+if __name__ == "__main__":
+    # Creating DataLoader for training and testing sets
+    root_dir = "/scratch/iamerich/Datasets_CATs/CUB_200_2011"
 
-pass
+    test_dataset = CUB2011(root_dir, train=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
+
+    # # get the next batch from train_dataloader
+    batch = next(iter(test_dataloader))
+    # # img, keypoints, visibility = next(iter(test_dataloader))
+
+
+    # visualize the image with matplotlib
+    import matplotlib.pyplot as plt
+    plt.imshow(batch['og_src_img'][0].permute(1, 2, 0).numpy().astype(np.uint8))
+    plt.scatter(batch['src_kps'][0, :, 0], batch['src_kps'][0, :, 1], c='r', s=10)
+    plt.savefig("img1.png")
+    plt.close()
+
+    import matplotlib.pyplot as plt
+    plt.imshow(batch['og_trg_img'][0].permute(1, 2, 0).numpy().astype(np.uint8))
+    plt.scatter(batch['trg_kps'][0, :, 0], batch['trg_kps'][0, :, 1], c='r', s=10)
+    plt.savefig("img2.png")
+    plt.close()
+
+    pass
+

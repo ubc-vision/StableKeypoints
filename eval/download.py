@@ -8,6 +8,7 @@ from . import pfpascal
 from . import pfwillow
 from . import caltech
 from . import spair
+from . import cub2011
 
 
 def load_dataset(benchmark, datapath, thres, device, split='test', augmentation=False, feature_size=16, sub_class = "all", item_index=-1):
@@ -17,13 +18,14 @@ def load_dataset(benchmark, datapath, thres, device, split='test', augmentation=
         'pfwillow': pfwillow.PFWillowDataset,
         'caltech': caltech.CaltechDataset,
         'spair': spair.SPairDataset,
+        'cubs': cub2011.CUBDataset,
     }
 
     dataset = correspondence_benchmark.get(benchmark)
     if dataset is None:
         raise Exception('Invalid benchmark dataset %s.' % benchmark)
 
-    return dataset(benchmark, datapath, thres, device, split, augmentation, feature_size, sub_class=sub_class, item_index=item_index)
+    return dataset(benchmark=benchmark, datapath=datapath, thres=thres, device=device, split=split, augmentation=augmentation, feature_size=feature_size, sub_class=sub_class, item_index=item_index)
 
 
 def download_from_google(token_id, filename):
@@ -81,7 +83,8 @@ def download_dataset(datapath, benchmark):
         'pfwillow': ('1tDP0y8RO5s45L-vqnortRaieiWENQco_', 'PF-WILLOW'),
         'pfpascal': ('1OOwpGzJnTsFXYh-YffMQ9XKM_Kl_zdzg', 'PF-PASCAL'),
         'caltech': ('1IV0E5sJ6xSdDyIvVSTdZjPHELMwGzsMn', 'Caltech-101'),
-        'spair': ('1s73NVEFPro260H1tXxCh1ain7oApR8of', 'SPair-71k')
+        'spair': ('1s73NVEFPro260H1tXxCh1ain7oApR8of', 'SPair-71k'),
+        'cubs': (None, 'CUB_200_2011'),
     }
 
     file_id, filename = file_data[benchmark]

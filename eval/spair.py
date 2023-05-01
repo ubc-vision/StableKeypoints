@@ -71,7 +71,7 @@ class SPairDataset(CorrespondenceDataset):
         
         batch['src_bbox'] = self.get_bbox(self.src_bbox, idx, batch['src_imsize'])
         batch['trg_bbox'] = self.get_bbox(self.trg_bbox, idx, batch['trg_imsize'])
-        batch['pckthres'] = self.get_pckthres(batch, batch['src_imsize'])
+        batch['pckthres'] = self.get_pckthres(batch, batch['trg_imsize'])
 
         # batch['src_kpidx'] = self.match_idx(batch['src_kps'], batch['n_pts'])
         # batch['trg_kpidx'] = self.match_idx(batch['trg_kps'], batch['n_pts'])

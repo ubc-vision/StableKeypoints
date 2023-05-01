@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # Dataset
     parser.add_argument('--datapath', type=str, default='../Datasets_CATs')
     parser.add_argument('--benchmark', type=str,
-                        choices=['pfpascal', 'spair', 'pfwillow'], default='spair')
+                        choices=['pfpascal', 'spair', 'pfwillow', 'cubs'], default='spair')
     parser.add_argument('--thres', type=str, default='auto',
                         choices=['auto', 'img', 'bbox'])
     parser.add_argument('--alpha', type=float, default=0.1,
