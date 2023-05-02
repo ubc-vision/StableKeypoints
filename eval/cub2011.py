@@ -205,8 +205,9 @@ class CUBDataset(Dataset):
         return image, padding_left, padding_top
     
     def compute_pck_threshold_per_image(self, bbox):
+        
         width, height = bbox[2], bbox[3]
-        pck_threshold = (width + height) / 2
+        pck_threshold = max(width, height)
         return pck_threshold
 
 

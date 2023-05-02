@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 
 import sys
+from glob import glob
 
-def main():
-    numbers = []
+perf_five = []
+perf_ten = []
 
-    for line in sys.stdin:
-        try:
-            number = float(line.strip())
-            numbers.append(number)
-        except ValueError:
-            print("Invalid input. Please enter a number or type 'done' to finish.")
-    
-    average = sum(numbers) / len(numbers) if numbers else 0
-    print("Average of the numbers:", average)
+for file in glob("/home/iamerich/burst/cubs_unflipped/*/pck_array_*.txt"):
+    index = int(file.split("/")[-2])
+    if index < 250:
+        continue
+    # open file and read the 2 lines
+    with open(file, 'r') as f:
+        lines = f.readlines()
+        perf_five.append(float(lines[0].strip()))
+        perf_ten.append(float(lines[1].strip()))
 
-if __name__ == "__main__":
-    main()
+print("Average performance for 5% PCK: ", sum(perf_five)/len(perf_five))
+print("Average performance for 10% PCK: ", sum(perf_ten)/len(perf_ten))
