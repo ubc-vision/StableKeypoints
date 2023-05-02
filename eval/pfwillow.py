@@ -54,11 +54,11 @@ class PFWillowDataset(CorrespondenceDataset):
     def get_pckthres(self, batch):
         r"""Computes PCK threshold"""
         if self.thres == 'bbox':
-            return max(batch['src_kps'].max(1)[0] - batch['src_kps'].min(1)[0]).clone()
+            return max(batch['trg_kps'].max(1)[0] - batch['trg_kps'].min(1)[0]).clone()
         if self.thres == 'bbox-kp':
-            return max(batch['src_kps'].max(1)[0] - batch['src_kps'][:, :batch['n_pts']].min(1)[0]).clone()
+            return max(batch['trg_kps'].max(1)[0] - batch['trg_kps'][:, :batch['n_pts']].min(1)[0]).clone()
         elif self.thres == 'img':
-            return torch.tensor(max(batch['src_img'].size()[1], batch['src_img'].size()[2]))
+            return torch.tensor(max(batch['trg_img'].size()[1], batch['trg_img'].size()[2]))
         else:
             raise Exception('Invalid pck evaluation level: %s' % self.thres)
 
