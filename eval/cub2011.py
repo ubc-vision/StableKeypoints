@@ -206,15 +206,15 @@ class CUBDataset(Dataset):
     
     def compute_pck_threshold_per_image(self, bbox):
         width, height = bbox[2], bbox[3]
-        pck_threshold = (width + height) / 2
+        pck_threshold = max(width, height)
         return pck_threshold
 
 
 if __name__ == "__main__":
     # Creating DataLoader for training and testing sets
-    root_dir = "/scratch/iamerich/Datasets_CATs/CUB_200_2011"
+    root_dir = "/scratch/iamerich/Datasets_CATs"
 
-    test_dataset = CUB2011(root_dir, train=False)
+    test_dataset = CUBDataset(root_dir, train=False)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
     # # get the next batch from train_dataloader

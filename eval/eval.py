@@ -25,7 +25,7 @@ from eval import download
 
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 
-from optimize_token import load_ldm
+from optimize_token import load_ldm, run_dave
 
 import wandb
 
@@ -151,6 +151,9 @@ if __name__ == "__main__":
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     # device = torch.device('cpu')
     ldm = load_ldm(args.device, args.model_type)
+    
+    # run_dave(ldm)
+    # exit()
     
     # if args.save_loc doesnt exist, create it
     if not os.path.exists(args.save_loc):
