@@ -145,7 +145,7 @@ def validate_epoch(ldm,
                 
                 maps = []
             
-                attn_maps, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_trg_img'][0], context, index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent, num_iterations=num_iterations)
+                attn_maps, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_trg_img'][0], context, index=0, upsample_res = upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent, num_iterations=num_iterations, image_mask = None if 'bool_img_trg' not in mini_batch else mini_batch['bool_img_trg'][0])
                 
                 for k in range(attn_maps.shape[0]):
                     avg = torch.mean(attn_maps[k], dim=0, keepdim=True)
@@ -192,7 +192,7 @@ def validate_epoch(ldm,
                 for context in contexts:
                     # visualize_image_with_points(mini_batch['og_trg_img'][0], (max_val+0.5), f"largest_loc_trg_img_{j:02d}")
                     
-                    attn_map_src, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent, num_iterations=num_iterations)
+                    attn_map_src, _collected_attention_maps = run_image_with_tokens_cropped(ldm, mini_batch['og_src_img'][0], context, index=0, upsample_res=upsample_res, noise_level=noise_level, layers=layers, device=device, crop_percent=crop_percent, num_iterations=num_iterations, image_mask = None if 'bool_img_src' not in mini_batch else mini_batch['bool_img_src'][0])
                     
                     maps = []
                     for k in range(attn_map_src.shape[0]):

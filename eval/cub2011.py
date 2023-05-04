@@ -1,100 +1,12 @@
-# import os
-# import pandas as pd
-# from torchvision.datasets.folder import default_loader
-# from torchvision.datasets.utils import download_url
-# from torch.utils.data import Dataset
-
-
-# class Cub2011(Dataset):
-#     base_folder = 'CUB_200_2011/images'
-#     url = 'http://www.vision.caltech.edu/visipedia-data/CUB-200-2011/CUB_200_2011.tgz'
-#     filename = 'CUB_200_2011.tgz'
-#     tgz_md5 = '97eceeb196236b17998738112f37df78'
-
-#     def __init__(self, root, train=True, transform=None, loader=default_loader, download=False):
-#         self.root = os.path.expanduser(root)
-#         self.transform = transform
-#         self.loader = default_loader
-#         self.train = train
-
-#         if download:
-#             self._download()
-
-#         if not self._check_integrity():
-#             raise RuntimeError('Dataset not found or corrupted.' +
-#                                ' You can use download=True to download it')
-
-#     def _load_metadata(self):
-#         images = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'images.txt'), sep=' ',
-#                              names=['img_id', 'filepath'])
-#         image_class_labels = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'image_class_labels.txt'),
-#                                          sep=' ', names=['img_id', 'target'])
-#         train_test_split = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'train_test_split.txt'),
-#                                        sep=' ', names=['img_id', 'is_training_img'])
-
-#         data = images.merge(image_class_labels, on='img_id')
-#         self.data = data.merge(train_test_split, on='img_id')
-
-#         if self.train:
-#             self.data = self.data[self.data.is_training_img == 1]
-#         else:
-#             self.data = self.data[self.data.is_training_img == 0]
-
-#     def _check_integrity(self):
-#         try:
-#             self._load_metadata()
-#         except Exception:
-#             return False
-
-#         for index, row in self.data.iterrows():
-#             filepath = os.path.join(self.root, self.base_folder, row.filepath)
-#             if not os.path.isfile(filepath):
-#                 print(filepath)
-#                 return False
-#         return True
-
-#     def _download(self):
-#         import tarfile
-
-#         if self._check_integrity():
-#             print('Files already downloaded and verified')
-#             return
-
-#         download_url(self.url, self.root, self.filename, self.tgz_md5)
-
-#         with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:
-#             tar.extractall(path=self.root)
-
-#     def __len__(self):
-#         return len(self.data)
-
-#     def __getitem__(self, idx):
-#         sample = self.data.iloc[idx]
-#         path = os.path.join(self.root, self.base_folder, sample.filepath)
-#         target = sample.target - 1  # Targets start at 1 by default, so shift to 0
-#         img = self.loader(path)
-
-#         if self.transform is not None:
-#             img = self.transform(img)
-
-#         return img, target
-    
-# if __name__ == "__main__":
-#     # load the cub dataset 
-#     cub = Cub2011(root = "/scratch/iamerich/Download/", train=False)
-    
-#     # get the next item
-#     img, target = cub.__getitem__(0)
-#     pass
-
-
 import os
+import cv2
 import math
 import torch
 import itertools
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from torch.utils.data import Dataset, DataLoader
+
 
 class CUBDataset(Dataset):
     def __init__(self, datapath="/scratch/iamerich/Datasets_CATs", split="test", num_classes=3, item_index=-1, *args, **kwargs):
@@ -158,15 +70,19 @@ class CUBDataset(Dataset):
         (img1_id, img1_name), (img2_id, img2_name) = self.pairs[idx]
 
         # Load images
-        img1, pad_left_1, pad_top_1 = self.load_image(img1_name)
-        img2, pad_left_2, pad_top_2 = self.load_image(img2_name)
+        img1, scale_factor_1, pad_left_1, pad_top_1, bool_img_src = self.load_image(img1_name)
+        img2, scale_factor_2, pad_left_2, pad_top_2, bool_img_trg = self.load_image(img2_name)
 
         # Load keypoints and visibility
         keypoints1 = torch.tensor(self.part_locs[img1_id], dtype=torch.float)
+        keypoints1[:, 1] *= scale_factor_1[0]
+        keypoints1[:, 2] *= scale_factor_1[1]
         keypoints1[:, 1] += pad_left_1
         keypoints1[:, 2] += pad_top_1
         visibility1 = keypoints1[:, -1].bool()
         keypoints2 = torch.tensor(self.part_locs[img2_id], dtype=torch.float)
+        keypoints2[:, 1] *= scale_factor_2[0]
+        keypoints2[:, 2] *= scale_factor_2[1]
         keypoints2[:, 1] += pad_left_2
         keypoints2[:, 2] += pad_top_2
         visibility2 = keypoints2[:, -1].bool()
@@ -187,28 +103,41 @@ class CUBDataset(Dataset):
         bbox = self.bounding_boxes[img2_id]
 
         # Compute PCK threshold for the image
-        pck_threshold = self.compute_pck_threshold_per_image(bbox)
+        pck_threshold = self.compute_pck_threshold_per_image(bbox, scale_factor_2[0])
 
-        return {'pckthres': pck_threshold, 'og_src_img': img1/255.0, 'og_trg_img': img2/255.0, 'src_kps': reordered_keypoints1.permute(1, 0), 'trg_kps': reordered_keypoints2.permute(1, 0), 'n_pts': num_overlapping, 'bbox': bbox, 'idx': idx}
+        return {'pckthres': pck_threshold, 'og_src_img': img1/255.0, 'og_trg_img': img2/255.0, 'src_kps': reordered_keypoints1.permute(1, 0), 'trg_kps': reordered_keypoints2.permute(1, 0), 'n_pts': num_overlapping, 'bbox': bbox, 'idx': idx, 'bool_img_src':bool_img_src, 'bool_img_trg':bool_img_trg}
 
     def load_image(self, img_name):
         img_path = os.path.join(self.datapath, "images", img_name)
         image = Image.open(img_path).convert('RGB')
-        image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float()
 
-        padding_left = (512 - image.shape[2]) // 2
-        padding_right = 512 - image.shape[2] - padding_left
-        padding_top = (512 - image.shape[1]) // 2
-        padding_bottom = 512 - image.shape[1] - padding_top
+        width, height = image.size
+        max_dim = max(width, height)
+        scale_factor = 512 / max_dim
+        new_width, new_height = int(width * scale_factor), int(height * scale_factor)
+        image = image.resize((new_width, new_height), Image.BILINEAR)
 
-        image = torch.nn.functional.pad(image, (padding_left, padding_right, padding_top, padding_bottom))
-        return image, padding_left, padding_top
-    
-    def compute_pck_threshold_per_image(self, bbox):
+        pad_left = (512 - new_width) // 2
+        pad_right = 512 - new_width - pad_left
+        pad_top = (512 - new_height) // 2
+        pad_bottom = 512 - new_height - pad_top
+
+        image_np = np.array(image)
+        tiled_image = cv2.copyMakeBorder(image_np, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_WRAP)
+
+        image = torch.from_numpy(tiled_image).permute(2, 0, 1).float()
+
+        # Create a boolean image
+        bool_image = torch.zeros((512, 512), dtype=torch.bool)
+        bool_image[pad_top:pad_top + new_height, pad_left:pad_left + new_width] = 1
+
+        return image, torch.tensor([scale_factor, scale_factor], dtype=torch.float), pad_left, pad_top, bool_image
+        
+    def compute_pck_threshold_per_image(self, bbox, scale_factor=1.0):
         
         width, height = bbox[2], bbox[3]
         pck_threshold = max(width, height)
-        return pck_threshold
+        return pck_threshold*scale_factor
 
 
 if __name__ == "__main__":
@@ -216,7 +145,7 @@ if __name__ == "__main__":
     root_dir = "/scratch/iamerich/Datasets_CATs"
 
     test_dataset = CUBDataset(root_dir, train=False)
-    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
 
     # # get the next batch from train_dataloader
     batch = next(iter(test_dataloader))
@@ -225,15 +154,27 @@ if __name__ == "__main__":
 
     # visualize the image with matplotlib
     import matplotlib.pyplot as plt
-    plt.imshow(batch['og_src_img'][0].permute(1, 2, 0).numpy().astype(np.uint8))
-    plt.scatter(batch['src_kps'][0, :, 0], batch['src_kps'][0, :, 1], c='r', s=10)
+    plt.imshow(batch['og_src_img'][0].permute(1, 2, 0).numpy())
+    plt.scatter(batch['src_kps'][0, 0], batch['src_kps'][0, 1], c='r', s=10)
     plt.savefig("img1.png")
     plt.close()
 
     import matplotlib.pyplot as plt
-    plt.imshow(batch['og_trg_img'][0].permute(1, 2, 0).numpy().astype(np.uint8))
-    plt.scatter(batch['trg_kps'][0, :, 0], batch['trg_kps'][0, :, 1], c='r', s=10)
+    plt.imshow(batch['og_trg_img'][0].permute(1, 2, 0).numpy())
+    plt.scatter(batch['trg_kps'][0, 0], batch['trg_kps'][0, 1], c='r', s=10)
     plt.savefig("img2.png")
+    plt.close()
+    
+    import matplotlib.pyplot as plt
+    plt.imshow(batch['bool_img_trg'].permute(1, 2, 0).numpy())
+    plt.scatter(batch['trg_kps'][0, 0], batch['trg_kps'][0, 1], c='r', s=10)
+    plt.savefig("img2_bool.png")
+    plt.close()
+    
+    import matplotlib.pyplot as plt
+    plt.imshow(batch['bool_img_src'].permute(1, 2, 0).numpy())
+    plt.scatter(batch['src_kps'][0, 0], batch['src_kps'][0, 1], c='r', s=10)
+    plt.savefig("img1_bool.png")
     plt.close()
 
     pass

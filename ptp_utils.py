@@ -62,6 +62,17 @@ def view_images(images, num_rows=1, offset_ratio=0.02):
 
     pil_img = Image.fromarray(image_)
     display(pil_img)
+    
+import torch.nn as nn
+
+class ModelWrapper(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, latents, t, context):
+        output_dict = self.model(latents, t, context)
+        return output_dict["sample"]
 
 
 def diffusion_step(model, controller, latents, context, t, guidance_scale=None, cfg = True):
@@ -73,6 +84,8 @@ def diffusion_step(model, controller, latents, context, t, guidance_scale=None, 
         noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
     else:
         noise_pred = model.unet(latents, t, encoder_hidden_states=context)["sample"]
+        
+        
         
     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     latents = controller.step_callback(latents)

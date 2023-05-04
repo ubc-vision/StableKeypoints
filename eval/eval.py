@@ -152,6 +152,9 @@ if __name__ == "__main__":
     # device = torch.device('cpu')
     ldm = load_ldm(args.device, args.model_type)
     
+    from diffusers.models import unet_2d_condition
+
+    
     # run_dave(ldm)
     # exit()
     

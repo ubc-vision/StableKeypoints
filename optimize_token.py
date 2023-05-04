@@ -84,9 +84,8 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     # import ipdb; ipdb.set_trace()
     # ldm_stable = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-base").to(device)
     
-    
-
-
+    # from diffusers.pipelines.stable_diffusion import pipeline_stable_diffusion
+    # from diffusers.models import unet_2d_condition
 
     for param in ldm.vae.parameters():
         param.requires_grad = False
@@ -346,7 +345,7 @@ def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["down
 
 
 @torch.no_grad()
-def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], index=0, upsample_res=512, noise_level=10, layers=[0, 1, 2, 3, 4, 5], num_iterations=20, crop_percent=100.0):
+def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], index=0, upsample_res=512, noise_level=10, layers=[0, 1, 2, 3, 4, 5], num_iterations=20, crop_percent=100.0, image_mask = None):
     
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -366,6 +365,9 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
         else:
             
             _attention_maps = sum_samples/num_samples
+            
+            # remove all the nans
+            _attention_maps[_attention_maps != _attention_maps] = 0
             
             _attention_maps = torch.mean(_attention_maps, dim=0)
             _attention_maps = torch.mean(_attention_maps, dim=0)
@@ -396,19 +398,18 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
         num_samples[:, :, y_start:y_start+height, x_start:x_start+width] += 1
         sum_samples[:, :, y_start:y_start+height, x_start:x_start+width] += _attention_maps
         
-        collected_attention_maps.append((sum_samples/num_samples).clone())
+        _attention_maps = sum_samples/num_samples
+        
+        if image_mask is not None:
+            _attention_maps = _attention_maps * image_mask[None, None].to(device)
+        
+        collected_attention_maps.append(_attention_maps.clone())
         
     # visualize sum_samples/num_samples
     attention_maps = sum_samples/num_samples
     
-    
-    
-    # visualize_image_with_points(image, None, f"initial_image")
-    # visualize_image_with_points(torch.mean(torch.mean(attention_maps, dim=0), dim=0)[None], None, f"cropped_avg")
-    # visualize_image_with_points(num_samples[0, 0, None]/torch.max(num_samples), None, f"sum_crops")
-    # exit()
-    
-        
+    if image_mask is not None:
+        attention_maps = attention_maps * image_mask[None, None].to(device)
     
     return attention_maps, collected_attention_maps
     
