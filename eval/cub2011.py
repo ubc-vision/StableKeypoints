@@ -123,9 +123,9 @@ class CUBDataset(Dataset):
 
 if __name__ == "__main__":
     # Creating DataLoader for training and testing sets
-    root_dir = "/scratch/iamerich/Datasets_CATs/CUB_200_2011"
+    root_dir = "/scratch/iamerich/Datasets_CATs"
 
-    test_dataset = CUB2011(root_dir, train=False)
+    test_dataset = CUBDataset(root_dir, train=False)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
     # # get the next batch from train_dataloader

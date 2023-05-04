@@ -10,3 +10,4 @@ wandb/
 results/
 .vscode/
 temp.py
+**.pt

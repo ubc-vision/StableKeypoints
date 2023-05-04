@@ -941,6 +941,48 @@ def crop_latents(image, pixel, crop_percent=80, margin=0.15):
     return cropped_image, new_pixel
 
 
+
+def run_dave(ldm, from_where = ["down_cross", "mid_cross", "up_cross"], layers = [5, 6, 7, 8]):
+    
+    # load image as torch tensor
+    import cv2
+    image = cv2.imread("/scratch/iamerich/prompt-to-prompt/example_images/378-3780801_david-murray-news-person-full-body-png.jpeg")
+    
+    tokens = ldm.tokenizer(["foot"],
+            padding="max_length",
+            max_length=77,
+            truncation=True,
+            return_tensors="pt")
+    context = ldm.text_encoder(tokens.input_ids.to(ldm.device))[0]
+    
+    latent = image2latent(ldm, image, "cuda")
+    
+    # noisy_image = ldm.scheduler.add_noise(latent, torch.rand_like(latent), ldm.scheduler.timesteps[-1])
+        
+    controller = AttentionStore()
+    
+    ptp_utils.register_attention_control(ldm, controller)
+    
+    _ = ptp_utils.diffusion_step(ldm, controller, latent, context, ldm.scheduler.timesteps[-1], cfg = False)
+        
+    # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+    attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=512, layers = layers)
+    num_maps = attention_maps.shape[0]
+        
+    # divide by the mean along the dim=1
+    attention_maps = torch.mean(attention_maps, dim=1).cpu()
+    
+    # visualize the image with matplotlib
+    import matplotlib.pyplot as plt
+    fig = plt.figure(figsize=(10, 10))
+    plt.imshow(image)
+    plt.imshow(attention_maps[0], alpha=0.5, cmap='jet')
+    plt.savefig("test.png")
+    
+        
+
+    return context
+
 def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32, flip_prob = 0.5, crop_percent=80):
     
     # if image is a torch.tensor, convert to numpy
