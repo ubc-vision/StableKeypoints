@@ -36,16 +36,21 @@ for i in tqdm(range(len(test_dataloader))):
     # print("mini_batch['pckthres']")
     # print(mini_batch['pckthres'])
     
-    diff += mini_batch['pckthres']-mini_batch['og_trg_img_size']
+    # diff += mini_batch['pckthres']-mini_batch['og_trg_img_size']
 
     
-    mini_batch['pckthres'] = mini_batch['og_trg_img_size']
+    mini_batch['pckthres'] = torch.ones_like(mini_batch['pckthres'])*512
+    
+    folder = "/home/iamerich/burst/cubs_unflipped/"
     
     # if the folder doesnt exist, pass
     if not os.path.exists(f"/home/iamerich/burst/cubs_unflipped/{i}") or not os.path.exists(f"/home/iamerich/burst/cubs_unflipped/{i}/correspondence_data_000.pt"):
-        continue
+        if not os.path.exists(f"/home/iamerich/burst/cubs/{i}")  or not os.path.exists(f"/home/iamerich/burst/cubs/{i}/correspondence_data_000.pt"):
+            continue
+        else:
+            folder= "/home/iamerich/burst/cubs/"
     
-    est_keypoints = torch.load(f"/home/iamerich/burst/cubs_unflipped/{i}/correspondence_data_000.pt", map_location='cpu')['est_keypoints']
+    est_keypoints = torch.load(f"{folder}/{i}/correspondence_data_000.pt", map_location='cpu')['est_keypoints']
 
     eval_result = Evaluator.eval_kps_transfer(est_keypoints.cpu(), mini_batch)
     
@@ -58,3 +63,5 @@ print(sum(pck_five)/len(pck_five))
 print(sum(pck_ten)/len(pck_ten))
 
 print(diff/len(pck_five))
+
+print("num ", len(pck_five))
