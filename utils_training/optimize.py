@@ -10,7 +10,7 @@ import ipdb
 
 from networks.context_estimator import Context_Estimator
 
-from optimize_token import optimize_prompt, find_max_pixel_value, visualize_image_with_points, run_image_with_tokens, find_context, softargmax2d, train_context_estimator, optimize_prompt_informed, optimize_prompt_faster, run_image_with_tokens_cropped
+from optimize_token import optimize_prompt, find_max_pixel_value, visualize_image_with_points, run_image_with_tokens, find_context, softargmax2d, train_context_estimator, optimize_prompt_informed, optimize_prompt_faster, run_image_with_tokens_cropped, optimize_prompt_wo_gaussian
 
 import wandb
 
@@ -132,7 +132,8 @@ def validate_epoch(ldm,
                 
             for _ in range(num_opt_iterations):
                 
-                context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
+                # context = optimize_prompt(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
+                context = optimize_prompt_wo_gaussian(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=16, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                 # context = optimize_prompt_faster(ldm, mini_batch['og_src_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                 # context = optimize_prompt_informed(ldm, mini_batch['og_src_img'][0], mini_batch['og_trg_img'][0], mini_batch['src_kps'][0, :, j]/512, num_steps=num_steps, device=device, layers=layers, lr = lr, upsample_res=upsample_res, noise_level=noise_level, sigma = sigma, flip_prob=flip_prob, crop_percent=crop_percent)
                 contexts.append(context)

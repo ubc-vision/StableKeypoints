@@ -63,6 +63,6 @@ plt.close()
 
 plt.plot(ind_layers_results)
 plt.title("individual layers results")
-plt.xticks(np.arange(0, 4, 1.0), np.arange(5, 9, 1.0).astype(int))
+plt.xticks(np.arange(0, 4, 1.0), np.arange(7, 11, 1.0).astype(int))
 plt.savefig("ind_layers_results.png")
 plt.close()

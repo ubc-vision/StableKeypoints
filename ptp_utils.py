@@ -237,6 +237,9 @@ def register_attention_control(model, controller):
             # out = torch.einsum("b i j, b j d -> b i d", attn, v)
             out = torch.matmul(attn, v)
             
+            # if context is not None:
+            #     print("forward, ", x.shape, context.shape, q.shape, k.shape, v.shape, attn.shape, out.shape, is_cross, place_in_unet)
+            
             out = self.reshape_batch_dim_to_heads(out)
             return to_out(out)
 

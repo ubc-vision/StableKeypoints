@@ -411,9 +411,7 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
     if image_mask is not None:
         attention_maps = attention_maps * image_mask[None, None].to(device)
     
-    return attention_maps, collected_attention_maps
-    
-    
+    return attention_maps, collected_attention_maps    
 
 
 def upscale_to_img_size(controller, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res=512, layers=[0, 1, 2, 3, 4, 5]):
@@ -443,8 +441,9 @@ def upscale_to_img_size(controller, from_where = ["down_cross", "mid_cross", "up
             
             img = img.reshape(4, int(img.shape[1]**0.5), int(img.shape[1]**0.5), img.shape[2])[None, :, :, :, 1]
             
-            # bilinearly upsample the image to img_sizeximg_size
-            img = F.interpolate(img, size=(upsample_res, upsample_res), mode='bilinear', align_corners=False)
+            if upsample_res != -1:
+                # bilinearly upsample the image to img_sizeximg_size
+                img = F.interpolate(img, size=(upsample_res, upsample_res), mode='bilinear', align_corners=False)
 
             imgs.append(img)
             
@@ -1137,6 +1136,91 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     #     visualize_image_with_points(attention_maps[i].reshape(1, upsample_res, upsample_res), torch.tensor([(x_loc+0.5), (y_loc+0.5)]), f"attention_maps_{i}")
     # visualize_image_with_points(image, torch.tensor([pixel_loc[0]*512, pixel_loc[1]*512]), "gt_img_point")
     # exit()
+        
+    # print the time it took to optimize
+    print(f"optimization took {time.time() - start} seconds")
+        
+
+    return context
+
+
+def optimize_prompt_wo_gaussian(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32, flip_prob = 0.5, crop_percent=80):
+    
+    # if image is a torch.tensor, convert to numpy
+    if type(image) == torch.Tensor:
+        image = image.permute(1, 2, 0).detach().cpu().numpy()
+        
+    if context is None:
+        context = init_random_noise(device)
+        
+    context.requires_grad = True
+    
+    # optimize context to maximize attention at pixel_loc
+    optimizer = torch.optim.Adam([context], lr=lr)
+    
+    # time the optimization
+    import time
+    start = time.time()
+    
+    for _ in range(num_steps):
+        
+        with torch.no_grad():
+        
+            if np.random.rand() > flip_prob:
+                
+                cropped_image, cropped_pixel, _, _, _, _ = crop_image(image, pixel_loc*512, crop_percent = crop_percent)
+                
+                latent = image2latent(ldm, cropped_image, device)
+                
+                _pixel_loc = cropped_pixel.clone()
+            else:
+                
+                image_flipped = np.flip(image, axis=1).copy()
+                
+                pixel_loc_flipped = pixel_loc.clone()
+                # flip pixel loc
+                pixel_loc_flipped[0] = 1 - pixel_loc_flipped[0]
+                
+                cropped_image, cropped_pixel, _, _, _, _ = crop_image(image_flipped, pixel_loc_flipped*512, crop_percent = crop_percent)
+                
+                _pixel_loc = cropped_pixel.clone()
+                
+                latent = image2latent(ldm, cropped_image, device)
+            
+        noisy_image = ldm.scheduler.add_noise(latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level])
+        
+        controller = AttentionStore()
+        
+        ptp_utils.register_attention_control(ldm, controller)
+        
+        _ = ptp_utils.diffusion_step(ldm, controller, noisy_image, context, ldm.scheduler.timesteps[noise_level], cfg = False)
+        
+        # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
+        attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=16, layers = layers)
+        
+        
+        num_maps = attention_maps.shape[0]
+        
+        # divide by the mean along the dim=1
+        attention_maps = torch.mean(attention_maps, dim=1)
+
+        gt_maps = torch.zeros_like(attention_maps)
+    
+        x_loc = pixel_loc[0]*upsample_res
+        y_loc = pixel_loc[1]*upsample_res
+        
+        # round x_loc and y_loc to the nearest integer
+        x_loc = int(x_loc)
+        y_loc = int(y_loc)
+        
+        gt_maps[:, int(y_loc), int(x_loc)] = 1
+        
+        
+        loss = torch.nn.MSELoss()(attention_maps, gt_maps)
+        # loss = torch.nn.CrossEntropyLoss()(attention_maps, gt_maps)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
         
     # print the time it took to optimize
     print(f"optimization took {time.time() - start} seconds")

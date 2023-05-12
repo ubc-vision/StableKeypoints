@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_steps', type=int, default=129)
     parser.add_argument('--noise_level', type=int, default=-8,
                         help='noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level')
-    parser.add_argument('--flip_prob', type=float, default=0.36270331047928606,
+    parser.add_argument('--flip_prob', type=float, default=0.0,
                         help='probability of flipping the image during optimization')
     parser.add_argument('--sigma', type=float, default=27.97853316316864,
                         help='sigma for the gaussian kernel')

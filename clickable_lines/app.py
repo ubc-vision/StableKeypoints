@@ -9,7 +9,8 @@ app = Flask(__name__)
 
 
 # Add a variable for the image folder path
-image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/cubs"
+# image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/cubs"
+image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/pfwillow_wo_flip"
 
 @app.route('/serve_image/<path:image_path>')
 def serve_image(image_path):
