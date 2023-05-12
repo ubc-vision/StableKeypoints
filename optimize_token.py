@@ -384,7 +384,7 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
             
         ptp_utils.register_attention_control(ldm, controller)
         
-        latents = ldm.scheduler.add_noise(latents, torch.rand_like(latents), ldm.scheduler.timesteps[-3])
+        # latents = ldm.scheduler.add_noise(latents, torch.rand_like(latents), ldm.scheduler.timesteps[-3])
         
         latents = ptp_utils.diffusion_step(ldm, controller, latents, tokens, ldm.scheduler.timesteps[-3], cfg=False)
         
@@ -1064,9 +1064,9 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         # import ipdb; ipdb.set_trace()
             
             
-        # TODO just updated to using noisy_image, random flip and crop all at once, need to test
-            
-        noisy_image = ldm.scheduler.add_noise(latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level])
+        # TODO reintroduce noise after ablation 
+        # noisy_image = ldm.scheduler.add_noise(latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level])
+        noisy_image = latent.clone()
         
         controller = AttentionStore()
         

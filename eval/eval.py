@@ -97,8 +97,16 @@ if __name__ == "__main__":
                         help='Pseudo-RNG seed')
     parser.add_argument('--ablate', action='store_true',
                         help='evaluate over a smaller number of points')
+    
+    
 
     args = parser.parse_args()
+    
+    # from glob import glob
+    # if args.item_index != -1 and len(glob(f"/home/iamerich/burst/pfwillow_no_crop_ablation/{args.item_index}/*.txt")) > 0:
+    #     exit()
+    
+    
     if args.seed != -1:
         random.seed(args.seed)
         np.random.seed(args.seed)
