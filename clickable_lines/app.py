@@ -8,9 +8,13 @@ from flask import Flask, render_template
 app = Flask(__name__)
 
 
+
 # Add a variable for the image folder path
+# image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/spair"
+image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/spair_3"
+
 # image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/cubs"
-image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/pfwillow_wo_flip"
+# image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/pfwillow_wo_flip"
 
 @app.route('/serve_image/<path:image_path>')
 def serve_image(image_path):
@@ -29,11 +33,13 @@ def get_image_files(line_tag, img_num=0):
         f"{img_num:03d}_largest_loc_src_{line_tag}_01.png",
         f"{img_num:03d}_largest_loc_src_{line_tag}_02.png",
         f"{img_num:03d}_largest_loc_src_{line_tag}_03.png",
+        f"{img_num:03d}_largest_loc_src_{line_tag}_mean.png",
         f"{img_num:03d}_target_point_{line_tag}.png",
         f"{img_num:03d}_largest_loc_trg_{line_tag}_00.png",
         f"{img_num:03d}_largest_loc_trg_{line_tag}_01.png",
         f"{img_num:03d}_largest_loc_trg_{line_tag}_02.png",
         f"{img_num:03d}_largest_loc_trg_{line_tag}_03.png",
+        f"{img_num:03d}_largest_loc_trg_{line_tag}_mean.png",
     ]
 
     return image_files
@@ -49,7 +55,7 @@ def index(img_num):
 def get_lines(img_num=0):
 
     data = torch.load(
-        f"{image_folder_path}/correspondence_data_{img_num:03d}.pt")
+        f"{image_folder_path}/correspondence_data_{(img_num+1):03d}.pt")
 
     est_keypoints = data['est_keypoints']
     correct_ids = data['correct_ids']
@@ -57,17 +63,17 @@ def get_lines(img_num=0):
     trg_kps = data['trg_kps']
 
     # count the number of keypoints that arent -1
-    num_keypoints = torch.sum(est_keypoints[0, 0] != -1)
+    num_keypoints = torch.sum(est_keypoints[0] != -1)
 
     lines = []
 
     for i in range(num_keypoints):
 
         tag = f"{i:02d}"
-        x1 = src_kps[0, 0, i].item()
-        y1 = src_kps[0, 1, i].item()
-        x2 = est_keypoints[0, 0, i].item()+512
-        y2 = est_keypoints[0, 1, i].item()
+        x1 = src_kps[0, i].item()
+        y1 = src_kps[1, i].item()
+        x2 = est_keypoints[0, i].item()+512
+        y2 = est_keypoints[1, i].item()
         color = 'green' if i in correct_ids else 'red'
 
         lines.append({'tag': tag, 'x1': x1, 'y1': y1,

@@ -170,7 +170,7 @@ def visualie_flow(initial_image, final_image, flow, name):
     plt.savefig(f'outputs/{name}.png')
     
     
-def visualie_correspondences(initial_image, final_image, source, target, name, correct_ids=None, save_folder = "outputs"):
+def visualie_correspondences(initial_image, final_image, source, target, name, correct_ids=None, save_folder = "outputs", line_width=5):
     r"""Visualize correspondences. Show initial image on the left, final image on the right and correspondences connecting corresponding points"""
     
     import matplotlib.pyplot as plt
@@ -220,10 +220,10 @@ def visualie_correspondences(initial_image, final_image, source, target, name, c
         if source[0, 0, i] == -1:
             continue
         if correct_ids is not None and i in correct_ids:
-            color = "green"
+            color = "blue"
         else:
-            color = "red"
-        plt.plot([source[0, 0, i], target[0, 0, i]+512], [source[0, 1, i], target[0, 1, i]], color=color, linewidth=1)
+            color = "orange"
+        plt.plot([source[0, 0, i], target[0, 0, i]+512], [source[0, 1, i], target[0, 1, i]], color=color, linewidth=line_width)
         
     plt.axis('on')
 
@@ -241,7 +241,7 @@ def visualie_correspondences(initial_image, final_image, source, target, name, c
     # print("y")
     # print(y)
     # plt.quiver(x*16, y*16, flow[0]/32, flow[1]/32, color='r', scale=1)
-    plt.savefig(f'{save_folder}/{name}.png', dpi=300)
+    plt.savefig(f'{save_folder}/{name}.pdf')
     plt.close()
 
     

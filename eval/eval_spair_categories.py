@@ -1,7 +1,3 @@
-r'''
-    modified test script of GLU-Net
-    https://github.com/PruneTruong/GLU-Net
-'''
 
 import argparse
 import os
@@ -37,7 +33,7 @@ if __name__ == "__main__":
     # Dataset
     parser.add_argument('--datapath', type=str, default='../Datasets_CATs')
     parser.add_argument('--benchmark', type=str,
-                        choices=['pfpascal', 'spair', 'pfwillow', 'cubs', 'cat'], default='spair')
+                        choices=['pfpascal', 'spair', 'pfwillow', 'cubs'], default='spair')
     parser.add_argument('--thres', type=str, default='auto',
                         choices=['auto', 'img', 'bbox'])
     parser.add_argument('--alpha', type=float, default=0.1,
@@ -97,16 +93,8 @@ if __name__ == "__main__":
                         help='Pseudo-RNG seed')
     parser.add_argument('--ablate', action='store_true',
                         help='evaluate over a smaller number of points')
-    
-    
 
     args = parser.parse_args()
-    
-    # from glob import glob
-    # if args.item_index != -1 and len(glob(f"/home/iamerich/burst/pfwillow_no_crop_ablation/{args.item_index}/*.txt")) > 0:
-    #     exit()
-    
-    
     if args.seed != -1:
         random.seed(args.seed)
         np.random.seed(args.seed)
@@ -132,99 +120,20 @@ if __name__ == "__main__":
     else:
         test_dataset = download.load_dataset(args.benchmark, args.datapath, args.thres, device,
                                             args.split, False, 16, sub_class=args.sub_class, item_index=-1)
-    test_dataloader = DataLoader(test_dataset,
-                                 batch_size=args.batch_size,
-                                 num_workers=0,
-                                 shuffle=True)
     
     # optimize.rewrite_idxs()
     # exit()
 
-    # results = test_dataset.collect_results()
-    # # results is a dict with values being lists
-    # # import ipdb ; ipdb.set_trace()
-    # this_avg = []
-    # for key in results.keys():
-    #     if len(results[key]) == 0:
-    #         continue
-    #     print(key, sum(results[key])/len(results[key]))
-    #     this_avg.append(sum(results[key])/len(results[key]))
+    results = test_dataset.collect_results()
+    # results is a dict with values being lists
+    # import ipdb ; ipdb.set_trace()
+    this_avg = []
+    for key in results.keys():
+        if len(results[key]) == 0:
+            continue
+        print(key, sum(results[key])/len(results[key]), len(results[key]))
+        this_avg.append(sum(results[key])/len(results[key]))
 
-    # overal_avg = sum(this_avg)/len(this_avg)
+    overal_avg = sum(this_avg)/len(this_avg)
 
-    # print("overall average", overal_avg)
-    # exit()
-
-    # initialize model
-    # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    # device = torch.device('cpu')
-    ldm = load_ldm(args.device, args.model_type)
-    
-    from diffusers.models import unet_2d_condition
-
-    
-    # run_dave(ldm)
-    # exit()
-    
-    # if args.save_loc doesnt exist, create it
-    if not os.path.exists(args.save_loc):
-        os.makedirs(args.save_loc)
-        
-    train_started = time.time()
-
-    if args.mode == "optimize":
-        print("validating")
-        pck_array = optimize.validate_epoch(ldm,
-                                            test_dataloader,
-                                            num_steps=args.num_steps,
-                                            noise_level=args.noise_level,
-                                            upsample_res=args.upsample_res,
-                                            layers=args.layers,
-                                            num_words=args.num_words,
-                                            device=args.device,
-                                            visualize=args.visualize,
-                                            epoch=args.epoch,
-                                            lr=args.learning_rate,
-                                            wandb_log=args.wandb_log,
-                                            sigma=args.sigma,
-                                            flip_prob=args.flip_prob,
-                                            num_opt_iterations=args.num_opt_iterations,
-                                            num_iterations=args.num_iterations,
-                                            crop_percent=args.crop_percent,
-                                            save_folder = args.save_loc,
-                                            item_index = args.item_index,
-                                            alpha=args.alpha,
-                                            ablate = args.ablate,)
-        if args.item_index != -1:
-            # save the pck array to a text file
-            np.savetxt(
-                f"{args.save_loc}/pck_array_{args.item_index:06d}.txt", pck_array)
-
-        print('Test took:', time.time()-train_started, 'seconds')
-    elif args.mode == "retest":
-        print("retesting")
-        pck_array = optimize.retest(ldm,
-                                    test_dataset,
-                                    num_steps=args.num_steps,
-                                    noise_level=args.noise_level,
-                                    upsample_res=args.upsample_res,
-                                    layers=args.layers,
-                                    num_words=args.num_words,
-                                    device=args.device,
-                                    visualize=args.visualize,
-                                    epoch=args.epoch,
-                                    optimize=args.mode == "optimize",
-                                    # lr=args.learning_rate,
-                                    wandb_log=args.wandb_log,
-                                    crop_percent=args.crop_percent,
-                                    # sigma=args.sigma,
-                                    # flip_prob=args.flip_prob,
-                                    # num_opt_iterations=args.num_opt_iterations,
-                                    item_index=args.item_index,
-                                    save_folder = args.save_loc,
-                                    results_loc = args.results_loc,
-                                    num_iterations = args.num_iterations,
-                                    alpha=args.alpha,
-                                    ablate_results = args.ablate_results,)
-    else:
-        raise ValueError("mode must be one of train, evaluate, or optimize")
+    print("overall average", overal_avg)

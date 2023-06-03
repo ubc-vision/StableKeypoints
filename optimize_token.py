@@ -1029,7 +1029,7 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
     import time
     start = time.time()
     
-    for _ in range(num_steps):
+    for iteration in range(num_steps):
         
         with torch.no_grad():
         
@@ -1075,8 +1075,6 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers = layers)
         num_maps = attention_maps.shape[0]
         
-        
-        
         # divide by the mean along the dim=1
         attention_maps = torch.mean(attention_maps, dim=1)
 
@@ -1094,6 +1092,14 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         # exit()
         # visualize_image_with_points(gt_maps[None], pixel_loc*upsample_res, f"temp")
         # exit()
+        
+        # save the attention map as an image
+        import matplotlib.pyplot as plt
+        plt.imshow(torch.mean(attention_maps, dim=0)[:, :, None].cpu().detach().numpy())
+        # remove borders
+        plt.axis('off')
+        plt.savefig(f'outputs/debug_viz/attention_map_{iteration:04d}.png', bbox_inches='tight', pad_inches=0)
+        plt.close()
         
         gt_maps = gt_maps.reshape(1, -1).repeat(num_maps, 1)
         attention_maps = attention_maps.reshape(num_maps, -1)
@@ -1127,6 +1133,8 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         
         
         # print(loss.item())
+        
+    exit()
         
     # visualize_image_with_points(gt_maps[0].reshape(1, upsample_res, upsample_res), torch.tensor([(x_loc+0.5), (y_loc+0.5)]), "gt_points")
     # for i in range(attention_maps.shape[0]):

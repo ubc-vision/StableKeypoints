@@ -43,6 +43,8 @@ print(ind_layers_results)
 import matplotlib.pyplot as plt
 import numpy as np
 
+plt.style.use('fivethirtyeight')
+
 plt.plot(pck)
 plt.title("pck")
 plt.savefig("pck.png")

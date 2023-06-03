@@ -11,3 +11,6 @@ results/
 .vscode/
 temp.py
 **.pt
+cubs_results/
+pfwillow_results/
+spair_results/

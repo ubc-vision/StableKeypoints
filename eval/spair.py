@@ -93,10 +93,11 @@ class SPairDataset(CorrespondenceDataset):
         results = {cls: [] for cls in self.cls}
         
         from glob import glob
-        files = sorted(glob("/home/iamerich/burst/ldm/retesting/*"))
+        # files = sorted(glob("spair_results/results_unflipped/*"))
+        files = sorted(glob("spair_results/results_unflipped/*/pck_array_*.txt"))
         
         for file_name in files:
-            file_number = int(file_name.split("/")[-1].split("_")[0])
+            file_number = int(file_name.split("/")[-2])
             
             data_name = self.train_data[file_number]
             obj_name = data_name.split(":")[-1]
@@ -104,8 +105,10 @@ class SPairDataset(CorrespondenceDataset):
             assert obj_name in results.keys()
             
             # open file and append the value to the list
-            file = torch.load(file_name)
-            performance = float(file['pck'][0])
+            # file = torch.load(file_name)
+            # performance = float(file['pck'][0])
+            # load the text file
+            performance = np.loadtxt(file_name)[0]
 
             
             results[obj_name].append(performance)

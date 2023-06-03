@@ -9,6 +9,7 @@ from . import pfwillow
 from . import caltech
 from . import spair
 from . import cub2011
+from . import custom_image
 
 
 def load_dataset(benchmark, datapath, thres, device, split='test', augmentation=False, feature_size=16, sub_class = "all", item_index=-1):
@@ -19,6 +20,7 @@ def load_dataset(benchmark, datapath, thres, device, split='test', augmentation=
         'caltech': caltech.CaltechDataset,
         'spair': spair.SPairDataset,
         'cubs': cub2011.CUBDataset,
+        'cat': custom_image.CustomDataset,
     }
 
     dataset = correspondence_benchmark.get(benchmark)
@@ -85,10 +87,12 @@ def download_dataset(datapath, benchmark):
         'caltech': ('1IV0E5sJ6xSdDyIvVSTdZjPHELMwGzsMn', 'Caltech-101'),
         'spair': ('1s73NVEFPro260H1tXxCh1ain7oApR8of', 'SPair-71k'),
         'cubs': (None, 'CUB_200_2011'),
+        'cat': (None, 'CustomDataset'),
+        
     }
 
     file_id, filename = file_data[benchmark]
     abs_filepath = os.path.join(datapath, filename)
 
-    if not os.path.isdir(abs_filepath):
+    if not os.path.isdir(abs_filepath) and file_id is not None:
         download_from_google(file_id, abs_filepath)
