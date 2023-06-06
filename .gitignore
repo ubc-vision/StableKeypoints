@@ -5,8 +5,6 @@ outputs/
 checkpoints/
 wandb/
 .venv/
-
-**.png
 results/
 .vscode/
 temp.py
