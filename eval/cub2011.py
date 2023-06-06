@@ -106,32 +106,6 @@ class CUBDataset(Dataset):
         pck_threshold = self.compute_pck_threshold_per_image(bbox, scale_factor_2[0])
 
         return {'pckthres': pck_threshold, 'og_src_img': img1/255.0, 'og_trg_img': img2/255.0, 'src_kps': reordered_keypoints1.permute(1, 0), 'trg_kps': reordered_keypoints2.permute(1, 0), 'n_pts': torch.tensor([num_overlapping]), 'bbox': bbox, 'idx': torch.tensor([idx]), 'bool_img_src':bool_img_src, 'bool_img_trg':bool_img_trg, 'resized': pad_left_1 > 10 or pad_top_1  > 10 or pad_left_2  > 10 or pad_top_2  > 10}
-
-    # def load_image(self, img_name):
-    #     img_path = os.path.join(self.datapath, "images", img_name)
-    #     image = Image.open(img_path).convert('RGB')
-
-    #     width, height = image.size
-    #     max_dim = max(width, height)
-    #     scale_factor = 512 / max_dim
-    #     new_width, new_height = int(width * scale_factor), int(height * scale_factor)
-    #     image = image.resize((new_width, new_height), Image.BILINEAR)
-
-    #     pad_left = (512 - new_width) // 2
-    #     pad_right = 512 - new_width - pad_left
-    #     pad_top = (512 - new_height) // 2
-    #     pad_bottom = 512 - new_height - pad_top
-
-    #     image_np = np.array(image)
-    #     tiled_image = cv2.copyMakeBorder(image_np, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_WRAP)
-
-    #     image = torch.from_numpy(tiled_image).permute(2, 0, 1).float()
-
-    #     # Create a boolean image
-    #     bool_image = torch.zeros((512, 512), dtype=torch.bool)
-    #     bool_image[pad_top:pad_top + new_height, pad_left:pad_left + new_width] = 1
-
-    #     return image, torch.tensor([scale_factor, scale_factor], dtype=torch.float), pad_left, pad_top, bool_image
     
     def load_image(self, img_name):
         img_path = os.path.join(self.datapath, "images", img_name)

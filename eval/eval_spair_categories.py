@@ -14,14 +14,14 @@ import torch.optim.lr_scheduler as lr_scheduler
 from termcolor import colored
 from torch.utils.data import DataLoader
 
-import utils_training.optimize as optimize
-from utils_training.evaluation import Evaluator
-from utils_training.utils import parse_list, log_args, load_checkpoint, save_checkpoint, boolean_string
+import utils.optimize as optimize
+from utils.evaluation import Evaluator
+from utils.utils import parse_list, log_args, load_checkpoint, save_checkpoint, boolean_string
 from eval import download
 
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 
-from optimize_token import load_ldm, run_dave
+from utils.optimize_token import load_ldm, run_dave
 
 import wandb
 

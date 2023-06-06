@@ -223,23 +223,12 @@ def register_attention_control(model, controller):
                 max_neg_value = -torch.finfo(sim.dtype).max
                 mask = mask[:, None, :].repeat(h, 1, 1)
                 sim = sim.masked_fill(~mask, max_neg_value)
-                
-                
 
             # attention, what we cannot get enough of
-            # attn = sim
-            # attn = sim.softmax(dim=-1)
-            # softmax = torch.nn.Softmax()
             attn = torch.nn.Softmax(dim=-1)(sim)
-            # attn = softmax_torch(sim)
             attn = attn.clone()
             attn = controller(attn, is_cross, place_in_unet)
-            # out = torch.einsum("b i j, b j d -> b i d", attn, v)
             out = torch.matmul(attn, v)
-            
-            # if context is not None:
-            #     print("forward, ", x.shape, context.shape, q.shape, k.shape, v.shape, attn.shape, out.shape, is_cross, place_in_unet)
-                
             
             out = self.reshape_batch_dim_to_heads(out)
             return to_out(out)

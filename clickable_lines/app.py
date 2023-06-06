@@ -4,21 +4,21 @@ import glob
 import time
 from flask import send_from_directory
 from flask import Flask, render_template
+import argparse
 
 app = Flask(__name__)
 
 
+parser = argparse.ArgumentParser(description='Correspondence Visualization')
 
-# Add a variable for the image folder path
-# image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/spair"
-image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/spair_3"
+# Dataset
+parser.add_argument('--image_folder_path', type=str, default='/ubc/cs/home/i/iamerich/scratch/prompt-to-prompt/outputs', help='path to the folder containing the images to be served')
 
-# image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/cubs"
-# image_folder_path = "/scratch/iamerich/prompt-to-prompt/outputs/pfwillow_wo_flip"
+args = parser.parse_args()
 
 @app.route('/serve_image/<path:image_path>')
 def serve_image(image_path):
-    return send_from_directory(image_folder_path, image_path)
+    return send_from_directory(args.image_folder_path, image_path)
 
 @app.route('/images/<int:img_num>/<line_tag>')
 def show_images(img_num, line_tag):
@@ -55,12 +55,12 @@ def index(img_num):
 def get_lines(img_num=0):
 
     data = torch.load(
-        f"{image_folder_path}/correspondence_data_{(img_num+1):03d}.pt")
-
-    est_keypoints = data['est_keypoints']
+        f"{args.image_folder_path}/correspondence_data_{(img_num):03d}.pt")
+    
+    est_keypoints = data['est_keypoints'][0]
     correct_ids = data['correct_ids']
-    src_kps = data['src_kps']
-    trg_kps = data['trg_kps']
+    src_kps = data['src_kps'][0]
+    trg_kps = data['trg_kps'][0]
 
     # count the number of keypoints that arent -1
     num_keypoints = torch.sum(est_keypoints[0] != -1)
@@ -74,7 +74,7 @@ def get_lines(img_num=0):
         y1 = src_kps[1, i].item()
         x2 = est_keypoints[0, i].item()+512
         y2 = est_keypoints[1, i].item()
-        color = 'green' if i in correct_ids else 'red'
+        color = 'blue' if i in correct_ids else 'orange'
 
         lines.append({'tag': tag, 'x1': x1, 'y1': y1,
                      'x2': x2, 'y2': y2, 'color': color})

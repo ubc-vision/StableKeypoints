@@ -1,103 +1,59 @@
-# Prompt-to-Prompt
+# Unsupervised Semantic Correspondence Using Stable Diffusion
 
-> *Latent Diffusion* and *Stable Diffusion* Implementation
+[Paper](https://arxiv.org/abs/2305.15581)
 
-## :partying_face: ***New:*** :partying_face: Code for Null-Text Inversion is now provided [here](#null-text-inversion-for-editing-real-images)
+This repository contains the implementation of our method for estimating correspondences with Stable Diffusion in an unsupervised manner. Our new method surpasses weakly supervised methods and closes the gap to strongly supervised methods. 
 
+## Method Overview
 
-![teaser](docs/teaser.png)
-### [Project Page](https://prompt-to-prompt.github.io)&ensp;&ensp;&ensp;[Paper](https://prompt-to-prompt.github.io/ptp_files/Prompt-to-Prompt_preprint.pdf)
+We supervise the attention maps corresponding to randomly initialized text embedding to activate in a source region. This text embedding can then be applied to any target image where we simply look for the argmax in its attention map.
 
+[![Method Overview](method_overview/method.png)](https://youtu.be/br2zX9XkWX0)
 
-## Setup
+We are motivated by the fact that the attention maps for specific words act as pseudo-segmentation for those regions. By inputting an image instead of random noise we can use Stable Diffusion for inference tasks.
 
-This code was tested with Python 3.8, [Pytorch](https://pytorch.org/) 1.11 using pre-trained models through [huggingface / diffusers](https://github.com/huggingface/diffusers#readme).
-Specifically, we implemented our method over  [Latent Diffusion](https://huggingface.co/CompVis/ldm-text2im-large-256) and  [Stable Diffusion](https://huggingface.co/CompVis/stable-diffusion-v1-4).
-Additional required packages are listed in the requirements file.
-The code was tested on a Tesla V100 16GB but should work on other cards with at least **12GB** VRAM.
+![English Word Attention Maps](method_overview/english_word_attn_maps.png)
 
-## Quickstart
+We find that even when our method predicts incorrect correspondences, the regions it predicts still seem reasonable. On the bottom right, of note, even though all points are meant to correspond with the wine bottle, points occluded by the wine glass instead map to the wine glass.
 
-In order to get started, we recommend taking a look at our notebooks: [**prompt-to-prompt_ldm**][p2p-ldm] and [**prompt-to-prompt_stable**][p2p-stable]. The notebooks contain end-to-end examples of usage of prompt-to-prompt on top of *Latent Diffusion* and *Stable Diffusion* respectively. Take a look at these notebooks to learn how to use the different types of prompt edits and understand the API.
+![Qualitative Examples](method_overview/qualitative_examples.png)
 
-## Prompt Edits
+Our method outperforms weakly supervised methods and in the case of PF-Willow, is on par with strongly supervised methods.
 
-In our notebooks, we perform our main logic by implementing the abstract class `AttentionControl` object, of the following form:
+![Qualitative Performance](method_overview/qualitative_performance.png)
 
-``` python
-class AttentionControl(abc.ABC):
-    @abc.abstractmethod
-    def forward (self, attn, is_cross: bool, place_in_unet: str):
-        raise NotImplementedError
-```
+We also find that when we look for correspondences between different classes, it still estimates plausible correspondences.
 
-The `forward` method is called in each attention layer of the diffusion model during the image generation, and we use it to modify the weights of the attention. Our method (See Section 3 of our [paper](https://arxiv.org/abs/2208.01626)) edits images with the procedure above, and  each different prompt edit type modifies the weights of the attention in a different manner.
+![Cross Class Correspondences](method_overview/cross_class_correspondences.png)
 
-The general flow of our code is as follows, with variations based on the attention control type:
+## Getting Started
 
-``` python
-prompts = ["A painting of a squirrel eating a burger", ...]
-controller = AttentionControl(prompts, ...)
-run_and_display(prompts, controller, ...)
-```
+Here are instructions on how to run the repository:
 
-### Replacement
-In this case, the user swaps tokens of the original prompt with others, e.g., the editing the prompt `"A painting of a squirrel eating a burger"` to `"A painting of a squirrel eating a lasagna"` or `"A painting of a lion eating a burger"`. For this we define the class `AttentionReplace`.
+1. Install dependencies: This project uses a conda environment for managing dependencies. You can create the environment and install all dependencies with the following command:
+    ```
+    conda env create -f environment.yml
+    ```
+2. Run the evaluation script:
+    ```
+    python3 -m eval.eval
+    ```
 
-### Refinement
-In this case, the user adds new tokens to the prompt, e.g., editing the prompt `"A painting of a squirrel eating a burger"` to `"A watercolor painting of a squirrel eating a burger"`. For this we define the class `AttentionEditRefine`.
+## Visualizing Attention Maps
 
-### Re-weight
-In this case, the user changes the weight of certain tokens in the prompt, e.g., for the prompt `"A photo of a poppy field at night"`, strengthen or weaken the extent to which the word `night` affects the resulting image. For this we define the class `AttentionReweight`.
+Here are instructions on how to visualize the repository:
 
+1. Run the evaluation script while collecting visualizations:
+    ```
+    python3 -m eval.eval --visualize
+    ```
+2. Change directories into the visualization script:
+    ```
+    cd clickable_lines
+    ```
+3. Run visualization script:
+    ```
+    python3 app.py --image_folder_path PATH_TO_YOUR_VISUALIZATIONS
+    ```
 
-## Attention Control Options
- * `cross_replace_steps`: specifies the fraction of steps to edit the cross attention maps. Can also be set to a dictionary `[str:float]` which specifies fractions for different words in the prompt.
- * `self_replace_steps`: specifies the fraction of steps to replace the self attention maps.
- * `local_blend` (optional):  `LocalBlend` object which is used to make local edits. `LocalBlend` is initialized with the words from each prompt that correspond with the region in the image we want to edit.
- * `equalizer`: used for attention Re-weighting only. A vector of coefficients to multiply each cross-attention weight
-
-## Citation
-
-``` bibtex
-@article{hertz2022prompt,
-  title = {Prompt-to-Prompt Image Editing with Cross Attention Control},
-  author = {Hertz, Amir and Mokady, Ron and Tenenbaum, Jay and Aberman, Kfir and Pritch, Yael and Cohen-Or, Daniel},
-  journal = {arXiv preprint arXiv:2208.01626},
-  year = {2022},
-}
-```
-
-# Null-Text Inversion for Editing Real Images
-
-### [Project Page](https://null-text-inversion.github.io/)&ensp;&ensp;&ensp;[Paper](https://arxiv.org/abs/2211.09794)
-
-
-
-Null-text inversion enables intuitive text-based editing of **real images** with the Stable Diffusion model. We use an initial DDIM inversion as an anchor for our optimization which only tunes the null-text embedding used in classifier-free guidance.
-
-
-![teaser](docs/null_text_teaser.png)
-
-## Editing Real Images
-
-Prompt-to-Prompt editing of real images by first using Null-text inversion is provided in this [**Notebooke**][null_text].
-
-
-``` bibtex
-@article{mokady2022null,
-  title={Null-text Inversion for Editing Real Images using Guided Diffusion Models},
-  author={Mokady, Ron and Hertz, Amir and Aberman, Kfir and Pritch, Yael and Cohen-Or, Daniel},
-  journal={arXiv preprint arXiv:2211.09794},
-  year={2022}
-}
-```
-
-
-## Disclaimer
-
-This is not an officially supported Google product.
-
-[p2p-ldm]: prompt-to-prompt_ldm.ipynb
-[p2p-stable]: prompt-to-prompt_stable.ipynb
-[null_text]: null_text_w_ptp.ipynb
+**NOTE:** Be sure to activate the conda environment before running the evaluation script.

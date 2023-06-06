@@ -9,9 +9,9 @@ from PIL import Image
 import numpy as np
 import torch
 
-from .keypoint_to_flow import KeypointToFlow
+# from .keypoint_to_flow import KeypointToFlow
 import albumentations as A
-from albumentations.pytorch.transforms import ToTensorV2
+# from albumentations.pytorch.transforms import ToTensorV2
 
 
 def resize(img, kps, size=(512, 512)):
@@ -165,7 +165,7 @@ class CorrespondenceDataset(Dataset):
         self.src_kps = []
         self.trg_kps = []
 
-        self.kps_to_flow = KeypointToFlow(receptive_field_size=35, jsz=512//feature_size, feat_size=feature_size, img_size=self.imside)
+        # self.kps_to_flow = KeypointToFlow(receptive_field_size=35, jsz=512//feature_size, feat_size=feature_size, img_size=self.imside)
 
     def __len__(self):
         r"""Returns the number of pairs"""

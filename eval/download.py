@@ -4,9 +4,9 @@ import os
 
 import requests
 
-from . import pfpascal
+# from . import pfpascal
 from . import pfwillow
-from . import caltech
+# from . import caltech
 from . import spair
 from . import cub2011
 from . import custom_image
@@ -15,12 +15,12 @@ from . import custom_image
 def load_dataset(benchmark, datapath, thres, device, split='test', augmentation=False, feature_size=16, sub_class = "all", item_index=-1):
     r"""Instantiates desired correspondence dataset"""
     correspondence_benchmark = {
-        'pfpascal': pfpascal.PFPascalDataset,
+        # 'pfpascal': pfpascal.PFPascalDataset,
         'pfwillow': pfwillow.PFWillowDataset,
-        'caltech': caltech.CaltechDataset,
+        # 'caltech': caltech.CaltechDataset,
         'spair': spair.SPairDataset,
         'cubs': cub2011.CUBDataset,
-        'cat': custom_image.CustomDataset,
+        'custom': custom_image.CustomDataset,
     }
 
     dataset = correspondence_benchmark.get(benchmark)
@@ -87,7 +87,7 @@ def download_dataset(datapath, benchmark):
         'caltech': ('1IV0E5sJ6xSdDyIvVSTdZjPHELMwGzsMn', 'Caltech-101'),
         'spair': ('1s73NVEFPro260H1tXxCh1ain7oApR8of', 'SPair-71k'),
         'cubs': (None, 'CUB_200_2011'),
-        'cat': (None, 'CustomDataset'),
+        'custom': (None, 'CustomDataset'),
         
     }
 

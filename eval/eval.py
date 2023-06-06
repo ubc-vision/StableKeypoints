@@ -18,26 +18,26 @@ import torch.optim.lr_scheduler as lr_scheduler
 from termcolor import colored
 from torch.utils.data import DataLoader
 
-import utils_training.optimize as optimize
-from utils_training.evaluation import Evaluator
-from utils_training.utils import parse_list, log_args, load_checkpoint, save_checkpoint, boolean_string
+import utils.optimize as optimize
+from utils.evaluation import Evaluator
+from utils.utils import parse_list, log_args, load_checkpoint, save_checkpoint, boolean_string
 from eval import download
 
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 
-from optimize_token import load_ldm, run_dave
+from utils.optimize_token import load_ldm, run_dave
 
 import wandb
 
 
 if __name__ == "__main__":
     # Argument parsing
-    parser = argparse.ArgumentParser(description='CATs Test Script')
+    parser = argparse.ArgumentParser(description='Test Script')
 
     # Dataset
     parser.add_argument('--datapath', type=str, default='../Datasets_CATs')
     parser.add_argument('--benchmark', type=str,
-                        choices=['pfpascal', 'spair', 'pfwillow', 'cubs', 'cat'], default='spair')
+                        choices=['spair', 'pfwillow', 'cubs', 'custom'], default='custom')
     parser.add_argument('--thres', type=str, default='auto',
                         choices=['auto', 'img', 'bbox'])
     parser.add_argument('--alpha', type=float, default=0.1,
@@ -137,35 +137,10 @@ if __name__ == "__main__":
                                  num_workers=0,
                                  shuffle=True)
     
-    # optimize.rewrite_idxs()
-    # exit()
-
-    # results = test_dataset.collect_results()
-    # # results is a dict with values being lists
-    # # import ipdb ; ipdb.set_trace()
-    # this_avg = []
-    # for key in results.keys():
-    #     if len(results[key]) == 0:
-    #         continue
-    #     print(key, sum(results[key])/len(results[key]))
-    #     this_avg.append(sum(results[key])/len(results[key]))
-
-    # overal_avg = sum(this_avg)/len(this_avg)
-
-    # print("overall average", overal_avg)
-    # exit()
-
-    # initialize model
-    # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    # device = torch.device('cpu')
     ldm = load_ldm(args.device, args.model_type)
     
     from diffusers.models import unet_2d_condition
 
-    
-    # run_dave(ldm)
-    # exit()
-    
     # if args.save_loc doesnt exist, create it
     if not os.path.exists(args.save_loc):
         os.makedirs(args.save_loc)
@@ -193,7 +168,7 @@ if __name__ == "__main__":
                                             crop_percent=args.crop_percent,
                                             save_folder = args.save_loc,
                                             item_index = args.item_index,
-                                            alpha=args.alpha,
+                                            # alpha=args.alpha,
                                             ablate = args.ablate,)
         if args.item_index != -1:
             # save the pck array to a text file
