@@ -36,6 +36,7 @@ Here are instructions on how to run the repository:
     ```
 2. Run the evaluation script:
     ```
+    conda activate keypoint_correspondences_ldm
     python3 -m eval.eval
     ```
 
@@ -47,13 +48,9 @@ Here are instructions on how to visualize the repository:
     ```
     python3 -m eval.eval --visualize
     ```
-2. Change directories into the visualization script:
+2. Run visualization script:
     ```
-    cd clickable_lines
-    ```
-3. Run visualization script:
-    ```
-    python3 app.py --image_folder_path PATH_TO_YOUR_VISUALIZATIONS
+    python3 clickable_lines/app.py --image_folder_path PATH_TO_YOUR_VISUALIZATIONS
     ```
 
 **NOTE:** Be sure to activate the conda environment before running the evaluation script.

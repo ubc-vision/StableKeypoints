@@ -1,4 +1,4 @@
-name: prompt-to-prompt
+name: keypoint_correspondences_ldm
 channels:
   - xformers/label/dev
   - pytorch
