@@ -20,8 +20,7 @@ from diffusers import StableDiffusionPipeline, DDIMScheduler
 import torch.nn.functional as nnf
 import numpy as np
 import abc
-import ptp_utils
-import seq_aligner
+from utils import ptp_utils
 import shutil
 from torch.optim.adam import Adam
 from PIL import Image

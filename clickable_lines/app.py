@@ -12,9 +12,10 @@ app = Flask(__name__)
 parser = argparse.ArgumentParser(description='Correspondence Visualization')
 
 # Dataset
-parser.add_argument('--image_folder_path', type=str, default='/ubc/cs/home/i/iamerich/scratch/prompt-to-prompt/outputs', help='path to the folder containing the images to be served')
-
+parser.add_argument('--image_folder_path', type=str, default='outputs', help='path to the folder containing the images to be served')
 args = parser.parse_args()
+
+args.image_folder_path = os.path.abspath(args.image_folder_path)
 
 @app.route('/serve_image/<path:image_path>')
 def serve_image(image_path):

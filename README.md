@@ -51,5 +51,5 @@ Here are instructions on how to visualize the repository:
     ```
 2. Run visualization script:
     ```
-    python3 clickable_lines/app.py --image_folder_path PATH_TO_YOUR_VISUALIZATIONS
+    python3 -m clickable_lines.app
     ```
