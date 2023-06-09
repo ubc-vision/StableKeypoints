@@ -4,6 +4,39 @@
 
 This repository contains the implementation of our method for estimating correspondences with Stable Diffusion in an unsupervised manner. Our new method surpasses weakly supervised methods and closes the gap to strongly supervised methods. 
 
+## Getting Started
+
+Here are instructions on how to run the repository:
+
+1. Install dependencies: This project uses a conda environment for managing dependencies. You can create the environment and install all dependencies with the following command:
+    ```shell
+    conda env create -f environment.yml
+    ```
+2. Run the evaluation script:
+    ```shell
+    conda activate keypoint_correspondences_ldm
+    python3 -m eval.eval
+    ```
+
+## Visualizing Attention Maps
+
+The project includes an interactive local website for visualizing attention maps associated with identified correspondences. Follow the steps below to launch the visualization:
+
+1. Activate the conda environment and run the evaluation script with visualization:
+
+    ```shell
+    conda activate keypoint_correspondences_ldm
+    python3 -m eval.eval --visualize
+    ```
+
+2. Launch the interactive website by running the visualization script:
+
+    ```shell
+    python3 -m clickable_lines.app
+    ```
+
+This will display correspondences. Click on each to visualize the corresponding attention maps. 
+
 ## Method Overview
 
 We supervise the attention maps corresponding to randomly initialized text embedding to activate in a source region. This text embedding can then be applied to any target image where we simply look for the argmax in its attention map.
@@ -25,34 +58,6 @@ Our method outperforms weakly supervised methods and in the case of PF-Willow, i
 We also find that when we look for correspondences between different classes, it still estimates plausible correspondences.
 
 ![Cross Class Correspondences](./docs/cross_class_correspondences.png)
-
-## Getting Started
-
-Here are instructions on how to run the repository:
-
-1. Install dependencies: This project uses a conda environment for managing dependencies. You can create the environment and install all dependencies with the following command:
-    ```
-    conda env create -f environment.yml
-    ```
-2. Run the evaluation script:
-    ```
-    conda activate keypoint_correspondences_ldm
-    python3 -m eval.eval
-    ```
-
-## Visualizing Attention Maps
-
-Here are instructions on how to visualize the repository:
-
-1. Run the evaluation script while collecting visualizations:
-    ```
-    conda activate keypoint_correspondences_ldm
-    python3 -m eval.eval --visualize
-    ```
-2. Run visualization script:
-    ```
-    python3 -m clickable_lines.app
-    ```
 
 
 ## Citing

@@ -5,27 +5,19 @@ r'''
 
 import argparse
 import os
-import pickle
 import random
 import time
-from os import path as osp
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.optim.lr_scheduler as lr_scheduler
-from termcolor import colored
 from torch.utils.data import DataLoader
 
 import utils.optimize as optimize
 from utils.evaluation import Evaluator
-from utils.utils import parse_list, log_args, load_checkpoint, save_checkpoint, boolean_string
 from eval import download
 
-from diffusers import StableDiffusionPipeline, DDIMScheduler
 
-from utils.optimize_token import load_ldm, run_dave
+from utils.optimize_token import load_ldm
 
 import wandb
 
@@ -121,7 +113,7 @@ if __name__ == "__main__":
         wandb.config.update(args)
 
     # Initialize Evaluator
-    Evaluator.initialize(args.benchmark, args.alpha)
+    Evaluator.initialize()
 
     # Dataloader
     download.download_dataset(args.datapath, args.benchmark)
@@ -155,7 +147,6 @@ if __name__ == "__main__":
                                             noise_level=args.noise_level,
                                             upsample_res=args.upsample_res,
                                             layers=args.layers,
-                                            num_words=args.num_words,
                                             device=args.device,
                                             visualize=args.visualize,
                                             epoch=args.epoch,
@@ -167,9 +158,7 @@ if __name__ == "__main__":
                                             num_iterations=args.num_iterations,
                                             crop_percent=args.crop_percent,
                                             save_folder = args.save_loc,
-                                            item_index = args.item_index,
-                                            # alpha=args.alpha,
-                                            ablate = args.ablate,)
+                                            item_index = args.item_index,)
         if args.item_index != -1:
             # save the pck array to a text file
             np.savetxt(
@@ -180,26 +169,18 @@ if __name__ == "__main__":
         print("retesting")
         pck_array = optimize.retest(ldm,
                                     test_dataset,
-                                    num_steps=args.num_steps,
                                     noise_level=args.noise_level,
                                     upsample_res=args.upsample_res,
                                     layers=args.layers,
-                                    num_words=args.num_words,
                                     device=args.device,
                                     visualize=args.visualize,
                                     epoch=args.epoch,
-                                    optimize=args.mode == "optimize",
-                                    # lr=args.learning_rate,
                                     wandb_log=args.wandb_log,
                                     crop_percent=args.crop_percent,
-                                    # sigma=args.sigma,
-                                    # flip_prob=args.flip_prob,
-                                    # num_opt_iterations=args.num_opt_iterations,
                                     item_index=args.item_index,
                                     save_folder = args.save_loc,
                                     results_loc = args.results_loc,
                                     num_iterations = args.num_iterations,
-                                    alpha=args.alpha,
                                     ablate_results = args.ablate_results,)
     else:
         raise ValueError("mode must be one of train, evaluate, or optimize")

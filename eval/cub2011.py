@@ -105,7 +105,7 @@ class CUBDataset(Dataset):
         # Compute PCK threshold for the image
         pck_threshold = self.compute_pck_threshold_per_image(bbox, scale_factor_2[0])
 
-        return {'pckthres': pck_threshold, 'og_src_img': img1/255.0, 'og_trg_img': img2/255.0, 'src_kps': reordered_keypoints1.permute(1, 0), 'trg_kps': reordered_keypoints2.permute(1, 0), 'n_pts': torch.tensor([num_overlapping]), 'bbox': bbox, 'idx': torch.tensor([idx]), 'bool_img_src':bool_img_src, 'bool_img_trg':bool_img_trg, 'resized': pad_left_1 > 10 or pad_top_1  > 10 or pad_left_2  > 10 or pad_top_2  > 10}
+        return {'pckthres': pck_threshold, 'src_img': img1/255.0, 'trg_img': img2/255.0, 'src_kps': reordered_keypoints1.permute(1, 0), 'trg_kps': reordered_keypoints2.permute(1, 0), 'n_pts': torch.tensor([num_overlapping]), 'bbox': bbox, 'idx': torch.tensor([idx]), 'bool_img_src':bool_img_src, 'bool_img_trg':bool_img_trg, 'resized': pad_left_1 > 10 or pad_top_1  > 10 or pad_left_2  > 10 or pad_top_2  > 10}
     
     def load_image(self, img_name):
         img_path = os.path.join(self.datapath, "images", img_name)

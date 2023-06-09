@@ -69,25 +69,6 @@ def where(predicate):
         matching_indices = matching_indices.t().squeeze(0)
     return matching_indices
 
-
-def flow2kps(trg_kps, flow, n_pts, upsample_size=(512, 512)):
-    _, _, h, w = flow.size()
-    
-    flow = F.interpolate(flow, upsample_size, mode='bilinear') * (upsample_size[0] / h)
-    
-    
-    src_kps = []
-    for trg_kps, flow, n_pts in zip(trg_kps.long(), flow, n_pts):
-        size = trg_kps.size(1)
-
-        kp = torch.clamp(trg_kps.narrow_copy(1, 0, n_pts), 0, upsample_size[0] - 1)
-        estimated_kps = kp + flow[:, kp[1, :], kp[0, :]]
-        estimated_kps = torch.cat((estimated_kps, torch.ones(2, size - n_pts).cuda() * -1), dim=1)
-        src_kps.append(estimated_kps)
-        
-
-    return torch.stack(src_kps)
-
     
 def visualie_correspondences(initial_image, final_image, source, target, name, correct_ids=None, save_folder = "outputs", line_width=5):
     r"""Visualize correspondences. Show initial image on the left, final image on the right and correspondences connecting corresponding points"""

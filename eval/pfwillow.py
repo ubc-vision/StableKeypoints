@@ -41,11 +41,6 @@ class PFWillowDataset(CorrespondenceDataset):
         r"""Constructs and return a batch for PF-WILLOW dataset"""
         batch = super(PFWillowDataset, self).__getitem__(idx)
         batch['pckthres'] = self.get_pckthres(batch)
-
-        # batch['src_kpidx'] = self.match_idx(batch['src_kps'], batch['n_pts'])
-        # batch['trg_kpidx'] = self.match_idx(batch['trg_kps'], batch['n_pts'])
-
-        batch['flow'] = self.kps_to_flow(batch)
         
         batch['idx'] = idx
         

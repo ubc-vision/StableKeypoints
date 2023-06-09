@@ -28,7 +28,7 @@ class CustomDataset(Dataset):
         trg_kps = trg_kps.permute(1, 0)*512.0
 
 
-        return {'pckthres': torch.tensor([512.0]), 'og_src_img': source_img, 'og_trg_img': target_img, 'src_kps': src_kps, 'trg_kps': trg_kps, 'n_pts': n_points, 'idx': torch.tensor([0])}
+        return {'pckthres': torch.tensor([512.0]), 'src_img': source_img, 'trg_img': target_img, 'src_kps': src_kps, 'trg_kps': trg_kps, 'n_pts': n_points, 'idx': torch.tensor([0])}
 
     def load_image(self, img_name):
         image = Image.open(img_name).convert('RGB')

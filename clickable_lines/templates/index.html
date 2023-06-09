@@ -5,6 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clickable Line</title>
     <style>
+      body {
+        font-family: 'Open Sans', sans-serif;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+      }
+
+      h2 {
+        text-align: center;
+        color: #333;
+        padding: 10px 0;
+      }
+
+      div {
+        display: flex;
+        justify-content: center;
+        padding: 20px 0;
+      }
+
+      button {
+        font-size: 16px;
+        padding: 10px 20px;
+        margin: 0 10px;
+        cursor: pointer;
+      }
+
+      p {
+        text-align: center;
+        padding: 0 20px;
+      }
+
+      .image-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .image-container img {
+        max-width: 100%; /* adjust as needed */
+        height: auto;
+      }
+
       line {
         stroke-width: 4;
         cursor: pointer;
@@ -40,6 +84,8 @@
         Next
       </button>
     </div>
+    <h2>Found correspondences</h2>
+    <p>Blue lines indicate a correct correspondences and orange indicates an incorrect correspondence. Click one of the lines to explore the attention maps for the correspondence.</p>
     <svg width="1024" height="512">
       <image
         href="{{ url_for('serve_image', image_path='correspondences_estimated_%03d.png' % img_num) }}"

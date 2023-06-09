@@ -13,34 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union, Tuple, List, Callable, Dict
-from tqdm import tqdm
 import torch
 from diffusers import StableDiffusionPipeline, DDIMScheduler
-import torch.nn.functional as nnf
 import numpy as np
 import abc
 from utils import ptp_utils
-import shutil
-from torch.optim.adam import Adam
 from PIL import Image
 
 import torch.nn.functional as F
 
-from eval.dataset import random_crop
-
-# from networks.context_estimator import Context_Estimator
-
 import torch.nn as nn
-
-import wandb
-
-
-# import ipdb
-
-# from diffusers import StableDiffusionPipeline, EulerDiscreteScheduler
-
-from time import sleep
 
 import pynvml
 
@@ -56,17 +38,6 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
 
     scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
     
-    # images = torch.randn(1, 3, 512, 512).to("cuda")
-    # noise = torch.randn(1, 3, 512, 512).to("cuda")
-    
-    # for i in range(1, 11):
-    #     noisy_image = scheduler.add_noise(images, noise, scheduler.timesteps[-100*i])
-    #     print()
-    #     print(torch.max(torch.abs(noisy_image-images)))
-    #     print(torch.max(torch.abs(noisy_image-noise)))
-    # import ipdb; ipdb.set_trace()
-    
-    
     MY_TOKEN = ''
     LOW_RESOURCE = False 
     NUM_DDIM_STEPS = 50
@@ -74,17 +45,7 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     MAX_NUM_WORDS = 77
     scheduler.set_timesteps(NUM_DDIM_STEPS)
     
-    # import ipdb; ipdb.set_trace()
-    
-    
-    # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     ldm = StableDiffusionPipeline.from_pretrained(type, use_auth_token=MY_TOKEN, scheduler=scheduler).to(device)
-    
-    # import ipdb; ipdb.set_trace()
-    # ldm_stable = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-base").to(device)
-    
-    # from diffusers.pipelines.stable_diffusion import pipeline_stable_diffusion
-    # from diffusers.models import unet_2d_condition
 
     for param in ldm.vae.parameters():
         param.requires_grad = False
@@ -177,57 +138,7 @@ class AttentionStore(AttentionControl):
         self.step_store = self.get_empty_store()
         self.attention_store = {}
 
-        
 
-
-
-def aggregate_attention(attention_store: AttentionStore, res: int, from_where: List[str], is_cross: bool, select: int):
-    
-    out = []
-    attention_maps = attention_store.get_average_attention()
-    
-    import ipdb; ipdb.set_trace()
-    
-    # for key in attention_maps:
-    #     print(key, attention_maps[key].shape)
-    # print("attention_maps")
-    # print(attention_maps)
-
-    
-    num_pixels = res ** 2
-    for location in from_where:
-        for item in attention_maps[f"{location}_{'cross' if is_cross else 'self'}"]:
-            if item.shape[1] == num_pixels:
-                cross_maps = item.reshape(1, -1, res, res, item.shape[-1])[select]
-                out.append(cross_maps)
-    out = torch.cat(out, dim=0)
-    out = out.sum(0) / out.shape[0]
-    return out.cpu()
-
-
-
-def extract_attention_map(attention_store: AttentionStore, res: int, from_where: List[str], is_cross: bool, select: int):
-    out = []
-    attention_maps = attention_store.get_average_attention()
-    
-    # for key in attention_maps:
-    #     print(key, attention_maps[key].shape)
-    # print("attention_maps")
-    # print(attention_maps)
-
-    
-    num_pixels = res ** 2
-    for location in from_where:
-        for item in attention_maps[f"{location}_{'cross' if is_cross else 'self'}"]:
-            if item.shape[1] == num_pixels:
-                cross_maps = item.reshape(1, -1, res, res, item.shape[-1])[select]
-                out.append(cross_maps)
-    out = torch.cat(out, dim=0)
-    out = out.sum(0) / out.shape[0]
-    return out.cpu()
-    
-    
-    
 def load_512(image_path, left=0, right=0, top=0, bottom=0):
     if type(image_path) is str:
         image = np.array(Image.open(image_path))[:, :, :3]
@@ -306,41 +217,6 @@ def visualize_attention_map(attention_map, file_name):
     attention_map = (attention_map * 255).astype(np.uint8)
     img = Image.fromarray(attention_map)
     img.save(file_name)
-    
-
-@torch.no_grad()
-def run_image_with_tokens(ldm, image, tokens, device='cuda', from_where = ["down_cross", "mid_cross", "up_cross"], index=0, upsample_res=512, noise_level=10, layers=[0, 1, 2, 3, 4, 5], num_iterations=20):
-    
-    # if image is a torch.tensor, convert to numpy
-    if type(image) == torch.Tensor:
-        image = image.permute(1, 2, 0).detach().cpu().numpy()
-    
-    latents = image2latent(ldm, image, device=device)
-    
-    attention_maps = []
-    
-    for _ in range(num_iterations):
-    
-        controller = AttentionStore()
-            
-        ptp_utils.register_attention_control(ldm, controller)
-        
-        latents = ldm.scheduler.add_noise(latents, torch.rand_like(latents), ldm.scheduler.timesteps[-3])
-        
-        latents = ptp_utils.diffusion_step(ldm, controller, latents, tokens, ldm.scheduler.timesteps[-3], cfg=False)
-        
-        _attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=upsample_res, layers=layers)
-        
-        attention_maps.append(_attention_maps)
-        
-        
-    attention_maps = torch.stack(attention_maps)
-    # attention_maps = aggregate_attention(controller, map_size, from_where, True, 0)
-    
-    attention_maps = torch.mean(attention_maps, dim=0)
-    
-    return attention_maps
-
 
 
 @torch.no_grad()
@@ -391,9 +267,6 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
         
         _attention_maps = upscale_to_img_size(controller, from_where = from_where, upsample_res=height, layers=layers)
         
-        # bilinearly interpolate resized_attention_maps to be heightxwidth
-        # resized_attention_maps = torch.nn.functional.interpolate(_attention_maps, size=(height, width), mode='bilinear', align_corners=False)
-        
         num_samples[:, :, y_start:y_start+height, x_start:x_start+width] += 1
         sum_samples[:, :, y_start:y_start+height, x_start:x_start+width] += _attention_maps
         
@@ -415,8 +288,6 @@ def run_image_with_tokens_cropped(ldm, image, tokens, device='cuda', from_where 
 
 def upscale_to_img_size(controller, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res=512, layers=[0, 1, 2, 3, 4, 5]):
     """
-    from_where is one of "down_cross" "mid_cross" "up_cross"
-    
     returns the bilinearly upsampled attention map of size upsample_res x upsample_res for the first word in the prompt
     """
     
@@ -435,7 +306,6 @@ def upscale_to_img_size(controller, from_where = ["down_cross", "mid_cross", "up
             if layer_overall not in layers:
                 continue
                 
-            
             img = attention_maps[key][layer]
             
             img = img.reshape(4, int(img.shape[1]**0.5), int(img.shape[1]**0.5), img.shape[2])[None, :, :, :, 1]
@@ -445,48 +315,25 @@ def upscale_to_img_size(controller, from_where = ["down_cross", "mid_cross", "up
                 img = F.interpolate(img, size=(upsample_res, upsample_res), mode='bilinear', align_corners=False)
 
             imgs.append(img)
-            
-    # print("layer_overall")
-    # print(layer_overall)
-    # exit()
-            
-            
+
     imgs = torch.cat(imgs, dim=0)
     
     return imgs
 
+
 def softargmax2d(input, beta = 1000):
     *_, h, w = input.shape
-    
-    # print("input.shape")
-    # print(input.shape)
-    # print(input)
-    
-    # exit()
     
     assert h == w, "only square images are supported"
 
     input = input.reshape(*_, h * w)
     input = nn.functional.softmax(input*beta, dim=-1)
-    
-    # print("input")
-    # print(input)
-    # print("torch.max(input)")
-    # print(torch.max(input))
-    # print("torch.sum(input, dim=1)")
-    # print(torch.sum(input, dim=1).shape)
-    # print(torch.sum(input, dim=1))
 
     indices_c, indices_r = np.meshgrid(
         np.linspace(0, 1, w),
         np.linspace(0, 1, h),
         indexing='xy'
     )
-    
-    # print("indices_c")
-    # print(indices_c)
-    # print("indices_r")
-    # print(indices_r)
 
     indices_r = torch.tensor(np.reshape(indices_r, (-1, h * w))).to(input.device).float()
     indices_c = torch.tensor(np.reshape(indices_c, (-1, h * w))).to(input.device).float()
@@ -507,49 +354,6 @@ def find_context(image, ldm, pixel_loc, context_estimator, device='cuda'):
     context = context_estimator(latent, pixel_loc)
     
     return context
-
-
-@torch.no_grad()
-def visualize_keypoints_over_subject(ldm, img, contexts, name, device):
-    
-    
-    # if src_img is a torch.tensor, convert to numpy
-    if type(img) == torch.Tensor:
-        img = img.permute(1, 2, 0).detach().cpu().numpy()
-    
-    latent = image2latent(ldm, img, device)
-    
-    attention_maps = []
-    
-    
-    for context in contexts:
-    
-        controller = AttentionStore()
-            
-        ptp_utils.register_attention_control(ldm, controller)
-        
-        _ = ptp_utils.diffusion_step(ldm, controller, latent, context, torch.tensor(1), cfg = False)
-        
-        attention_map = aggregate_attention(controller, 16, ["up", "down"], True, 0)
-        
-        attention_maps.append(attention_map[..., 0])
-        
-    attention_maps = torch.stack(attention_maps, dim=0)
-        
-    attention_maps_mean = torch.mean(attention_maps, dim=0, keepdim=True)
-    
-    attention_maps -= attention_maps_mean
-    
-    for i in range(attention_maps.shape[0]):
-        attention_map = attention_maps[i]
-        max_pixel = find_max_pixel_value(attention_map)
-        visualize_image_with_points(attention_map[None], max_pixel, f'{name}_{i}')
-        visualize_image_with_points(img, (max_pixel+0.5)*512/16, f'{name}_{i}_img')
-        
-    return attention_maps
-        
-        
-    
     
 
 def find_max_pixel_value(tens, img_size=512, ignore_border = True):
@@ -612,7 +416,6 @@ def gaussian_circle(pos, size=64, sigma=16, device = "cuda"):
     pos is in between 0 and 1
     
     """
-    # import ipdb; ipdb.set_trace()
     _pos = pos*size
     grid = torch.meshgrid(torch.arange(size).to(device), torch.arange(size).to(device))
     grid = torch.stack(grid, dim=-1)
@@ -622,15 +425,10 @@ def gaussian_circle(pos, size=64, sigma=16, device = "cuda"):
     return gaussian
 
 
-import torch
-
 def crop_image(image, pixel, crop_percent=80, margin=0.15):
     
     """pixel is an integer between 0 and image.shape[1] or image.shape[2]
     """
-    
-    # pixel = torch.tensor([  [456.4720],
-    #                         [154.0180]])
     
     assert 0 < crop_percent <= 100, "crop_percent should be between 0 and 100"
 
@@ -665,62 +463,12 @@ def crop_image(image, pixel, crop_percent=80, margin=0.15):
     # bilinearly upsample to 512x512
     cropped_image = torch.nn.functional.interpolate(torch.tensor(cropped_image[None]).permute(0, 3, 1, 2), size=(512, 512), mode='bilinear', align_corners=False)[0]
     
-    # import ipdb; ipdb.set_trace()
     # calculate new pixel location
     new_pixel = torch.stack([x-x_start, y-y_start])
     new_pixel = new_pixel/crop_width
 
     return cropped_image.permute(1, 2, 0).numpy(), new_pixel, y_start, crop_height, x_start, crop_width
 
-
-def crop_latents(image, pixel, crop_percent=80, margin=0.15):
-    
-    """pixel is an integer between 0 and image.shape[1] or image.shape[2]
-    """
-    
-    # pixel = torch.tensor([  [456.4720],
-    #                         [154.0180]])
-    
-    assert 0 < crop_percent <= 100, "crop_percent should be between 0 and 100"
-
-    batch_size, channels, height, width = image.shape
-    crop_height = int(height * crop_percent / 100)
-    crop_width = int(width * crop_percent / 100)
-
-    # Calculate the crop region's top-left corner
-    x, y = pixel
-    x, y = x*width, y*height
-    
-    # Calculate safe margin
-    safe_margin_x = int(crop_width * margin)
-    safe_margin_y = int(crop_height * margin)
-    
-    x_start_min = max(0, x - crop_width + safe_margin_x)
-    x_start_min = min(x_start_min, width - crop_width)
-    x_start_max = max(0, x - safe_margin_x)
-    x_start_max = min(x_start_max, width - crop_width)
-    
-    y_start_min = max(0, y - crop_height + safe_margin_y)
-    y_start_min = min(y_start_min, height - crop_height)
-    y_start_max = max(0, y - safe_margin_y)
-    y_start_max = min(y_start_max, height - crop_height)
-
-    # Choose a random top-left corner within the allowed bounds
-    x_start = torch.randint(int(x_start_min), int(x_start_max) + 1, (1,)).item()
-    y_start = torch.randint(int(y_start_min), int(y_start_max) + 1, (1,)).item()
-
-    # Crop the image
-    cropped_image = image[:, :, y_start:y_start + crop_height, x_start:x_start + crop_width]
-    
-    # bilinearly upsample to 512x512
-    cropped_image = torch.nn.functional.interpolate(cropped_image, size=(height, width), mode='bilinear', align_corners=False)
-    
-    # import ipdb; ipdb.set_trace()
-    # calculate new pixel location
-    new_pixel = torch.stack([x-x_start, y-y_start])
-    new_pixel = new_pixel/crop_width
-
-    return cropped_image, new_pixel
 
 def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_steps=100, from_where = ["down_cross", "mid_cross", "up_cross"], upsample_res = 32, layers = [0, 1, 2, 3, 4, 5], lr=1e-3, noise_level = -1, sigma = 32, flip_prob = 0.5, crop_percent=80):
     
@@ -789,8 +537,6 @@ def optimize_prompt(ldm, image, pixel_loc, context=None, device="cuda", num_step
         optimizer.step()
         optimizer.zero_grad()
         
-        
-    # print the time it took to optimize
     print(f"optimization took {time.time() - start} seconds")
         
     return context

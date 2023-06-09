@@ -31,9 +31,6 @@ def random_crop(img, bbox, kps = None, size=(512, 512), p=0.5):
     _, h, w = img.shape
     if kps is not None:
         kps = kps.t()
-
-    
-    # import ipdb; ipdb.set_trace()
     
     # make sure kps are within the new bounding box
     left = random.randint(0, bbox[0])
@@ -131,29 +128,8 @@ class CorrespondenceDataset(Dataset):
         self.benchmark = benchmark
         self.range_ts = torch.arange(self.max_pts)
         self.thres = self.metadata[benchmark][4] if thres == 'auto' else thres
-
-        if split == 'trn' and augmentation:
-            self.transform = A.Compose([
-                A.ToGray(p=0.2),
-                A.Posterize(p=0.2),
-                A.Equalize(p=0.2),
-                A.augmentations.transforms.Sharpen(p=0.2),
-                A.RandomBrightnessContrast(p=0.2),
-                A.Solarize(p=0.2),
-                A.ColorJitter(p=0.2),
-                A.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225],
-                ),
-                A.pytorch.transforms.ToTensorV2(),
-            ])
-        else:
-            self.transform = transforms.Compose([transforms.Resize((self.imside, self.imside)),
-                                                transforms.ToTensor(),
-                                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                                    std=[0.229, 0.224, 0.225])])
         
-        self.viz_transform = transforms.Compose([transforms.Resize((self.imside, self.imside)),
+        self.transform = transforms.Compose([transforms.Resize((self.imside, self.imside)),
                                                 transforms.ToTensor()])
 
         # To get initialized in subclass constructors
@@ -183,36 +159,18 @@ class CorrespondenceDataset(Dataset):
         batch['category_id'] = self.cls_ids[idx]
         batch['category'] = self.cls[batch['category_id']]
         
-        
-
         # Image as numpy (original width, original height)
         src_pil = self.get_image(self.src_imnames, idx)
         trg_pil = self.get_image(self.trg_imnames, idx)
-        # random integer between 0 and length of this dataset
-        rand_idx = random.randint(0, len(self)-1)
-        batch['rand_idx'] = rand_idx
-        random_pil = self.get_image(self.src_imnames, rand_idx)
-        batch['random_imsize'] = random_pil.size
+
         batch['src_imsize'] = src_pil.size
         batch['trg_imsize'] = trg_pil.size
-
-        # Image as tensor
-        if self.split == 'trn' and self.augmentation:
-            batch['src_img'] = self.transform(image=np.array(src_pil))['image']
-            batch['trg_img'] = self.transform(image=np.array(trg_pil))['image']
-            # batch['og_src_img'] = self.viz_transform(image=np.array(src_pil))['image']
-            # batch['og_trg_img'] = self.viz_transform(image=np.array(trg_pil))['image']
-        else:
-            batch['src_img'] = self.transform(src_pil)
-            batch['trg_img'] = self.transform(trg_pil)
             
-        batch['og_random_img'] = self.viz_transform(random_pil)
-        batch['og_src_img'] = self.viz_transform(src_pil)
-        batch['og_trg_img'] = self.viz_transform(trg_pil)
+        batch['src_img'] = self.transform(src_pil)
+        batch['trg_img'] = self.transform(trg_pil)
         
 
         # Key-points (re-scaled)
-        batch['random_kps'], num_pts = self.get_points(self.src_kps, rand_idx, src_pil.size)
         batch['src_kps'], num_pts = self.get_points(self.src_kps, idx, src_pil.size)
         batch['trg_kps'], _ = self.get_points(self.trg_kps, idx, trg_pil.size)
         batch['n_pts'] = torch.tensor(num_pts)

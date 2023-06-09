@@ -9,12 +9,8 @@ from . import utils
 class Evaluator:
     r"""Computes evaluation metrics of PCK, LT-ACC, IoU"""
     @classmethod
-    def initialize(cls, benchmark, alpha=0.1):
-        if benchmark == 'caltech':
-            cls.eval_func = cls.eval_mask_transfer
-        else:
-            cls.eval_func = cls.eval_kps_transfer
-        cls.alpha = alpha
+    def initialize(cls, alpha=0.1):
+        cls.eval_func = cls.eval_kps_transfer
 
     @classmethod
     def evaluate(cls, prd_kps, batch):
@@ -24,11 +20,6 @@ class Evaluator:
     @classmethod
     def eval_kps_transfer(cls, prd_kps, batch):
         r"""Compute percentage of correct key-points (PCK) based on prediction"""
-
-        easy_match = {'src': [], 'trg': [], 'dist': []}
-        hard_match = {'src': [], 'trg': []}
-        
-        # import ipdb; ipdb.set_trace()
 
         pck = []
         for idx, (pk, tk) in enumerate(zip(prd_kps, batch['trg_kps'])):
@@ -44,27 +35,6 @@ class Evaluator:
         eval_result = {'pck': pck, 'correct_ids': correct_ids_ten_percent}
 
         return eval_result
-
-    @classmethod
-    def eval_kps_transfer_with_correct(cls, prd_kps, batch):
-        r"""Compute percentage of correct key-points (PCK) based on prediction"""
-
-        easy_match = {'src': [], 'trg': [], 'dist': []}
-        hard_match = {'src': [], 'trg': []}
-
-        pck = []
-        correct_id_list = []
-        for idx, (pk, tk) in enumerate(zip(prd_kps, batch['src_kps'])):
-            thres = batch['pckthres'][idx]
-            npt = batch['n_pts'][idx]
-            _, correct_ids, _ = cls.classify_prd(pk[:, :npt], tk[:, :npt], thres)
-            correct_id_list.append(correct_ids)
-
-            pck.append((len(correct_ids) / npt.item()) * 100)
-
-        eval_result = {'pck': pck}
-
-        return eval_result, correct_id_list
 
     @classmethod
     def eval_mask_transfer(cls, prd_kps, batch):

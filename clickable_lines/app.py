@@ -25,7 +25,12 @@ def serve_image(image_path):
 def show_images(img_num, line_tag):
     cache_buster = int(time.time())
     image_files = get_image_files(line_tag, img_num)
-    return render_template('image_gallery.html', images=image_files, img_num=img_num, cache_buster=cache_buster)
+    titles = ["source image", "source layer 7 attention map", "source layer 8 attention map", "source layer 9 attention map", 
+             "source layer 10 attention map", "source average attention map", "target image", "target layer 7 attention map", "target layer 8 attention map", 
+             "target layer 9 attention map", "target layer 10 attention map", "target average attention map"]
+    image_titles = list(zip(image_files, titles))
+    return render_template('image_gallery.html', image_titles=image_titles, img_num=img_num, cache_buster=cache_buster)
+
 
 def get_image_files(line_tag, img_num=0):
     image_files = [
