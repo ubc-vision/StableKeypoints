@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Unsupervised Semantic Correspondence Using Stable Diffusion.">
+  <meta name="keywords" content="Unsupervised Semantic Correspondence Using Stable Diffusion">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unsupervised Semantic Correspondence Using Stable Diffusion</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.svg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+</nav>
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Unsupervised Semantic Correspondence Using Stable Diffusion</h1>
+          <div class="is-size-5 publication-authors">
+              <span class="author-block">
+                <a href="https://ehedlin.github.io/">Eric Hedlin</a><sup>1</sup>,</span>
+              <span class="author-block">
+                <a href="https://hippogriff.github.io/"> Gopal Sharma</a><sup>1</sup>,</span>
+              <span class="author-block">
+                <a href="https://s-mahajan.github.io/">Shweta Mahajan</a><sup>1, 2</sup>,
+              </span>
+              <span class="author-block">
+                <a href="http://www.hossamisack.com/">Hossam Isack</a><sup>3</sup>,
+              </span>
+              <span class="author-block">
+                <a href="https://abhishekkar.info/">Abhishek Kar</a><sup>3</sup>
+              </span>
+              <span class="author-block">
+                <a href="https://taiya.github.io/">Andrea Tagliasacchi</a><sup>3, 4, 5</sup>
+              </span>
+              <span class="author-block">
+                <a href="https://www.cs.ubc.ca/~kmyi/">Kwang Moo Yi</a><sup>1</sup>
+              </span>
+            </div>
+  
+            <div class="is-size-5 publication-authors">
+              <span class="author-block"><sup>1</sup>University of British Columbia,</span>
+              <span class="author-block"><sup>2</sup>Vector Institute for AI</span>
+              <span class="author-block"><sup>3</sup>Google</span>
+              <span class="author-block"><sup>4</sup>Simon Fraser University</span>
+              <span class="author-block"><sup>5</sup>University of Toronto</span>
+            </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- Paper Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2305.15581"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/ubc-vision/LDM_correspondences"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="./static/videos/Short_video.mov"
+                type="video/mp4">
+      </video>
+      <h2 class="subtitle has-text-centered">
+        We present a novel unsupervised method for semantic correspondence between two images using Stable Diffusion.
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <img src="./static/images/qualitatives.png" id="mask" alt="Mask" style="height:100%;">
+      <h2 class="subtitle has-text-centered">
+        Example succesful, mixed and failure cases are shown across the 3 datasets. 
+        Interestingly it can be seen that even the failure cases tend to map to reasonable regions of the image. 
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+<section class="hero is-light is-small">
+  <div class="hero-body">
+    <div class="container">
+      <div id="results-carousel" class="carousel results-carousel">
+        <div class="item item-steve">
+          <img src="./static/images/correct_spair.png" id="mask" alt="Mask" style="height:100%;">
+        </div>
+        <div class="item item-chair-tp">
+          <img src="./static/images/incorrect_spair.png" id="mask" alt="Mask" style="height:100%;">
+        </div>
+        <div class="item item-shiba">
+          <img src="./static/images/correct_cubs.png" id="mask" alt="Mask" style="height:100%;">
+        </div>
+        <div class="item item-fullbody">
+          <img src="./static/images/incorrect_cubs.png" id="mask" alt="Mask" style="height:100%;">
+        </div>
+        <div class="item item-blueshirt">
+          <img src="./static/images/correct_pfwillow.png" id="mask" alt="Mask" style="height:100%;">
+        </div>
+        <div class="item item-blueshirt">
+          <img src="./static/images/incorrect_pfwillow.png" id="mask" alt="Mask" style="height:100%;">
+        </div>
+      </div>
+      <h2 class="subtitle has-text-centered">
+        Attention maps for both correct and incorrect correspondences across Spair-71k, PF-Willow and CUB-200 are visualized for the layers indicated.
+        Source and target locations are displayed as yellow stars on the source and target images respectively. 
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Text-to-image diffusion models are now capable of generating images that are often indistinguishable from real images. 
+            To generate such images, these models must understand the semantics of the objects they are asked to generate. 
+            In this work we show that, without any training, one can leverage this semantic knowledge within diffusion models to find semantic correspondences -- locations in multiple images that have the same semantic meaning. 
+            Specifically, given an image, we optimize the prompt embeddings of these models for maximum attention on the regions of interest. 
+            These optimized embeddings capture semantic information about the location, which can then be transferred to another image. 
+            By doing so we obtain results on par with the strongly supervised state of the art on the PF-Willow dataset and significantly outperform (20.9% relative for the SPair-71k dataset) any existing weakly or unsupervised method on PF-Willow, CUB-200 and SPair-71k datasets.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+
+    <div class="columns is-centered">
+
+    <!-- Concurrent Work. -->
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Concurrent Work</h2>
+
+        <div class="content has-text-justified">
+          <p>
+            There's a lot of excellent work that was introduced around the same time as ours.
+          </p>
+          <p>
+            <a href="https://diffusion-hyperfeatures.github.io/">Diffusion Hyperfeatures</a> consolidates multi-scale and multi-timestep feature maps from Stable Diffusion into per-pixel feature descriptors.
+          </p>
+          <p>
+            <a href="https://sd-complements-dino.github.io/">A Tale of Two Features</a> introduces a fusion approach that capitalizes on the distinct properties of Stable Diffusion (SD) features and DINOv2.
+          </p>
+          <p>
+            <a href="https://diffusionfeatures.github.io/">Emergent Correspondence from Image Diffusion</a> extracts features from Stable Diffusion at a specific timestep.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Concurrent Work. -->
+
+  </div>
+</section>
+
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@misc{hedlin2023unsupervised,
+      title={Unsupervised Semantic Correspondence Using Stable Diffusion}, 
+      author={Eric Hedlin and Gopal Sharma and Shweta Mahajan and Hossam Isack and Abhishek Kar and Andrea Tagliasacchi and Kwang Moo Yi},
+      year={2023},
+      eprint={2305.15581},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+    }</code></pre>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link" href="https://arxiv.org/abs/2305.15581" class="external-link" disabled>
+        <i class="ai ai-arxiv"></i>
+      </a>
+      <a class="icon-link" href="https://github.com/ubc-vision/LDM_correspondences" class="external-link" disabled>
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website layout is borrowed from <a
+            href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
