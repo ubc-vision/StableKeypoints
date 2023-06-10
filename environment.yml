@@ -1,6 +1,5 @@
-name: keypoint_correspondences_ldm
+name: LDM_correspondences
 channels:
-  - xformers/label/dev
   - pytorch
   - nvidia
   - conda-forge
@@ -154,7 +153,6 @@ dependencies:
   - urllib3=1.26.14=pyhd8ed1ab_0
   - wcwidth=0.2.5=pyhd3eb1b0_0
   - wheel=0.37.1=pyhd3eb1b0_0
-  - xformers=0.0.17.dev435+git.5df1f0b=py310_cu11.6_pyt1.12.1
   - xz=5.2.8=h5eee18b_0
   - zeromq=4.3.4=h2531618_0
   - zlib=1.2.13=h5eee18b_0
@@ -240,4 +238,3 @@ dependencies:
       - werkzeug==2.3.0
       - widgetsnbextension==4.0.5
       - zipp==3.11.0
-prefix: /scratch/iamerich/miniconda3/envs/prompt-to-prompt

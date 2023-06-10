@@ -149,7 +149,7 @@ def retest(ldm,
             item_index = -1,
             ablate_results = False,
             num_iterations = 20,
-            results_loc = "/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020",
+            results_loc = "outputs/",
             save_folder = "outputs"):
     """
     Takes the saved text embeddings and re-evaluates them

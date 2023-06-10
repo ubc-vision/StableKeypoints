@@ -14,8 +14,12 @@ Here are instructions on how to run the repository:
     ```
 2. Run the evaluation script:
     ```shell
-    conda activate keypoint_correspondences_ldm
+    conda activate LDM_correspondences
     python3 -m eval.eval
+    ```
+3. More options can be found with 
+    ```shell
+    python3 -m eval.eval --help
     ```
 
 ## Visualizing Attention Maps
@@ -25,7 +29,7 @@ The project includes an interactive local website for visualizing attention maps
 1. Activate the conda environment and run the evaluation script with visualization:
 
     ```shell
-    conda activate keypoint_correspondences_ldm
+    conda activate LDM_correspondences
     python3 -m eval.eval --visualize
     ```
 

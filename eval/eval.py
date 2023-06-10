@@ -32,8 +32,6 @@ if __name__ == "__main__":
                         choices=['spair', 'pfwillow', 'cubs', 'custom'], default='custom')
     parser.add_argument('--thres', type=str, default='auto',
                         choices=['auto', 'img', 'bbox'])
-    parser.add_argument('--alpha', type=float, default=0.1,
-                        help='alpha for the pck threshold')
     parser.add_argument('--sub_class', type=str, default="all", choices=['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
                                                                          'car', 'cat', 'chair', 'cow', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'train', 'tvmonitor', 'all'])
     parser.add_argument('--split', type=str, default="test",
@@ -65,7 +63,6 @@ if __name__ == "__main__":
                         default='CompVis/stable-diffusion-v1-4', help='ldm model type')
     parser.add_argument('--upsample_res', type=int, default=512,
                         help='Resolution to upsample the attention maps to')
-    parser.add_argument('--num_words', type=int, default=2)
 
     # Run details
     parser.add_argument('--wandb_log', action='store_true',
@@ -83,9 +80,9 @@ if __name__ == "__main__":
                         help='what epoch of the model to load')
     parser.add_argument('--save_loc', type=str, default='outputs',
                         help='save location for the trained model')
-    parser.add_argument('--results_loc', type=str, default='/scratch/iamerich/prompt-to-prompt/outputs/ldm_visualization_020',
+    parser.add_argument('--results_loc', type=str, default='outputs/',
                         help='save location for the trained model')
-    parser.add_argument('--seed', type=int, default=2023,
+    parser.add_argument('--seed', type=int, default=-1,
                         help='Pseudo-RNG seed')
     parser.add_argument('--ablate', action='store_true',
                         help='evaluate over a smaller number of points')
@@ -93,10 +90,6 @@ if __name__ == "__main__":
     
 
     args = parser.parse_args()
-    
-    # from glob import glob
-    # if args.item_index != -1 and len(glob(f"/home/iamerich/burst/pfwillow_no_crop_ablation/{args.item_index}/*.txt")) > 0:
-    #     exit()
     
     
     if args.seed != -1:
