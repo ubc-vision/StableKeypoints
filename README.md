@@ -2,6 +2,8 @@
 
 [Paper](https://arxiv.org/abs/2305.15581)
 
+[Project Page](https://ubc-vision.github.io/LDM_correspondences/)
+
 This repository contains the implementation of our method for estimating correspondences with Stable Diffusion in an unsupervised manner. Our new method surpasses weakly supervised methods and closes the gap to strongly supervised methods. 
 
 ## Getting Started
