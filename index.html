@@ -127,13 +127,13 @@
                 type="video/mp4">
       </video>
       <h2 class="subtitle has-text-centered">
-        We present a novel unsupervised method for semantic correspondence between two images using Stable Diffusion.
+        <strong>Method –</strong> Given a source image and a query point, we optimize the embeddings so that the attention map for the denoising step at time <i>t</i> highlights the query location in the source image. 
+        During inference, we input the target image and reuse the embeddings for the same denoising step <i>t</i>, determining the corresponding point in the target image as the argmax of the attention map. 
+        The architecture mapping images to attention maps is a pre-trained Stable Diffusion model which is kept frozen throughout the entire process.
       </h2>
     </div>
   </div>
 </section>
-
-
 
 <section class="section">
   <div class="container is-max-desktop">
