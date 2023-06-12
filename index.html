@@ -123,17 +123,17 @@
   <div class="container is-max-desktop">
     <div class="hero-body">
       <video id="teaser" autoplay muted loop playsinline height="100%">
-        <source src="./static/videos/Short_video.mov"
+        <source src="./static/videos/teaser_video.mov"
                 type="video/mp4">
       </video>
       <h2 class="subtitle has-text-centered">
-        <strong>Method –</strong> Given a source image and a query point, we optimize the embeddings so that the attention map for the denoising step at time <i>t</i> highlights the query location in the source image. 
-        During inference, we input the target image and reuse the embeddings for the same denoising step <i>t</i>, determining the corresponding point in the target image as the argmax of the attention map. 
-        The architecture mapping images to attention maps is a pre-trained Stable Diffusion model which is kept frozen throughout the entire process.
+        <strong>Teaser –</strong> We optimize the text embedding for a specific point on the source image and apply the optimized embedding to target images.
+        The argmax of the attention maps are used to find the corresponding points.
       </h2>
     </div>
   </div>
 </section>
+
 
 <section class="section">
   <div class="container is-max-desktop">
@@ -152,7 +152,27 @@
         </div>
       </div>
     </div>
+  </div>
+</section>
 
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="./static/videos/Short_video.mov"
+                type="video/mp4">
+      </video>
+      <h2 class="subtitle has-text-centered">
+        <strong>Method –</strong> Given a source image and a query point, we optimize the embeddings so that the attention map for the denoising step at time <i>t</i> highlights the query location in the source image. 
+        During inference, we input the target image and reuse the embeddings for the same denoising step <i>t</i>, determining the corresponding point in the target image as the argmax of the attention map. 
+        The architecture mapping images to attention maps is a pre-trained Stable Diffusion model which is kept frozen throughout the entire process.
+      </h2>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
     <figure class="image">
       <img src="./static/images/qualitatives.png">
     </figure>
