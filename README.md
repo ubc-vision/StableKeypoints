@@ -69,7 +69,7 @@ We also find that when we look for correspondences between different classes, it
 ## Citing
 If you find this code useful for your research please consider citing the following paper:
 
-	@misc{hedlin2023unsupervised,
+	@article{hedlin2023unsupervised,
       title={Unsupervised Semantic Correspondence Using Stable Diffusion}, 
       author={Eric Hedlin and Gopal Sharma and Shweta Mahajan and Hossam Isack and Abhishek Kar and Andrea Tagliasacchi and Kwang Moo Yi},
       year={2023},
