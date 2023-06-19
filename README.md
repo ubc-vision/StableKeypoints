@@ -4,7 +4,7 @@
 
 [Project Page](https://ubc-vision.github.io/LDM_correspondences/)
 
-This repository contains the implementation of our method for estimating correspondences with Stable Diffusion in an unsupervised manner. Our new method surpasses weakly supervised methods and closes the gap to strongly supervised methods. 
+This repository contains the implementation of our method for estimating correspondences with Stable Diffusion in an unsupervised manner. Code for getting the attention maps has been modified from [Prompt-to-Prompt](https://github.com/google/prompt-to-prompt/) and the dataloader for the Spair-71k and PFWillow datasets has been modified from [Cats++](https://github.com/KU-CVLAB/CATs-PlusPlus). Our new method surpasses weakly supervised methods and closes the gap to strongly supervised methods. 
 
 ## Getting Started
 
