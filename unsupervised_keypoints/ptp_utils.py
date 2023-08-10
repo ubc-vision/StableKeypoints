@@ -32,7 +32,7 @@ def diffusion_step(model, controller, latents, context, t, guidance_scale=None, 
         
     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     latents = controller.step_callback(latents)
-    return latents
+    return latents, noise_pred
 
 
 def latent2image(vae, latents):
@@ -189,6 +189,8 @@ def register_attention_control(model, controller):
     if controller is None:
         controller = DummyController()
 
+    # replacing forward function in /scratch/iamerich/miniconda3/envs/LDM_correspondences/lib/python3.10/site-packages/diffusers/models/attention.py
+    # line 518
     def register_recr(net_, count, place_in_unet):
         if net_.__class__.__name__ == 'CrossAttention':
             net_.forward = ca_forward(net_, place_in_unet)

@@ -4,34 +4,40 @@ import math
 import torch
 import itertools
 import numpy as np
+from glob import glob
 from PIL import Image, ImageOps
+import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 
 
-class CustomDataset(Dataset):
+class CelebA(Dataset):
     """
     This class is used to create a custom dataset for training and testing the model.
     """
     def __init__(self, *args, **kwargs):
-        pass
+        self.images = glob(f"/ubc/cs/home/i/iamerich/scratch/celeb_a_hq/celeba-512/*.jpg")
+        
+        # Define a transform pipeline
+        self.transform = transforms.Compose([
+                transforms.RandomAffine(
+                    degrees=30,  # Random rotation between -30 and 30 degrees
+                    scale=(1.0, 1.1),  # Random scaling between 1.0 and 1.2
+                    translate=(0.1, 0.1)  # Random translation by 10% of the image size
+                ),
+            ])
+        
     def __len__(self):
-        return 1
+        return len(self.images)
 
     def __getitem__(self, idx):
-        source_img = self.load_image("example_images/source_cat.png")
-        target_img = self.load_image("example_images/target_cat.jpeg")
-        src_kps = torch.tensor([[0.4, 0.9]])
-        trg_kps = torch.tensor([[0.54, 0.92]])
-        n_points = torch.tensor([1])
-        
-        src_kps = src_kps.permute(1, 0)*512.0
-        trg_kps = trg_kps.permute(1, 0)*512.0
+        img = self.load_image(self.images[idx])
 
-
-        return {'pckthres': torch.tensor([512.0]), 'src_img': source_img, 'trg_img': target_img, 'src_kps': src_kps, 'trg_kps': trg_kps, 'n_pts': n_points, 'idx': torch.tensor([0])}
+        return {'img': img}
 
     def load_image(self, img_name):
         image = Image.open(img_name).convert('RGB')
+        
+        image = self.transform(image)
 
         image = image.resize((512, 512), Image.BILINEAR)
     
