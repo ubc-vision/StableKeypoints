@@ -172,7 +172,7 @@ def eval_embedding(
     return np.mean(dog_accuracies + cat_accuracies)
 
 
-def find_max_pixel(map):
+def find_max_pixel(map, return_confidences=False):
     """
     finds the pixel of the map with the highest value
     map shape [batch_size, h, w]
@@ -180,9 +180,9 @@ def find_max_pixel(map):
 
     batch_size, h, w = map.shape
 
-    map = map.view(batch_size, -1)
+    map_reshaped = map.view(batch_size, -1)
 
-    max_indices = torch.argmax(map, dim=-1)
+    max_indices = torch.argmax(map_reshaped, dim=-1)
 
     max_indices = max_indices.view(batch_size, 1)
 
@@ -191,7 +191,16 @@ def find_max_pixel(map):
     # offset by a half a pixel to get the center of the pixel
     max_indices = max_indices + 0.5
 
-    return max_indices
+    if not return_confidences:
+        return max_indices
+
+    batch_indices = torch.arange(10, device="cuda:0").view(-1, 1)
+    indices = torch.cat((batch_indices, max_indices), dim=1).long()
+
+    # Use the indices to gather the values
+    values = map[indices[:, 0], indices[:, 1], indices[:, 2]]
+
+    return max_indices, values
 
 
 def find_corresponding_points(maps, num_points=10):
@@ -218,6 +227,8 @@ def find_corresponding_points(maps, num_points=10):
     entropy = dist.Categorical(probs=attention_maps_softmax).entropy()
 
     entropy = entropy.reshape(num_images, num_tokens)
+
+    # _, top_embedding_indices = torch.topk(entropy, num_tokens, largest=False)
 
     entropy = entropy.sum(dim=0)
 
@@ -292,7 +303,7 @@ def run_image_with_tokens_cropped(
     num_samples = torch.zeros(len(layers), 4, len(indices), 512, 512).cuda()
     sum_samples = torch.zeros(len(layers), 4, len(indices), 512, 512).cuda()
 
-    side_margin = int(512 * crop_percent / 100.0 * 0.1)
+    # side_margin = int(512 * crop_percent / 100.0 * 0.1)
 
     for i in range(num_iterations):
         cropped_image, y_start, height, x_start, width = crop_image(
@@ -328,22 +339,36 @@ def run_image_with_tokens_cropped(
             indices=indices,
         )
 
+        # num_samples[
+        #     :,
+        #     :,
+        #     :,
+        #     y_start + side_margin : y_start + height - side_margin,
+        #     x_start + side_margin : x_start + width - side_margin,
+        # ] += 1
+        # sum_samples[
+        #     :,
+        #     :,
+        #     :,
+        #     y_start + side_margin : y_start + height - side_margin,
+        #     x_start + side_margin : x_start + width - side_margin,
+        # ] += _attention_maps[
+        #     :, :, :, side_margin:-side_margin, side_margin:-side_margin
+        # ]
         num_samples[
             :,
             :,
             :,
-            y_start + side_margin : y_start + height - side_margin,
-            x_start + side_margin : x_start + width - side_margin,
+            y_start : y_start + height,
+            x_start : x_start + width,
         ] += 1
         sum_samples[
             :,
             :,
             :,
-            y_start + side_margin : y_start + height - side_margin,
-            x_start + side_margin : x_start + width - side_margin,
-        ] += _attention_maps[
-            :, :, :, side_margin:-side_margin, side_margin:-side_margin
-        ]
+            y_start : y_start + height,
+            x_start : x_start + width,
+        ] += _attention_maps
 
         _attention_maps = sum_samples / num_samples
 
@@ -393,7 +418,8 @@ def evaluate(
             from_where=from_where,
             layers=layers,
             noise_level=noise_level,
-            crop_percent=crop_percent,
+            num_iterations=1,
+            crop_percent=100,
         )
 
         attention_maps = torch.mean(attention_maps, dim=(0, 1))
@@ -420,8 +446,11 @@ def evaluate(
 
         distances.append(l2.cpu())
 
-        # if i % 100 == 0:
         print(
-            f"{(i/len(dataset)):06f}: {i} mean distance: {torch.mean(torch.stack(distances))}",
+            f"{(i/len(dataset)):06f}: {i} mean distance: {torch.mean(torch.stack(distances))}, per keypoint: {torch.mean(torch.stack(distances), dim=0)}",
             end="\r",
         )
+
+        if i % 100 == 0:
+            print()
+    print()

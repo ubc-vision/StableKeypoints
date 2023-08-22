@@ -49,7 +49,7 @@ def find_best_indices(
     dataset = CelebA(split="train")
 
     invertible_transform = RandomAffineWithInverse(
-        degrees=30, scale=(1.0, 1.1), translate=(0.1, 0.1)
+        degrees=30, scale=(0.9, 1.1), translate=(0.1, 0.1)
     )
 
     maps = []
@@ -62,40 +62,15 @@ def find_best_indices(
         if augment:
             image = invertible_transform(image)
 
-        # label = mini_batch['label']
-
-        # if image is a torch.tensor, convert to numpy
-        if type(image) == torch.Tensor:
-            image = image.permute(1, 2, 0).detach().cpu().numpy()
-
-        latent = ptp_utils.image2latent(ldm, image, device)
-
-        noisy_image = ldm.scheduler.add_noise(
-            latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level]
-        )
-
-        controller = ptp_utils.AttentionStore()
-
-        ptp_utils.register_attention_control(ldm, controller)
-
-        _ = ptp_utils.diffusion_step(
+        attention_maps = ptp_utils.run_and_find_attn(
             ldm,
-            controller,
-            noisy_image,
+            image,
             context,
-            ldm.scheduler.timesteps[noise_level],
-            cfg=False,
-        )
-
-        attention_maps = collect_maps(
-            controller,
+            layers=layers,
+            noise_level=noise_level,
             from_where=from_where,
             upsample_res=upsample_res,
-            layers=layers,
         )
-
-        # take the mean over the first 2 dimensions
-        attention_maps = torch.mean(attention_maps, dim=(0, 1))
 
         maps.append(attention_maps)
 
@@ -114,7 +89,6 @@ def supervise_regressor(
     top_indices,
     wandb_log=True,
     lr=1e-3,
-    anneal_after_num_steps=1e3,
     num_steps=1e4,
     device="cuda",
     noise_level=-1,
@@ -158,13 +132,16 @@ def supervise_regressor(
                 from_where=from_where,
                 layers=layers,
                 noise_level=noise_level,
-                crop_percent=90.0,
+                crop_percent=100,
+                num_iterations=1,
             )
 
             attention_maps = torch.mean(attention_maps, dim=(0, 1))
 
             # get the argmax of each of the best_embeddings
-            highest_indices = find_max_pixel(attention_maps) / 512.0
+            highest_indices = find_max_pixel(attention_maps)
+
+            highest_indices = highest_indices / 512.0
 
         estimated_kpts = regressor(highest_indices.view(-1))
 
@@ -177,11 +154,6 @@ def supervise_regressor(
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-
-        # Check if it's step 1000, and if so, modify the learning rate
-        if iteration == int(anneal_after_num_steps):
-            for param_group in optimizer.param_groups:
-                param_group["lr"] = lr * 0.1
 
         if wandb_log:
             wandb.log({"loss": loss.item()})

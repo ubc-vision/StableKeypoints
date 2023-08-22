@@ -116,17 +116,17 @@ def visualize_attn_maps(
     regressor=None,
     augment=False,
 ):
-    dataset = CelebA(split="test")
+    dataset = CelebA(split="train")
 
     invertible_transform = RandomAffineWithInverse(
-        degrees=30, scale=(1.0, 1.1), translate=(0.1, 0.1)
+        degrees=30, scale=(0.9, 1.1), translate=(0.1, 0.1)
     )
 
     imgs = []
     maps = []
     gt_kpts = []
     for i in tqdm(range(num_images)):
-        batch = dataset[i]
+        batch = dataset[i + 1]
 
         img = batch["img"]
 

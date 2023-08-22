@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch.distributions as dist
 import numpy as np
 import torch
 from typing import Optional, Union, Tuple, List, Dict
@@ -105,6 +106,23 @@ class AttentionStore(AttentionControl):
         self.attention_store = {}
 
 
+def find_top_k(attention_maps, top_k):
+    """
+    attention_maps is of shape [batch_size, image_size]
+    """
+
+    # Normalize the activation maps to represent probability distributions
+    attention_maps_softmax = torch.softmax(attention_maps, dim=-1)
+
+    # Compute the entropy of each token
+    entropy = dist.Categorical(probs=attention_maps_softmax).entropy()
+
+    # Select the top_k tokens with the lowest entropy
+    _, top_embedding_indices = torch.topk(entropy, top_k, largest=False)
+
+    return top_embedding_indices
+
+
 def run_and_find_attn(
     ldm,
     image,
@@ -149,10 +167,10 @@ def run_and_find_attn(
     # take the mean over the first 2 dimensions
     attention_maps = torch.mean(attention_maps, dim=(0, 1))
 
-    attention_maps[:, :, :3] = 0
-    attention_maps[:, :, -3:] = 0
-    attention_maps[:, :3, :] = 0
-    attention_maps[:, -3:, :] = 0
+    # attention_maps[:, :, :3] = 0
+    # attention_maps[:, :, -3:] = 0
+    # attention_maps[:, :3, :] = 0
+    # attention_maps[:, -3:, :] = 0
 
     return attention_maps
 

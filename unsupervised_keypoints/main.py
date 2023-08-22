@@ -32,7 +32,7 @@ parser.add_argument("--wandb", action="store_true", help="wandb logging")
 parser.add_argument("--lr", type=float, default=5e-3, help="learning rate")
 # add argument for num_steps
 parser.add_argument(
-    "--num_steps", type=int, default=1e4, help="number of steps to optimize"
+    "--num_steps", type=int, default=1e3, help="number of steps to optimize"
 )
 parser.add_argument(
     "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
@@ -50,7 +50,7 @@ parser.add_argument(
     default=93.16549294381423,
     help="the percent of the image to crop to",
 )
-parser.add_argument("--top_k", type=int, default=30, help="number of points to choose")
+parser.add_argument("--top_k", type=int, default=10, help="number of points to choose")
 
 args = parser.parse_args()
 
@@ -78,7 +78,7 @@ indices = find_best_indices(
     device=args.device,
     layers=args.layers,
     top_k=args.top_k,
-    augment=False,
+    augment=True,
 )
 torch.save(indices, "indices.pt")
 # indices = torch.load("indices.pt").to(args.device).detach()
@@ -99,9 +99,8 @@ regressor = supervise_regressor(
     embedding,
     indices,
     wandb_log=args.wandb,
-    anneal_after_num_steps=1e3,
     lr=1e-3,
-    num_steps=1e3,
+    num_steps=3e3,
     num_tokens=args.num_tokens,
     device=args.device,
     layers=args.layers,

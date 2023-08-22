@@ -124,52 +124,75 @@ def gaussian_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-4):
     return loss
 
 
-class GaussianLoss(nn.Module):
-    def __init__(self, T, buffer_size=10, device="cuda", threshold=0.02):
-        super().__init__()
-        self.buffer_size = buffer_size
-        self.threshold = threshold
-        self.token_activation_history = torch.zeros(T, buffer_size).to(device)
+def sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1):
+    # attn_map is of shape (T, H, W)
+    T, H, W = attn_map.shape
 
-    def forward(self, attn_map, temperature=1e-4):
-        # attn_map is of shape (T, H, W)
-        T, H, W = attn_map.shape
+    # Scale attn_map by temperature
+    attn_map_scaled = (
+        attn_map / temperature
+    )  # Adding channel dimension, shape (T, 1, H, W)
 
-        # Softmax over flattened attn_map to get probabilities
-        attn_probs = F.softmax(
-            attn_map.view(T, -1) / temperature, dim=1
-        )  # Shape: (T, H*W)
+    # Apply spatial softmax over attn_map to get probabilities
+    spatial_softmax = torch.nn.Softmax2d()
+    attn_probs = spatial_softmax(attn_map_scaled)  # Removing channel dimension
 
-        # Stop the gradient for attn_probs
-        attn_probs = attn_probs.detach()
+    # Find argmax and create one-hot encoding
+    argmax_indices = attn_probs.view(T, -1).argmax(dim=1)
+    one_hot = torch.zeros_like(attn_probs.view(T, -1)).scatter_(
+        1, argmax_indices.view(-1, 1), 1
+    )
+    one_hot = one_hot.view(T, H, W)
 
-        # Find the max of attn_probs for each token
-        max_values = torch.max(attn_probs.view(T, -1), dim=1)[0]
+    # Create Gaussian kernel
+    gaussian_kernel = create_gaussian_kernel(kernel_size, sigma).to(attn_map.device)
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size)
 
-        # Shift token activation history and append new max_values
-        self.token_activation_history = torch.roll(
-            self.token_activation_history, shifts=-1, dims=1
-        )
-        self.token_activation_history[:, -1] = max_values
+    # Apply Gaussian smoothing to the one-hot encoding
+    target = F.conv2d(one_hot.unsqueeze(1), gaussian_kernel, padding=kernel_size // 2)
+    target = target.view(T, H * W)
+    target = target / target.max(dim=1, keepdim=True)[0]
+    target = target.view(T, H, W)
 
-        # Compute maximum activation over history
-        max_history_values = self.token_activation_history.max(dim=1)[0]
+    # Compute loss
+    loss = F.mse_loss(attn_probs, target)
 
-        # Divide attn_probs by the max of the first dim, weighted by the token weights
-        attn_probs = attn_probs / max_history_values[:, None]
-        attn_probs = attn_probs.view(T, H, W)  # Reshape back to original shape
+    return loss
 
-        max_attn_map = torch.max(attn_map.view(T, -1), dim=1)[0]
-        # Apply thresholding: suppress entries below the threshold, keep the attn_probs otherwise
-        attn_probs = torch.where(
-            max_attn_map[:, None, None] < self.threshold,
-            torch.zeros_like(attn_probs),
-            attn_probs,
-        )
 
-        loss = F.mse_loss(attn_map, attn_probs)
+def variance_loss(heatmaps):
+    # Get the shape of the heatmaps
+    batch_size, m, n = heatmaps.shape
 
-        return loss
+    # Compute the total value of the heatmaps
+    total_value = torch.sum(heatmaps, dim=[1, 2], keepdim=True)
+
+    # Normalize the heatmaps
+    normalized_heatmaps = heatmaps / (
+        total_value + 1e-6
+    )  # Adding a small constant to avoid division by zero
+
+    # Create meshgrid to represent the coordinates
+    x = torch.arange(0, m).float().view(1, m, 1).to(heatmaps.device)
+    y = torch.arange(0, n).float().view(1, 1, n).to(heatmaps.device)
+
+    # Compute the weighted sum for x and y
+    x_sum = torch.sum(x * normalized_heatmaps, dim=[1, 2], keepdim=True)
+    y_sum = torch.sum(y * normalized_heatmaps, dim=[1, 2], keepdim=True)
+
+    # Compute the weighted average for x and y
+    x_avg = x_sum
+    y_avg = y_sum
+
+    # Compute the variance sum
+    variance_sum = torch.sum(
+        normalized_heatmaps * (((x - x_avg) ** 2) + ((y - y_avg) ** 2)), dim=[1, 2]
+    )
+
+    # Compute the standard deviation
+    std_dev = torch.sqrt(variance_sum)
+
+    return torch.mean(std_dev)
 
 
 def optimize_embedding(
@@ -194,13 +217,14 @@ def optimize_embedding(
     dataset = CelebA(split="train")
 
     invertible_transform = RandomAffineWithInverse(
-        degrees=30, scale=(1.0, 1.1), translate=(0.1, 0.1)
+        degrees=30, scale=(0.9, 1.1), translate=(0.1, 0.1)
     )
 
     # every iteration return image, pixel_loc
 
     if context is None:
         context = ptp_utils.init_random_noise(device, num_words=num_tokens)
+        # context = torch.load("embedding.pt").to(device).detach()
 
     context.requires_grad = True
 
@@ -215,24 +239,21 @@ def optimize_embedding(
     prev_loss = 0
     prev_acc = 0
 
-    loss_fn = GaussianLoss(T=num_tokens)
-
     for iteration in range(num_steps):
         index = np.random.randint(len(dataset))
         mini_batch = dataset[index]
 
         image = mini_batch["img"]
 
-        with torch.no_grad():
-            vanilla_attn_maps = ptp_utils.run_and_find_attn(
-                ldm,
-                image,
-                context,
-                layers=layers,
-                noise_level=noise_level,
-                from_where=from_where,
-                upsample_res=upsample_res,
-            )
+        vanilla_attn_maps = ptp_utils.run_and_find_attn(
+            ldm,
+            image,
+            context,
+            layers=layers,
+            noise_level=noise_level,
+            from_where=from_where,
+            upsample_res=upsample_res,
+        )
 
         transformed_img = invertible_transform(image)
 
@@ -248,18 +269,9 @@ def optimize_embedding(
 
         uninverted_attn_maps = invertible_transform.inverse(attention_maps)
 
-        # Normalize the activation maps to represent probability distributions
-        attention_maps_softmax = torch.softmax(
-            attention_maps.view(num_tokens, -1), dim=-1
+        top_embedding_indices = ptp_utils.find_top_k(
+            attention_maps.view(num_tokens, -1), top_k
         )
-
-        # Compute the entropy of each token
-        entropy = dist.Categorical(
-            probs=attention_maps_softmax.view(num_tokens, -1)
-        ).entropy()
-
-        # Select the top_k tokens with the lowest entropy
-        _, top_embedding_indices = torch.topk(entropy, top_k, largest=False)
 
         # transformed image, then found attn maps
         best_embeddings = attention_maps[top_embedding_indices]
@@ -268,9 +280,11 @@ def optimize_embedding(
         # never had transformation applied
         best_embeddings_vanilla = vanilla_attn_maps[top_embedding_indices]
 
-        _gaussian_loss = gaussian_loss(best_embeddings)
+        # _gaussian_loss = gaussian_loss(best_embeddings)
+        _sharpening_loss = sharpening_loss(best_embeddings)
+        # _variance_loss = variance_loss(best_embeddings) / 1e4
         l2_loss = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted)
-        loss = l2_loss + _gaussian_loss
+        loss = l2_loss + _sharpening_loss
 
         loss.backward()
         optimizer.step()
@@ -281,13 +295,17 @@ def optimize_embedding(
                 {
                     "loss": loss.item(),
                     "l2_loss": l2_loss.item(),
-                    "_gaussian_loss": _gaussian_loss.item(),
+                    "_sharpening_loss": _sharpening_loss.item(),
                 }
             )
         else:
             print(
-                f"loss: {loss.item()}, l2_loss: {l2_loss.item()}, gaussian_loss: {gaussian_loss.item()}"
+                f"loss: {loss.item()}, l2_loss: {l2_loss.item()}, sharpening_loss: {_sharpening_loss.item()}"
             )
+
+    # end the wandb session
+    if wandb_log:
+        wandb.finish()
 
     print(f"optimization took {time.time() - start} seconds")
 
