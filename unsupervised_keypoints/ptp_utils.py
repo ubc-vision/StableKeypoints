@@ -123,6 +123,22 @@ def find_top_k(attention_maps, top_k):
     return top_embedding_indices
 
 
+def random_range(size, min_val, max_val, dtype=torch.float32):
+    """
+    Generate a random tensor of shape `size` with values in the range `[min_val, max_val]`.
+
+    Parameters:
+    - size (tuple): The shape of the output tensor.
+    - min_val (float): The minimum value in the range.
+    - max_val (float): The maximum value in the range.
+    - dtype (torch.dtype, optional): The desired data type of the output tensor. Default is torch.float32.
+
+    Returns:
+    - torch.Tensor: A tensor of random numbers in the range `[min_val, max_val]`.
+    """
+    return torch.rand(size, dtype=dtype) * (max_val - min_val) + min_val
+
+
 def run_and_find_attn(
     ldm,
     image,
@@ -472,3 +488,14 @@ def get_time_words_attention_alpha(
 
 def init_random_noise(device, num_words=77):
     return torch.randn(1, num_words, 768).to(device)
+
+
+def find_latents(ldm, image, device="cuda"):
+    # if image is a torch.tensor, convert to numpy
+    if type(image) == torch.Tensor:
+        image = image.permute(1, 2, 0).detach().cpu().numpy()
+
+    with torch.no_grad():
+        latent = image2latent(ldm, image, device)
+
+    return latent

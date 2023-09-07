@@ -5,8 +5,8 @@ from tqdm import tqdm
 from unsupervised_keypoints import ptp_utils
 import torch.nn.functional as F
 from unsupervised_keypoints.celeba import CelebA
-from unsupervised_keypoints.eval import run_image_with_tokens_cropped
-from unsupervised_keypoints.eval import find_max_pixel
+from unsupervised_keypoints.eval import run_image_with_tokens_augmented
+from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 
 from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
 
@@ -114,30 +114,28 @@ def visualize_attn_maps(
     num_points=30,
     num_images=10,
     regressor=None,
-    augment=False,
+    augment_degrees=30,
+    augment_scale=(0.9, 1.1),
+    augment_translate=(0.1, 0.1),
+    augment_shear=(0.0, 0.0),
+    augmentation_iterations=20,
 ):
-    dataset = CelebA(split="train")
-
-    invertible_transform = RandomAffineWithInverse(
-        degrees=30, scale=(0.9, 1.1), translate=(0.1, 0.1)
-    )
+    dataset = CelebA(split="test")
 
     imgs = []
     maps = []
     gt_kpts = []
-    for i in tqdm(range(num_images)):
-        batch = dataset[i + 1]
+    # for i in tqdm(range(num_images)):
+    for i in [527, 115, 121, 815, 753, 528, 487, 210, 263, 778]:
+        batch = dataset[i]
 
         img = batch["img"]
-
-        if augment:
-            img = invertible_transform(img)
 
         _gt_kpts = batch["kpts"]
         gt_kpts.append(_gt_kpts)
         imgs.append(img.cpu())
 
-        map = run_image_with_tokens_cropped(
+        map = run_image_with_tokens_augmented(
             ldm,
             img,
             context,
@@ -146,10 +144,12 @@ def visualize_attn_maps(
             from_where=from_where,
             layers=layers,
             noise_level=noise_level,
-            crop_percent=90.0,
+            augment_degrees=augment_degrees,
+            augment_scale=augment_scale,
+            augment_translate=augment_translate,
+            augment_shear=augment_shear,
+            augmentation_iterations=augmentation_iterations,
         )
-
-        map = torch.mean(map, dim=(0, 1))
 
         maps.append(map)
     maps = torch.stack(maps)
@@ -164,7 +164,7 @@ def visualize_attn_maps(
         save_grid(maps[:, i].cpu(), imgs, f"keypoint_{i:03d}")
 
     if regressor is not None:
-        est_points = regressor(points.view(num_images, -1))
+        est_points = points.view(num_images, -1) @ regressor
 
         plot_point_correspondences(
             imgs,

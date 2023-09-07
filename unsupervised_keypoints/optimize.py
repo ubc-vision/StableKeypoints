@@ -124,7 +124,7 @@ def gaussian_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-4):
     return loss
 
 
-def sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1):
+def sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1, l1=False):
     # attn_map is of shape (T, H, W)
     T, H, W = attn_map.shape
 
@@ -155,9 +155,60 @@ def sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1):
     target = target.view(T, H, W)
 
     # Compute loss
-    loss = F.mse_loss(attn_probs, target)
+    if l1:
+        loss = F.l1_loss(attn_probs, target)
+    else:
+        loss = F.mse_loss(attn_probs, target)
+    # loss = nn.L1Loss()(attn_probs, target)
 
     return loss
+
+
+def ddpm_loss(ldm, image, selected_context, masks, noise_level=-8, device="cuda"):
+    """
+    Passing in just the selected tokens, this masks the region that they can see (after detaching from the graph)
+    This is a regularizer to make sure the token represents a similar concept across the dataset
+    making sure the token uses the image information
+    """
+
+    # if image is a torch.tensor, convert to numpy
+    if type(image) == torch.Tensor:
+        image = image.permute(1, 2, 0).detach().cpu().numpy()
+
+    with torch.no_grad():
+        latent = ptp_utils.image2latent(ldm, image, device)
+
+    noise = torch.rand_like(latent)
+
+    noisy_image = ldm.scheduler.add_noise(
+        latent, noise, ldm.scheduler.timesteps[noise_level]
+    )
+
+    controller = ptp_utils.AttentionStore()
+
+    ptp_utils.register_attention_control(ldm, controller)
+
+    noise_pred = ldm.unet(
+        noisy_image,
+        ldm.scheduler.timesteps[noise_level],
+        encoder_hidden_states=selected_context,
+    )["sample"]
+
+    _mask = masks.reshape(masks.shape[0], masks.shape[1] * masks.shape[2]).detach()
+    _mask = _mask / _mask.max(dim=1, keepdim=True)[0]
+    _mask = _mask.sum(dim=0)
+    _mask = _mask.reshape(1, 1, int(_mask.shape[0] ** 0.5), int(_mask.shape[0] ** 0.5))
+    # bilinearly upsample to noise_pred.shape
+    _mask = F.interpolate(
+        _mask,
+        size=(noise_pred.shape[2], noise_pred.shape[3]),
+        mode="bilinear",
+        align_corners=False,
+    )
+
+    ddpm_loss = nn.MSELoss()(noise_pred * _mask, noise * _mask) / torch.sum(_mask)
+
+    return ddpm_loss
 
 
 def variance_loss(heatmaps):
@@ -208,6 +259,11 @@ def optimize_embedding(
     noise_level=-1,
     num_tokens=1000,
     top_k=10,
+    augment_degrees=30,
+    augment_scale=(0.9, 1.1),
+    augment_translate=(0.1, 0.1),
+    augment_shear=(0.0, 0.0),
+    kernel_size=5,
     sdxl=False,
 ):
     if wandb_log:
@@ -217,7 +273,10 @@ def optimize_embedding(
     dataset = CelebA(split="train")
 
     invertible_transform = RandomAffineWithInverse(
-        degrees=30, scale=(0.9, 1.1), translate=(0.1, 0.1)
+        degrees=augment_degrees,
+        scale=augment_scale,
+        translate=augment_translate,
+        shear=augment_shear,
     )
 
     # every iteration return image, pixel_loc
@@ -280,11 +339,23 @@ def optimize_embedding(
         # never had transformation applied
         best_embeddings_vanilla = vanilla_attn_maps[top_embedding_indices]
 
-        # _gaussian_loss = gaussian_loss(best_embeddings)
-        _sharpening_loss = sharpening_loss(best_embeddings)
-        # _variance_loss = variance_loss(best_embeddings) / 1e4
-        l2_loss = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted)
-        loss = l2_loss + _sharpening_loss
+        _ddpm_loss = (
+            ddpm_loss(
+                ldm,
+                image,
+                context[:, top_embedding_indices],
+                best_embeddings,
+                noise_level=noise_level,
+                device=device,
+            )
+            / 100
+        )
+        # _ddpm_loss = torch.tensor(0).to(device)
+
+        _sharpening_loss = sharpening_loss(best_embeddings, kernel_size=kernel_size)
+        l2_loss = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted) * 10
+
+        loss = l2_loss + _sharpening_loss + _ddpm_loss
 
         loss.backward()
         optimizer.step()
@@ -296,6 +367,7 @@ def optimize_embedding(
                     "loss": loss.item(),
                     "l2_loss": l2_loss.item(),
                     "_sharpening_loss": _sharpening_loss.item(),
+                    "_ddpm_loss": _ddpm_loss.item(),
                 }
             )
         else:
@@ -312,131 +384,131 @@ def optimize_embedding(
     return context
 
 
-def optimize_embedding_ddpm(
-    ldm,
-    wandb_log=True,
-    context=None,
-    device="cuda",
-    num_steps=2000,
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    upsample_res=32,
-    layers=[0, 1, 2, 3, 4, 5],
-    lr=5e-3,
-    noise_level=-1,
-    num_tokens=1000,
-    top_k=10,
-):
-    if wandb_log:
-        # start a wandb session
-        wandb.init(project="attention_maps")
+# def optimize_embedding_ddpm(
+#     ldm,
+#     wandb_log=True,
+#     context=None,
+#     device="cuda",
+#     num_steps=2000,
+#     from_where=["down_cross", "mid_cross", "up_cross"],
+#     upsample_res=32,
+#     layers=[0, 1, 2, 3, 4, 5],
+#     lr=5e-3,
+#     noise_level=-1,
+#     num_tokens=1000,
+#     top_k=10,
+# ):
+#     if wandb_log:
+#         # start a wandb session
+#         wandb.init(project="attention_maps")
 
-    dataset = CelebA()
+#     dataset = CelebA()
 
-    context = ptp_utils.init_random_noise(device, num_words=num_tokens)
+#     context = ptp_utils.init_random_noise(device, num_words=num_tokens)
 
-    image_context = ptp_utils.init_random_noise(device, num_words=1)
+#     image_context = ptp_utils.init_random_noise(device, num_words=1)
 
-    context.requires_grad = True
-    image_context.requires_grad = True
+#     context.requires_grad = True
+#     image_context.requires_grad = True
 
-    # optimize context to maximize attention at pixel_loc
-    optimizer = torch.optim.Adam([context, image_context], lr=lr)
+#     # optimize context to maximize attention at pixel_loc
+#     optimizer = torch.optim.Adam([context, image_context], lr=lr)
 
-    for _ in range(num_steps):
-        mini_batch = dataset[np.random.randint(len(dataset))]
+#     for _ in range(num_steps):
+#         mini_batch = dataset[np.random.randint(len(dataset))]
 
-        image = mini_batch["img"]
+#         image = mini_batch["img"]
 
-        # if image is a torch.tensor, convert to numpy
-        if type(image) == torch.Tensor:
-            image = image.permute(1, 2, 0).detach().cpu().numpy()
+#         # if image is a torch.tensor, convert to numpy
+#         if type(image) == torch.Tensor:
+#             image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-        with torch.no_grad():
-            latent = ptp_utils.image2latent(ldm, image, device)
+#         with torch.no_grad():
+#             latent = ptp_utils.image2latent(ldm, image, device)
 
-        noise = torch.rand_like(latent)
+#         noise = torch.rand_like(latent)
 
-        noisy_image = ldm.scheduler.add_noise(
-            latent, noise, ldm.scheduler.timesteps[noise_level]
-        )
+#         noisy_image = ldm.scheduler.add_noise(
+#             latent, noise, ldm.scheduler.timesteps[noise_level]
+#         )
 
-        controller = ptp_utils.AttentionStore()
+#         controller = ptp_utils.AttentionStore()
 
-        ptp_utils.register_attention_control(ldm, controller)
-        # sdxl_monkey_patch.register_attention_control(ldm, controller)
+#         ptp_utils.register_attention_control(ldm, controller)
+#         # sdxl_monkey_patch.register_attention_control(ldm, controller)
 
-        _, _ = ptp_utils.diffusion_step(
-            ldm,
-            controller,
-            noisy_image,
-            context,
-            ldm.scheduler.timesteps[noise_level],
-            cfg=False,
-        )
+#         _, _ = ptp_utils.diffusion_step(
+#             ldm,
+#             controller,
+#             noisy_image,
+#             context,
+#             ldm.scheduler.timesteps[noise_level],
+#             cfg=False,
+#         )
 
-        attention_maps = collect_maps(
-            controller,
-            from_where=from_where,
-            upsample_res=upsample_res,
-            layers=layers,
-            number_of_maps=num_tokens,
-        )
+#         attention_maps = collect_maps(
+#             controller,
+#             from_where=from_where,
+#             upsample_res=upsample_res,
+#             layers=layers,
+#             number_of_maps=num_tokens,
+#         )
 
-        # take the mean over the first 2 dimensions
-        attention_maps = torch.mean(attention_maps, dim=(0, 1))
+#         # take the mean over the first 2 dimensions
+#         attention_maps = torch.mean(attention_maps, dim=(0, 1))
 
-        import torch.distributions as dist
+#         import torch.distributions as dist
 
-        # Normalize the activation maps to represent probability distributions
-        attention_maps_softmax = torch.softmax(
-            attention_maps.view(num_tokens, -1), dim=-1
-        )
+#         # Normalize the activation maps to represent probability distributions
+#         attention_maps_softmax = torch.softmax(
+#             attention_maps.view(num_tokens, -1), dim=-1
+#         )
 
-        # Compute the entropy of each token
-        entropy = dist.Categorical(
-            probs=attention_maps_softmax.view(num_tokens, -1)
-        ).entropy()
+#         # Compute the entropy of each token
+#         entropy = dist.Categorical(
+#             probs=attention_maps_softmax.view(num_tokens, -1)
+#         ).entropy()
 
-        # Select the top_k tokens with the lowest entropy
-        _, top_embedding_indices = torch.topk(entropy, top_k, largest=False)
+#         # Select the top_k tokens with the lowest entropy
+#         _, top_embedding_indices = torch.topk(entropy, top_k, largest=False)
 
-        # Apply a gaussian loss to these embeddings
-        # otherwise there is no motivation to be sharp
-        best_embeddings = attention_maps[top_embedding_indices]
-        _gaussian_loss = gaussian_loss(best_embeddings)
+#         # Apply a gaussian loss to these embeddings
+#         # otherwise there is no motivation to be sharp
+#         best_embeddings = attention_maps[top_embedding_indices]
+#         _gaussian_loss = gaussian_loss(best_embeddings)
 
-        this_context = context[:, top_embedding_indices]
+#         this_context = context[:, top_embedding_indices]
 
-        # add tokens to be able to capture everything else not captured by the top_k tokens
-        this_context = torch.cat([this_context, image_context], dim=1)
+#         # add tokens to be able to capture everything else not captured by the top_k tokens
+#         this_context = torch.cat([this_context, image_context], dim=1)
 
-        # simply to avoid mismatch shape errors
-        controller = ptp_utils.AttentionStore()
-        ptp_utils.register_attention_control(ldm, controller)
+#         # simply to avoid mismatch shape errors
+#         controller = ptp_utils.AttentionStore()
+#         ptp_utils.register_attention_control(ldm, controller)
 
-        noise_pred = ldm.unet(
-            noisy_image,
-            ldm.scheduler.timesteps[noise_level],
-            encoder_hidden_states=this_context,
-        )["sample"]
+#         noise_pred = ldm.unet(
+#             noisy_image,
+#             ldm.scheduler.timesteps[noise_level],
+#             encoder_hidden_states=this_context,
+#         )["sample"]
 
-        ddpm_loss = nn.MSELoss()(noise_pred, noise)
+#         ddpm_loss = nn.MSELoss()(noise_pred, noise)
 
-        loss = _gaussian_loss * 1e3 + ddpm_loss
+#         loss = _gaussian_loss * 1e3 + ddpm_loss
 
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
+#         optimizer.zero_grad()
 
-        if wandb_log:
-            wandb.log(
-                {
-                    "loss": loss.item(),
-                    "gaussian_loss": _gaussian_loss.item(),
-                    "ddpm_loss": ddpm_loss.item(),
-                }
-            )
-        else:
-            print(f"loss: {loss.item()}")
+#         if wandb_log:
+#             wandb.log(
+#                 {
+#                     "loss": loss.item(),
+#                     "gaussian_loss": _gaussian_loss.item(),
+#                     "ddpm_loss": ddpm_loss.item(),
+#                 }
+#             )
+#         else:
+#             print(f"loss: {loss.item()}")
 
-    return context
+#     return context

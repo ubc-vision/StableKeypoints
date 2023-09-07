@@ -11,119 +11,6 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import functional as F
 
 
-# class CelebA(Dataset):
-#     """
-#     This class is used to create a custom dataset for training and testing the model.
-#     """
-
-#     def __init__(self, split="train", augment=False):
-#         self.base_folder = "/ubc/cs/home/i/iamerich/scratch/img_align_celeba/"
-
-#         landmark_loc = os.path.join(self.base_folder, "list_landmarks_align_celeba.csv")
-#         self.landmarks = pd.read_csv(landmark_loc)
-
-#         partitions_loc = os.path.join(self.base_folder, "list_eval_partition.csv")
-#         self.partitions = pd.read_csv(partitions_loc)
-
-#         split_map = {"train": 0, "val": 1, "test": 2}
-
-#         self.len = self.partitions["partition"].value_counts()[split_map[split]]
-
-#         # make the start index the sum of the lengths of the previous splits
-#         self.start_index = (
-#             self.partitions["partition"].value_counts()[: split_map[split]].sum()
-#         )
-
-#         self.num_kps = 5
-
-#         self.augment = augment
-
-#         # if split == "train":
-#         #     self.indices = np.arange(0, 162770)
-#         # elif split == "test":
-
-#         # # Define a transform pipeline
-#         # self.transform = CustomTransform(
-#         # degrees=30,  # Random rotation between -30 and 30 degrees
-#         # scale=(1.0, 1.0),
-#         # translate=(0.0, 0.0),
-#         # )
-#         self.transform = transforms.Compose(
-#             [
-#                 transforms.RandomAffine(
-#                     degrees=30,  # Random rotation between -30 and 30 degrees
-#                     scale=(1.0, 1.1),  # Random scaling between 1.0 and 1.2
-#                     translate=(0.1, 0.1),  # Random translation by 10% of the image size
-#                 ),
-#             ]
-#         )
-
-#     # def find_indices_for_file_names_random_order(self, file_names):
-#     #     shuffled_file_names = (
-#     #         file_names.copy()
-#     #     )  # Create a copy to avoid modifying the original list
-#     #     random.shuffle(shuffled_file_names)  # Shuffle the list in-place
-
-#     #     for file_name in shuffled_file_names:
-#     #         yield self.partitions[self.partitions["image_id"] == file_name].index[0]
-
-#     def __len__(self):
-#         return self.len
-
-#     def __getitem__(self, index):
-#         index = index + self.start_index
-
-#         img = self.load_image(index)
-
-#         kpts = self.load_keypoints(index)
-
-#         if self.augment:
-#             img = self.transform(img)
-
-#         return {"img": img, "kpts": kpts}
-
-#     def load_image(self, index):
-#         image = Image.open(self.return_img_path(index)).convert("RGB")
-
-#         image = image.resize((512, 512), Image.BILINEAR)
-
-#         image = np.array(image)
-
-#         image = np.transpose(image, (2, 0, 1))
-
-#         image = torch.tensor(image) / 255.0
-
-#         return image
-
-#     def load_keypoints(self, index):
-#         width, height = Image.open(self.return_img_path(index)).size
-
-#         landmark = self.landmarks.iloc[index]
-
-#         keypoints = torch.tensor(
-#             [
-#                 [landmark.lefteye_x, landmark.lefteye_y],
-#                 [landmark.righteye_x, landmark.righteye_y],
-#                 [landmark.nose_x, landmark.nose_y],
-#                 [landmark.leftmouth_x, landmark.leftmouth_y],
-#                 [landmark.rightmouth_x, landmark.rightmouth_y],
-#             ]
-#         )
-
-#         # normalize by image size
-#         keypoints = keypoints / torch.tensor([width, height])
-
-#         # swap the x and y
-#         keypoints = keypoints[:, [1, 0]]
-
-#         return keypoints
-
-#     def return_img_path(self, index):
-#         img_name = self.landmarks.iloc[index].image_id
-
-#         return os.path.join(self.base_folder, "img_align_celeba", img_name)
-
-
 class CelebA(Dataset):
     """
     This class is used to create a custom dataset for training and testing the model.
@@ -253,22 +140,37 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
 
-    ds = CelebA(split="test", align=False)
+    ds = CelebA(align=True, split="test")
 
     transform = RandomAffineWithInverse(
-        degrees=30, scale=(1.0, 1.1), translate=(0.1, 0.1)
+        degrees=30,
+        # scale=(1.0, 1.5),
+        translate=(0.0, 0.0),
+        # degrees=0,
+        scale=(1.0, 1.5),
+        # translate=(1.0, 1.0),
+        shear=(0.0, 0.0),
     )
 
-    img = ds[999]["img"]
+    img = ds[121]["img"]
+    kpts = ds[121]["kpts"]
 
-    transformed_img = transform(img)
+    transformed_img, transformed_kpts = transform(img, kpts)
 
     initial_image = transform.inverse(transformed_img)
 
     # plot all of img, transformed_img, and initial_image in the same figure
     fig, axs = plt.subplots(1, 3)
     axs[0].imshow(img.permute(1, 2, 0).cpu().detach().numpy())
+    # plot the keypoints on the image (shape is [5, 2])
+    axs[0].scatter(kpts[:, 1] * 512.0, kpts[:, 0] * 512.0, marker="x", color="red")
     axs[1].imshow(transformed_img.permute(1, 2, 0).cpu().detach().numpy())
+    axs[1].scatter(
+        transformed_kpts[:, 1] * 512.0,
+        transformed_kpts[:, 0] * 512.0,
+        marker="x",
+        color="red",
+    )
     axs[2].imshow(initial_image.permute(1, 2, 0).cpu().detach().numpy())
     plt.savefig(f"outputs/image.png")
     plt.close()

@@ -2,11 +2,13 @@ import argparse
 import torch
 from unsupervised_keypoints.optimize_token import load_ldm
 from unsupervised_keypoints.keypoint_regressor import LinearProjection
-from unsupervised_keypoints.optimize import optimize_embedding, optimize_embedding_ddpm
+from unsupervised_keypoints.optimize import optimize_embedding
 
 from unsupervised_keypoints.keypoint_regressor import (
     supervise_regressor,
     find_best_indices,
+    precompute_all_keypoints,
+    return_regressor,
 )
 
 from unsupervised_keypoints.eval import eval_embedding, evaluate
@@ -32,7 +34,7 @@ parser.add_argument("--wandb", action="store_true", help="wandb logging")
 parser.add_argument("--lr", type=float, default=5e-3, help="learning rate")
 # add argument for num_steps
 parser.add_argument(
-    "--num_steps", type=int, default=1e3, help="number of steps to optimize"
+    "--num_steps", type=int, default=1e4, help="number of steps to optimize"
 )
 parser.add_argument(
     "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
@@ -45,10 +47,44 @@ parser.add_argument(
     help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
 )
 parser.add_argument(
-    "--crop_percent",
+    "--kernel_size",
+    type=int,
+    default=3,
+    help="size of blur over the ground truth attention map",
+)
+parser.add_argument(
+    "--augment_degrees",
     type=float,
-    default=93.16549294381423,
-    help="the percent of the image to crop to",
+    default=15.0,
+    help="rotation degrees for augmentation",
+)
+parser.add_argument(
+    "--augment_scale",
+    type=float,
+    # 2 arguments
+    nargs="+",
+    default=[1.0, 2.0],
+    help="scale factor for augmentation",
+)
+parser.add_argument(
+    "--augment_translate",
+    type=float,
+    nargs="+",
+    default=[0.3, 0.3],
+    help="amount of translation for augmentation along x and y axis",
+)
+parser.add_argument(
+    "--augment_shear",
+    type=float,
+    nargs="+",
+    default=[0.0, 0.3],
+    help=" amount of shear for augmentation",
+)
+parser.add_argument(
+    "--augmentation_iterations",
+    type=int,
+    default=10,
+    help="number of iterations for augmentation",
 )
 parser.add_argument("--top_k", type=int, default=10, help="number of points to choose")
 
@@ -66,6 +102,11 @@ embedding = optimize_embedding(
     layers=args.layers,
     sdxl=args.sdxl,
     top_k=args.top_k,
+    kernel_size=args.kernel_size,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
 )
 torch.save(embedding, "embedding.pt")
 # embedding = torch.load("embedding.pt").to(args.device).detach()
@@ -79,6 +120,10 @@ indices = find_best_indices(
     layers=args.layers,
     top_k=args.top_k,
     augment=True,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
 )
 torch.save(indices, "indices.pt")
 # indices = torch.load("indices.pt").to(args.device).detach()
@@ -91,25 +136,42 @@ visualize_attn_maps(
     num_tokens=args.num_tokens,
     layers=args.layers,
     num_points=args.top_k,
-    augment=True,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    augmentation_iterations=args.augmentation_iterations,
 )
 
-regressor = supervise_regressor(
+source_kpts, target_kpts = precompute_all_keypoints(
     ldm,
     embedding,
     indices,
     wandb_log=args.wandb,
-    lr=1e-3,
-    num_steps=3e3,
+    lr=1e-2,
+    num_steps=1e4,
     num_tokens=args.num_tokens,
     device=args.device,
     layers=args.layers,
     top_k=args.top_k,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    augmentation_iterations=args.augmentation_iterations,
 )
-torch.save(regressor.state_dict(), "regressor.pt")
-# regressor = LinearProjection(input_dim=args.top_k * 2, output_dim=5 * 2).cuda()
-# regressor_weights = torch.load("regressor.pt")
-# regressor.load_state_dict(regressor_weights)
+
+torch.save(torch.stack(source_kpts), "source_keypoints.pt")
+torch.save(torch.stack(target_kpts), "target_keypoints.pt")
+# source_kpts = torch.load("source_keypoints.pt")
+# target_kpts = torch.load("target_keypoints.pt")
+
+regressor = return_regressor(
+    source_kpts.numpy().reshape(19000, 20),
+    target_kpts.numpy().reshape(19000, 10),
+)
+regressor = torch.tensor(regressor)
+torch.save(regressor, "regressor.pt")
 
 # visualize embeddings
 visualize_attn_maps(
@@ -119,17 +181,24 @@ visualize_attn_maps(
     num_tokens=args.num_tokens,
     layers=args.layers,
     num_points=args.top_k,
-    regressor=regressor,
-    augment=False,
+    regressor=regressor.to(args.device),
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
 )
 
 evaluate(
     ldm,
     embedding,
     indices,
-    regressor,
+    regressor.to(args.device),
     num_tokens=args.num_tokens,
     layers=args.layers,
     noise_level=args.noise_level,
-    crop_percent=args.crop_percent,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    augmentation_iterations=args.augmentation_iterations,
 )

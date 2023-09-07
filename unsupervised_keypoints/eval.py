@@ -2,9 +2,11 @@
 import torch
 import numpy as np
 from tqdm import tqdm
+from queue import PriorityQueue
 import torch.nn.functional as F
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
+from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
 
 # now import weights and biases
 import wandb
@@ -203,6 +205,34 @@ def find_max_pixel(map, return_confidences=False):
     return max_indices, values
 
 
+def pixel_from_weighted_avg(heatmaps):
+    """
+    finds the pixel of the map with the highest value
+    map shape [batch_size, h, w]
+    """
+
+    # Get the shape of the heatmaps
+    batch_size, m, n = heatmaps.shape
+
+    # Compute the total value of the heatmaps
+    total_value = torch.sum(heatmaps, dim=[1, 2], keepdim=True)
+
+    # Normalize the heatmaps
+    normalized_heatmaps = heatmaps / (
+        total_value + 1e-6
+    )  # Adding a small constant to avoid division by zero
+
+    # Create meshgrid to represent the coordinates
+    x = torch.arange(0, m).float().view(1, m, 1).to(heatmaps.device)
+    y = torch.arange(0, n).float().view(1, 1, n).to(heatmaps.device)
+
+    # Compute the weighted sum for x and y
+    x_sum = torch.sum(x * normalized_heatmaps, dim=[1, 2])
+    y_sum = torch.sum(y * normalized_heatmaps, dim=[1, 2])
+
+    return torch.stack([x_sum, y_sum], dim=-1) + 0.5
+
+
 def find_corresponding_points(maps, num_points=10):
     """
     Finds the corresponding points between the maps.
@@ -244,46 +274,46 @@ def find_corresponding_points(maps, num_points=10):
     return highest_indices, sorted_entropy[:num_points]
 
 
-def crop_image(image, crop_percent=90):
-    """pixel is an integer between 0 and image.shape[1] or image.shape[2]"""
+# def crop_image(image, crop_percent=90):
+#     """pixel is an integer between 0 and image.shape[1] or image.shape[2]"""
 
-    assert 0 < crop_percent <= 100, "crop_percent should be between 0 and 100"
+#     assert 0 < crop_percent <= 100, "crop_percent should be between 0 and 100"
 
-    height, width, channels = image.shape
-    crop_height = int(height * crop_percent / 100)
-    crop_width = int(width * crop_percent / 100)
+#     height, width, channels = image.shape
+#     crop_height = int(height * crop_percent / 100)
+#     crop_width = int(width * crop_percent / 100)
 
-    x_start_max = width - crop_width
-    y_start_max = height - crop_height
+#     x_start_max = width - crop_width
+#     y_start_max = height - crop_height
 
-    # Choose a random top-left corner within the allowed bounds
-    x_start = torch.randint(0, int(x_start_max) + 1, (1,)).item()
-    y_start = torch.randint(0, int(y_start_max) + 1, (1,)).item()
+#     # Choose a random top-left corner within the allowed bounds
+#     x_start = torch.randint(0, int(x_start_max) + 1, (1,)).item()
+#     y_start = torch.randint(0, int(y_start_max) + 1, (1,)).item()
 
-    # Crop the image
-    cropped_image = image[
-        y_start : y_start + crop_height, x_start : x_start + crop_width
-    ]
+#     # Crop the image
+#     cropped_image = image[
+#         y_start : y_start + crop_height, x_start : x_start + crop_width
+#     ]
 
-    # bilinearly upsample to 512x512
-    cropped_image = torch.nn.functional.interpolate(
-        torch.tensor(cropped_image[None]).permute(0, 3, 1, 2),
-        size=(512, 512),
-        mode="bilinear",
-        align_corners=False,
-    )[0]
+#     # bilinearly upsample to 512x512
+#     cropped_image = torch.nn.functional.interpolate(
+#         torch.tensor(cropped_image[None]).permute(0, 3, 1, 2),
+#         size=(512, 512),
+#         mode="bilinear",
+#         align_corners=False,
+#     )[0]
 
-    return (
-        cropped_image.permute(1, 2, 0).numpy(),
-        y_start,
-        crop_height,
-        x_start,
-        crop_width,
-    )
+#     return (
+#         cropped_image.permute(1, 2, 0).numpy(),
+#         y_start,
+#         crop_height,
+#         x_start,
+#         crop_width,
+#     )
 
 
 @torch.no_grad()
-def run_image_with_tokens_cropped(
+def run_image_with_tokens_augmented(
     ldm,
     image,
     tokens,
@@ -291,26 +321,50 @@ def run_image_with_tokens_cropped(
     device="cuda",
     from_where=["down_cross", "mid_cross", "up_cross"],
     layers=[0, 1, 2, 3, 4, 5],
-    num_iterations=20,
+    augmentation_iterations=20,
     noise_level=-1,
-    crop_percent=90.0,
-    image_mask=None,
+    augment_degrees=30,
+    augment_scale=(0.9, 1.1),
+    augment_translate=(0.1, 0.1),
+    augment_shear=(0.0, 0.0),
+    visualize=False,
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
         image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-    num_samples = torch.zeros(len(layers), 4, len(indices), 512, 512).cuda()
-    sum_samples = torch.zeros(len(layers), 4, len(indices), 512, 512).cuda()
+    num_samples = torch.zeros(len(indices), 512, 512).cuda()
+    sum_samples = torch.zeros(len(indices), 512, 512).cuda()
 
-    # side_margin = int(512 * crop_percent / 100.0 * 0.1)
+    invertible_transform = RandomAffineWithInverse(
+        degrees=augment_degrees,
+        scale=augment_scale,
+        translate=augment_translate,
+        shear=augment_shear,
+    )
 
-    for i in range(num_iterations):
-        cropped_image, y_start, height, x_start, width = crop_image(
-            image, crop_percent=crop_percent
+    if visualize:
+        import matplotlib.pyplot as plt
+
+        fig, axs = plt.subplots(augmentation_iterations + 1, 4)
+
+    for i in range(augmentation_iterations):
+        augmented_img = (
+            invertible_transform(torch.tensor(image).permute(2, 0, 1))
+            .permute(1, 2, 0)
+            .numpy()
         )
 
-        latents = ptp_utils.image2latent(ldm, cropped_image, device)
+        # if i != 0:
+        #     augmented_img = (
+        #         invertible_transform(torch.tensor(image).permute(2, 0, 1))
+        #         .permute(1, 2, 0)
+        #         .numpy()
+        #     )
+        # else:
+        #     augmented_img = image
+
+        latents = ptp_utils.image2latent(ldm, augmented_img, device)
 
         controller = ptp_utils.AttentionStore()
 
@@ -329,59 +383,55 @@ def run_image_with_tokens_cropped(
             cfg=False,
         )
 
-        assert height == width
-
         _attention_maps = collect_maps(
             controller,
             from_where=from_where,
-            upsample_res=height,
+            upsample_res=512,
             layers=layers,
             indices=indices,
         )
 
-        # num_samples[
-        #     :,
-        #     :,
-        #     :,
-        #     y_start + side_margin : y_start + height - side_margin,
-        #     x_start + side_margin : x_start + width - side_margin,
-        # ] += 1
-        # sum_samples[
-        #     :,
-        #     :,
-        #     :,
-        #     y_start + side_margin : y_start + height - side_margin,
-        #     x_start + side_margin : x_start + width - side_margin,
-        # ] += _attention_maps[
-        #     :, :, :, side_margin:-side_margin, side_margin:-side_margin
-        # ]
-        num_samples[
-            :,
-            :,
-            :,
-            y_start : y_start + height,
-            x_start : x_start + width,
-        ] += 1
-        sum_samples[
-            :,
-            :,
-            :,
-            y_start : y_start + height,
-            x_start : x_start + width,
-        ] += _attention_maps
+        _attention_maps = _attention_maps.mean((0, 1))
 
-        _attention_maps = sum_samples / num_samples
+        num_samples += invertible_transform.inverse(torch.ones_like(num_samples))
+        sum_samples += invertible_transform.inverse(_attention_maps)
 
-        if image_mask is not None:
-            _attention_maps = _attention_maps * image_mask[None, None].to(device)
+        if visualize:
+            axs[i, 0].imshow(augmented_img)
+            axs[i, 1].imshow(
+                invertible_transform.inverse(torch.ones_like(num_samples))[
+                    0, :, :
+                ].cpu()
+            )
+            axs[i, 2].imshow(_attention_maps[0, :, :].cpu())
+            axs[i, 3].imshow(
+                (
+                    _attention_maps[0, :, :, None]
+                    / _attention_maps[0, :, :, None].max()
+                ).cpu()
+                * 0.8
+                + augmented_img * 0.2
+            )
 
     # visualize sum_samples/num_samples
     attention_maps = sum_samples / num_samples
 
+    # replace all nans with 0s
     attention_maps[attention_maps != attention_maps] = 0
 
-    if image_mask is not None:
-        attention_maps = attention_maps * image_mask[None, None].to(device)
+    if visualize:
+        axs[-1, 0].imshow(image)
+        axs[-1, 1].imshow(sum_samples[0].cpu())
+        axs[-1, 2].imshow(attention_maps[0].cpu())
+        axs[-1, 3].imshow(
+            (attention_maps[0, :, :, None] / attention_maps[0, :, :, None].max()).cpu()
+            * 0.8
+            + image * 0.2
+        )
+
+        # set the resolution of the plot to 512x512
+        fig.set_size_inches(4096 / 100, 4096 / 100)
+        plt.savefig("augmentation.png")
 
     return attention_maps
 
@@ -398,18 +448,30 @@ def evaluate(
     layers=[0, 1, 2, 3, 4, 5],
     noise_level=-1,
     num_tokens=1000,
-    crop_percent=90.0,
+    augment_degrees=30,
+    augment_scale=(0.9, 1.1),
+    augment_translate=(0.1, 0.1),
+    augment_shear=(0.0, 0.0),
+    augmentation_iterations=20,
 ):
     dataset = CelebA(split="test")
 
     distances = []
+
+    eye_dists = []
+
+    worst_l2 = PriorityQueue()
+
+    max_value = 0
+
+    all_values = []
 
     for i in range(len(dataset)):
         batch = dataset[i]
 
         img = batch["img"]
 
-        attention_maps = run_image_with_tokens_cropped(
+        attention_maps = run_image_with_tokens_augmented(
             ldm,
             img,
             context,
@@ -418,20 +480,42 @@ def evaluate(
             from_where=from_where,
             layers=layers,
             noise_level=noise_level,
-            num_iterations=1,
-            crop_percent=100,
+            augmentation_iterations=augmentation_iterations,
+            augment_degrees=augment_degrees,
+            augment_scale=augment_scale,
+            augment_translate=augment_translate,
+            augment_shear=augment_shear,
+            # visualize=True,
         )
-
-        attention_maps = torch.mean(attention_maps, dim=(0, 1))
+        # attention_maps = run_image_with_tokens_augmented(
+        #     ldm,
+        #     img,
+        #     context,
+        #     indices,
+        #     device=device,
+        #     from_where=from_where,
+        #     layers=layers,
+        #     noise_level=noise_level,
+        #     augmentation_iterations=1,
+        #     augment_degrees=0,
+        #     augment_scale=(1.0, 1.0),
+        #     augment_translate=(0.0, 0.0),
+        #     augment_shear=(0.0, 0.0),
+        #     # visualize=True,
+        # )
 
         # get the argmax of each of the best_embeddings
-        highest_indices = find_max_pixel(attention_maps) / 512.0
+        highest_indices, confidences = find_max_pixel(
+            attention_maps, return_confidences=True
+        )
+        highest_indices = highest_indices / 512.0
 
         # for i in range(attention_maps.shape[0]):
         #     save_img(attention_maps[i], img, highest_indices[i], f"attn_maps_{i:02d}")
         # pass
 
-        estimated_kpts = regressor(highest_indices.view(-1))
+        # estimated_kpts = regressor(highest_indices.view(-1))
+        estimated_kpts = highest_indices.view(1, -1) @ regressor
 
         estimated_kpts = estimated_kpts.view(-1, 2)
 
@@ -444,13 +528,47 @@ def evaluate(
 
         l2 = l2 / eye_dist
 
-        distances.append(l2.cpu())
+        l2_mean = torch.mean(l2)
+
+        all_values.append(l2_mean.item())
+
+        if l2_mean > max_value:
+            print(f"new max value: {l2_mean}, {i} \n")
+            print(i)
+            max_value = l2_mean
+
+        if worst_l2.qsize() < 10:
+            worst_l2.put((l2_mean.item(), i))
+        else:
+            smallest_worst, smallest_worst_index = worst_l2.get()
+            if l2_mean.item() > smallest_worst:
+                worst_l2.put((l2_mean.item(), i))
+            else:
+                worst_l2.put((smallest_worst, smallest_worst_index))
+
+        distances.append(l2_mean.cpu())
+        eye_dists.append(eye_dist.cpu())
 
         print(
-            f"{(i/len(dataset)):06f}: {i} mean distance: {torch.mean(torch.stack(distances))}, per keypoint: {torch.mean(torch.stack(distances), dim=0)}",
+            f"{(i/len(dataset)):06f}: {i} mean distance: {torch.mean(torch.stack(distances))}, per keypoint: {torch.mean(torch.stack(distances), dim=0)}, eye_dist: {torch.mean(torch.stack(eye_dists))}",
             end="\r",
         )
 
         if i % 100 == 0:
             print()
+        # Extract the 10 worst distances (and their indices) from the priority queue
+
+    worst_10 = []
+    while not worst_l2.empty():
+        distance, index = worst_l2.get()
+        worst_10.append((index, distance))
+
+    # Now worst_10 contains the indices and l2 distances of the 10 worst cases
+    print("10 worst L2 distances and their indices:")
+    for index, distance in reversed(worst_10):
+        print(f"Index: {index}, L2 Distance: {distance}")
+
     print()
+
+    # save argsorted all_values in torch
+    torch.save(torch.tensor(all_values), "argsort_test.pt")
