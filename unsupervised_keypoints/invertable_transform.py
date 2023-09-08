@@ -2,6 +2,8 @@ import math
 import torch
 import random
 from torchvision.transforms import functional as TF
+import torch.nn.functional as F
+
 from torch import Tensor
 from typing import Any, List, Optional, Tuple, Union
 
@@ -120,15 +122,31 @@ class RandomAffineWithInverse:
         self.translate = translate
         self.shear = shear
 
-        # initialize self.last_params to 0s
+        # Initialize self.last_params to 0s
         self.last_params = {
-            "translations_percent": (0, 0),
-            "angle": 0,
-            "scale": 1.0,
-            "shear": (0, 0),
+            "theta": torch.eye(2, 3).unsqueeze(0),
         }
 
-    def __call__(self, img_tensor, keypoints=None):
+    def create_affine_matrix(self, angle, scale, translations_pixels, shear):
+        angle_rad = math.radians(angle)
+        shear_rad = [math.radians(s) for s in shear]
+
+        # Create affine matrix
+        theta = torch.tensor(
+            [
+                [math.cos(angle_rad), math.sin(angle_rad), translations_pixels[0]],
+                [-math.sin(angle_rad), math.cos(angle_rad), translations_pixels[1]],
+            ],
+            dtype=torch.float,
+        )
+
+        theta = theta * scale
+        theta = theta.unsqueeze(0)  # Add batch dimension
+        return theta
+
+    def __call__(self, img_tensor):
+        img_tensor = img_tensor[None]
+
         # Calculate random parameters
         angle = random.uniform(-self.degrees, self.degrees)
         scale_factor = random.uniform(self.scale[0], self.scale[1])
@@ -136,64 +154,52 @@ class RandomAffineWithInverse:
             random.uniform(-self.translate[0], self.translate[0]),
             random.uniform(-self.translate[1], self.translate[1]),
         )
-
-        translations_pixels = [
-            translations_percent[0] * img_tensor.shape[-1] / 2,
-            translations_percent[1] * img_tensor.shape[-2] / 2,
-        ]
+        # translations_pixels = [
+        #     translations_percent[0] * img_tensor.shape[-1],
+        #     translations_percent[1] * img_tensor.shape[-2],
+        # ]
         shear = [
             random.uniform(-self.shear[0], self.shear[0]),
             random.uniform(-self.shear[1], self.shear[1]),
         ]
 
+        # Create the affine matrix
+        theta = self.create_affine_matrix(
+            angle, scale_factor, translations_percent, shear
+        )
+
         # Store them for inverse transformation
         self.last_params = {
-            "angle": angle,
-            "scale": scale_factor,
-            "translations_percent": translations_percent,
-            "shear": shear,
+            "theta": theta,
         }
 
         # Apply transformation
-        transformed_img = TF.affine(
-            img_tensor,
-            angle=angle,
-            translate=translations_pixels,
-            scale=scale_factor,
-            shear=shear,
-            interpolation=TF.InterpolationMode.BILINEAR,
+        grid = F.affine_grid(theta, img_tensor.size(), align_corners=False).to(
+            img_tensor.device
         )
+        transformed_img = F.grid_sample(img_tensor, grid, align_corners=False)
 
-        if keypoints is None:
-            return transformed_img
-
-        transformed_keypoints = transform_keypoints(
-            keypoints,
-            angle,
-            -1 * torch.tensor([translations_pixels[1], translations_pixels[0]]),
-            1 / scale_factor,
-            shear,
-            img_tensor.shape[-2:],
-        )
-
-        return transformed_img, transformed_keypoints
+        return transformed_img[0]
 
     def inverse(self, img_tensor):
-        # Retrieve stored parameters and compute translations in pixels for current size
-        angle = -self.last_params["angle"]  # Inverse of rotation
-        translations_pixels = (
-            -self.last_params["translations_percent"][0] * img_tensor.shape[-1] / 2,
-            -self.last_params["translations_percent"][1] * img_tensor.shape[-2] / 2,
-        )  # Inverse of translation
-        scale_factor = 1.0 / self.last_params["scale"]  # Inverse of scaling
-        shear = self.last_params["shear"]  # Inverse of shear
+        img_tensor = img_tensor[None]
+
+        # Retrieve stored parameters
+        theta = self.last_params["theta"]
+
+        # Augment the affine matrix to make it 3x3
+        theta_augmented = torch.cat(
+            [theta, torch.Tensor([[0, 0, 1]]).expand(theta.shape[0], -1, -1)], dim=1
+        )
+
+        # Compute the inverse of the affine matrix
+        theta_inv_augmented = torch.inverse(theta_augmented)
+        theta_inv = theta_inv_augmented[:, :2, :]  # Take the 2x3 part back
 
         # Apply inverse transformation
-        return TF.affine(
-            img_tensor,
-            angle=angle,
-            translate=translations_pixels,
-            scale=scale_factor,
-            shear=shear,
-            interpolation=TF.InterpolationMode.BILINEAR,
+        grid_inv = F.affine_grid(theta_inv, img_tensor.size(), align_corners=False).to(
+            img_tensor.device
         )
+        untransformed_img = F.grid_sample(img_tensor, grid_inv, align_corners=False)
+
+        return untransformed_img[0]

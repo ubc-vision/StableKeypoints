@@ -125,8 +125,8 @@ def visualize_attn_maps(
     imgs = []
     maps = []
     gt_kpts = []
-    # for i in tqdm(range(num_images)):
-    for i in [527, 115, 121, 815, 753, 528, 487, 210, 263, 778]:
+    for i in tqdm(range(num_images)):
+        # for i in [527, 115, 121, 815, 753, 528, 487, 210, 263, 778]:
         batch = dataset[i]
 
         img = batch["img"]
@@ -149,6 +149,7 @@ def visualize_attn_maps(
             augment_translate=augment_translate,
             augment_shear=augment_shear,
             augmentation_iterations=augmentation_iterations,
+            # visualize=True,
         )
 
         maps.append(map)

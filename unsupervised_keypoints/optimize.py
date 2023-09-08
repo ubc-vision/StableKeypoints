@@ -339,18 +339,18 @@ def optimize_embedding(
         # never had transformation applied
         best_embeddings_vanilla = vanilla_attn_maps[top_embedding_indices]
 
-        _ddpm_loss = (
-            ddpm_loss(
-                ldm,
-                image,
-                context[:, top_embedding_indices],
-                best_embeddings,
-                noise_level=noise_level,
-                device=device,
-            )
-            / 100
-        )
-        # _ddpm_loss = torch.tensor(0).to(device)
+        # _ddpm_loss = (
+        #     ddpm_loss(
+        #         ldm,
+        #         image,
+        #         context[:, top_embedding_indices],
+        #         best_embeddings,
+        #         noise_level=noise_level,
+        #         device=device,
+        #     )
+        #     * 1000
+        # )
+        _ddpm_loss = torch.tensor(0).to(device)
 
         _sharpening_loss = sharpening_loss(best_embeddings, kernel_size=kernel_size)
         l2_loss = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted) * 10

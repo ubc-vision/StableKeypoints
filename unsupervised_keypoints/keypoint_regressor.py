@@ -330,51 +330,50 @@ def precompute_all_keypoints(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
+    max_num_images=float("inf"),
 ):
     dataset = CelebA(split="train")
 
     source_keypoints = []
     target_keypoints = []
 
-    for iteration in tqdm(range(len(dataset))):
+    for iteration in tqdm(range(min(len(dataset), max_num_images))):
         mini_batch = dataset[iteration]
 
         image = mini_batch["img"]
         kpts = mini_batch["kpts"]
 
-        # label = mini_batch['label']
+        # if image is a torch.tensor, convert to numpy
+        if type(image) == torch.Tensor:
+            image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-        # # if image is a torch.tensor, convert to numpy
-        # if type(image) == torch.Tensor:
-        #     image = image.permute(1, 2, 0).detach().cpu().numpy()
+        attention_maps = run_image_with_tokens_augmented(
+            ldm,
+            image,
+            context,
+            top_indices,
+            device=device,
+            from_where=from_where,
+            layers=layers,
+            noise_level=noise_level,
+            augmentation_iterations=augmentation_iterations,
+            augment_degrees=augment_degrees,
+            augment_scale=augment_scale,
+            augment_translate=augment_translate,
+            augment_shear=augment_shear,
+        )
 
-        # attention_maps = run_image_with_tokens_augmented(
-        #     ldm,
-        #     image,
-        #     context,
-        #     top_indices,
-        #     device=device,
-        #     from_where=from_where,
-        #     layers=layers,
-        #     noise_level=noise_level,
-        #     augmentation_iterations=augmentation_iterations,
-        #     augment_degrees=augment_degrees,
-        #     augment_scale=augment_scale,
-        #     augment_translate=augment_translate,
-        #     augment_shear=augment_shear,
-        # )
+        # get the argmax of each of the best_embeddings
+        highest_indices, values = find_max_pixel(
+            attention_maps, return_confidences=True
+        )
 
-        # # get the argmax of each of the best_embeddings
-        # highest_indices, values = find_max_pixel(
-        #     attention_maps, return_confidences=True
-        # )
+        highest_indices = highest_indices / 512.0
 
-        # highest_indices = highest_indices / 512.0
-
-        # source_keypoints.append(highest_indices)
+        source_keypoints.append(highest_indices)
         target_keypoints.append(kpts)
 
-    return source_keypoints, target_keypoints
+    return torch.stack(source_keypoints), torch.stack(target_keypoints)
 
 
 def return_regressor(X, Y):

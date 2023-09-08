@@ -346,7 +346,11 @@ def run_image_with_tokens_augmented(
     if visualize:
         import matplotlib.pyplot as plt
 
-        fig, axs = plt.subplots(augmentation_iterations + 1, 4)
+        fig, axs = plt.subplots(augmentation_iterations + 1, 5)
+
+        visualize_index = 3
+
+    images = []
 
     for i in range(augmentation_iterations):
         augmented_img = (
@@ -400,17 +404,28 @@ def run_image_with_tokens_augmented(
             axs[i, 0].imshow(augmented_img)
             axs[i, 1].imshow(
                 invertible_transform.inverse(torch.ones_like(num_samples))[
-                    0, :, :
+                    visualize_index, :, :
                 ].cpu()
             )
-            axs[i, 2].imshow(_attention_maps[0, :, :].cpu())
+            axs[i, 2].imshow(_attention_maps[visualize_index, :, :].cpu())
             axs[i, 3].imshow(
+                invertible_transform.inverse(_attention_maps)[
+                    visualize_index, :, :
+                ].cpu()
+            )
+            axs[i, 4].imshow(
                 (
-                    _attention_maps[0, :, :, None]
-                    / _attention_maps[0, :, :, None].max()
+                    _attention_maps[visualize_index, :, :, None]
+                    / _attention_maps[visualize_index, :, :, None].max()
                 ).cpu()
                 * 0.8
                 + augmented_img * 0.2
+            )
+
+            images.append(
+                invertible_transform.inverse(
+                    torch.tensor(augmented_img).permute(2, 0, 1)
+                )
             )
 
     # visualize sum_samples/num_samples
@@ -420,11 +435,19 @@ def run_image_with_tokens_augmented(
     attention_maps[attention_maps != attention_maps] = 0
 
     if visualize:
+        re_overlayed_image = torch.sum(torch.stack(images), dim=0).to(device)
+        re_overlayed_image /= num_samples[0, None]
+        re_overlayed_image[re_overlayed_image != re_overlayed_image] = 0
+
         axs[-1, 0].imshow(image)
-        axs[-1, 1].imshow(sum_samples[0].cpu())
-        axs[-1, 2].imshow(attention_maps[0].cpu())
-        axs[-1, 3].imshow(
-            (attention_maps[0, :, :, None] / attention_maps[0, :, :, None].max()).cpu()
+        axs[-1, 1].imshow(sum_samples[visualize_index].cpu())
+        axs[-1, 2].imshow(attention_maps[visualize_index].cpu())
+        axs[-1, 3].imshow(re_overlayed_image.cpu().permute(1, 2, 0))
+        axs[-1, 4].imshow(
+            (
+                attention_maps[visualize_index, :, :, None]
+                / attention_maps[visualize_index, :, :, None].max()
+            ).cpu()
             * 0.8
             + image * 0.2
         )
