@@ -333,8 +333,8 @@ def run_image_with_tokens_augmented(
     if type(image) == torch.Tensor:
         image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-    num_samples = torch.zeros(len(indices), 512, 512).cuda()
-    sum_samples = torch.zeros(len(indices), 512, 512).cuda()
+    num_samples = torch.zeros(len(indices), 512, 512).to(device)
+    sum_samples = torch.zeros(len(indices), 512, 512).to(device)
 
     invertible_transform = RandomAffineWithInverse(
         degrees=augment_degrees,
@@ -346,7 +346,7 @@ def run_image_with_tokens_augmented(
     if visualize:
         import matplotlib.pyplot as plt
 
-        fig, axs = plt.subplots(augmentation_iterations + 1, 5)
+        fig, axs = plt.subplots(augmentation_iterations + 1, 8)
 
         visualize_index = 3
 
@@ -421,6 +421,26 @@ def run_image_with_tokens_augmented(
                 * 0.8
                 + augmented_img * 0.2
             )
+            diff = torch.abs(
+                torch.mean(
+                    invertible_transform.inverse(
+                        torch.tensor(augmented_img).permute(2, 0, 1)
+                    ).permute(1, 2, 0)
+                    - torch.tensor(image),
+                    dim=-1,
+                )
+            )
+            diff *= invertible_transform.inverse(torch.ones_like(num_samples))[0]
+            diff = diff / diff.max()
+            axs[i, 5].imshow((diff)[:, :, None].cpu())
+            axs[i, 6].imshow(
+                invertible_transform.inverse(
+                    torch.tensor(augmented_img).permute(2, 0, 1)
+                )
+                .permute(1, 2, 0)
+                .cpu()
+            )
+            axs[i, 7].imshow(torch.tensor(image).cpu())
 
             images.append(
                 invertible_transform.inverse(

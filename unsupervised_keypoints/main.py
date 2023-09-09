@@ -22,7 +22,8 @@ parser = argparse.ArgumentParser(description="optimize a class embedding")
 parser.add_argument(
     "--model_type",
     type=str,
-    default="CompVis/stable-diffusion-v1-4",
+    # default="CompVis/stable-diffusion-v1-4",
+    default="runwayml/stable-diffusion-v1-5",
     help="ldm model type",
 )
 # make a term for sdxl, itll be bool and only true if we want to use sdxl
@@ -94,40 +95,40 @@ args = parser.parse_args()
 ldm = load_ldm(args.device, args.model_type)
 
 # embedding = optimize_embedding(
-# ldm,
-# wandb_log=args.wandb,
-# lr=args.lr,
-# num_steps=int(args.num_steps),
-# num_tokens=args.num_tokens,
-# device=args.device,
-# layers=args.layers,
-# sdxl=args.sdxl,
-# top_k=args.top_k,
-# kernel_size=args.kernel_size,
-# augment_degrees=args.augment_degrees,
-# augment_scale=args.augment_scale,
-# augment_translate=args.augment_translate,
-# augment_shear=args.augment_shear,
+#     ldm,
+#     wandb_log=args.wandb,
+#     lr=args.lr,
+#     num_steps=int(args.num_steps),
+#     num_tokens=args.num_tokens,
+#     device=args.device,
+#     layers=args.layers,
+#     sdxl=args.sdxl,
+#     top_k=args.top_k,
+#     kernel_size=args.kernel_size,
+#     augment_degrees=args.augment_degrees,
+#     augment_scale=args.augment_scale,
+#     augment_translate=args.augment_translate,
+#     augment_shear=args.augment_shear,
 # )
 # torch.save(embedding, "embedding.pt")
-embedding = torch.load("embedding_best.pt").to(args.device).detach()
+embedding = torch.load("embedding.pt").to(args.device).detach()
 #
-indices = find_best_indices(
-    ldm,
-    embedding,
-    num_steps=100,
-    num_tokens=args.num_tokens,
-    device=args.device,
-    layers=args.layers,
-    top_k=args.top_k,
-    augment=True,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
-)
-torch.save(indices, "indices.pt")
-# indices = torch.load("indices.pt").to(args.device).detach()
+# indices = find_best_indices(
+#     ldm,
+#     embedding,
+#     num_steps=100,
+#     num_tokens=args.num_tokens,
+#     device=args.device,
+#     layers=args.layers,
+#     top_k=args.top_k,
+#     augment=True,
+#     augment_degrees=args.augment_degrees,
+#     augment_scale=args.augment_scale,
+#     augment_translate=args.augment_translate,
+#     augment_shear=args.augment_shear,
+# )
+# torch.save(indices, "indices.pt")
+indices = torch.load("indices.pt").to(args.device).detach()
 
 # visualize embeddings
 visualize_attn_maps(
@@ -142,6 +143,7 @@ visualize_attn_maps(
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
+    device=args.device,
 )
 
 source_kpts, target_kpts = precompute_all_keypoints(
@@ -160,7 +162,7 @@ source_kpts, target_kpts = precompute_all_keypoints(
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
-    max_num_images=1000,
+    # max_num_images=1000,
 )
 
 torch.save(source_kpts, "source_keypoints.pt")
@@ -178,19 +180,19 @@ torch.save(regressor, "regressor.pt")
 # regressor = torch.load("regressor.pt")
 
 # visualize embeddings
-# visualize_attn_maps(
-#     ldm,
-#     embedding,
-#     indices,
-#     num_tokens=args.num_tokens,
-#     layers=args.layers,
-#     num_points=args.top_k,
-#     regressor=regressor.to(args.device),
-#     augment_degrees=args.augment_degrees,
-#     augment_scale=args.augment_scale,
-#     augment_translate=args.augment_translate,
-#     augment_shear=args.augment_shear,
-# )
+visualize_attn_maps(
+    ldm,
+    embedding,
+    indices,
+    num_tokens=args.num_tokens,
+    layers=args.layers,
+    num_points=args.top_k,
+    regressor=regressor.to(args.device),
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+)
 
 evaluate(
     ldm,

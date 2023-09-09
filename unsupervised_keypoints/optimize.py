@@ -312,6 +312,7 @@ def optimize_embedding(
             noise_level=noise_level,
             from_where=from_where,
             upsample_res=upsample_res,
+            device=device,
         )
 
         transformed_img = invertible_transform(image)
@@ -324,6 +325,7 @@ def optimize_embedding(
             noise_level=noise_level,
             from_where=from_where,
             upsample_res=upsample_res,
+            device=device,
         )
 
         uninverted_attn_maps = invertible_transform.inverse(attention_maps)
