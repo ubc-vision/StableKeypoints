@@ -265,12 +265,14 @@ def optimize_embedding(
     augment_shear=(0.0, 0.0),
     kernel_size=5,
     sdxl=False,
+    mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
 ):
     if wandb_log:
         # start a wandb session
         wandb.init(project="attention_maps")
 
-    dataset = CelebA(split="train")
+    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     invertible_transform = RandomAffineWithInverse(
         degrees=augment_degrees,
