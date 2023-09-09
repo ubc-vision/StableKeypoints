@@ -149,7 +149,7 @@ def visualize_attn_maps(
             augment_translate=augment_translate,
             augment_shear=augment_shear,
             augmentation_iterations=augmentation_iterations,
-            visualize=True,
+            # visualize=True,
         )
 
         maps.append(map)
