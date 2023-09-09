@@ -23,7 +23,8 @@ parser = argparse.ArgumentParser(description="optimize a class embedding")
 parser.add_argument(
     "--model_type",
     type=str,
-    default="CompVis/stable-diffusion-v1-4",
+    # default="CompVis/stable-diffusion-v1-4",
+    default="runwayml/stable-diffusion-v1-5",
     help="ldm model type",
 )
 # Dataset details
@@ -58,6 +59,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
+)
+parser.add_argument(
+    "--max_num_images", type=int, default=19000, help="number of samples to use for finding regressor"
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[5, 6, 7, 8])
 parser.add_argument(
@@ -188,7 +192,7 @@ source_kpts, target_kpts = precompute_all_keypoints(
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
-    max_num_images=1000,
+    max_num_images=args.max_num_images,
     mafl_loc = args.mafl_loc,
     celeba_loc = args.celeba_loc,
 )
