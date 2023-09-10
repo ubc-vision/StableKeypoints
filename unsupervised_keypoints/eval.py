@@ -430,7 +430,17 @@ def run_image_with_tokens_augmented(
                     dim=-1,
                 )
             )
-            diff *= invertible_transform.inverse(torch.ones_like(num_samples))[0]
+            mask = invertible_transform.inverse(torch.ones_like(num_samples))[
+                0, None, None
+            ]
+            kernel = torch.tensor(
+                [[1, 1, 1], [1, 1, 1], [1, 1, 1]], dtype=torch.float32
+            ).reshape(1, 1, 3, 3)
+            mask = F.conv2d(mask, kernel, padding=1)
+            mask = (mask == 9).float()
+
+
+            diff *= mask[0, 0]
             diff = diff / diff.max()
             axs[i, 5].imshow((diff)[:, :, None].cpu())
             axs[i, 6].imshow(

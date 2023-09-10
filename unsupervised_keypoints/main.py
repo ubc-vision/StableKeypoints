@@ -64,7 +64,7 @@ parser.add_argument(
     type=float,
     # 2 arguments
     nargs="+",
-    default=[0.5, 1.0],
+    default=[0.25, 1.0],
     help="scale factor for augmentation",
 )
 parser.add_argument(
@@ -94,41 +94,41 @@ args = parser.parse_args()
 
 ldm = load_ldm(args.device, args.model_type)
 
-# embedding = optimize_embedding(
-#     ldm,
-#     wandb_log=args.wandb,
-#     lr=args.lr,
-#     num_steps=int(args.num_steps),
-#     num_tokens=args.num_tokens,
-#     device=args.device,
-#     layers=args.layers,
-#     sdxl=args.sdxl,
-#     top_k=args.top_k,
-#     kernel_size=args.kernel_size,
-#     augment_degrees=args.augment_degrees,
-#     augment_scale=args.augment_scale,
-#     augment_translate=args.augment_translate,
-#     augment_shear=args.augment_shear,
-# )
-# torch.save(embedding, "embedding.pt")
-embedding = torch.load("embedding.pt").to(args.device).detach()
+embedding = optimize_embedding(
+    ldm,
+    wandb_log=args.wandb,
+    lr=args.lr,
+    num_steps=int(args.num_steps),
+    num_tokens=args.num_tokens,
+    device=args.device,
+    layers=args.layers,
+    sdxl=args.sdxl,
+    top_k=args.top_k,
+    kernel_size=args.kernel_size,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+)
+torch.save(embedding, "embedding.pt")
+# embedding = torch.load("embedding.pt").to(args.device).detach()
 #
-# indices = find_best_indices(
-#     ldm,
-#     embedding,
-#     num_steps=100,
-#     num_tokens=args.num_tokens,
-#     device=args.device,
-#     layers=args.layers,
-#     top_k=args.top_k,
-#     augment=True,
-#     augment_degrees=args.augment_degrees,
-#     augment_scale=args.augment_scale,
-#     augment_translate=args.augment_translate,
-#     augment_shear=args.augment_shear,
-# )
-# torch.save(indices, "indices.pt")
-indices = torch.load("indices.pt").to(args.device).detach()
+indices = find_best_indices(
+    ldm,
+    embedding,
+    num_steps=100,
+    num_tokens=args.num_tokens,
+    device=args.device,
+    layers=args.layers,
+    top_k=args.top_k,
+    augment=True,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+)
+torch.save(indices, "indices.pt")
+# indices = torch.load("indices.pt").to(args.device).detach()
 
 # visualize embeddings
 visualize_attn_maps(
