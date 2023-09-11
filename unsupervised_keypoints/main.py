@@ -228,6 +228,7 @@ visualize_attn_maps(
     augment_shear=args.augment_shear,
     mafl_loc = args.mafl_loc,
     celeba_loc = args.celeba_loc,
+    save_folder = args.save_folder,
 )
 
 evaluate(
@@ -245,4 +246,5 @@ evaluate(
     augmentation_iterations=args.augmentation_iterations,
     mafl_loc = args.mafl_loc,
     celeba_loc = args.celeba_loc,
+    save_folder=args.save_folder,
 )

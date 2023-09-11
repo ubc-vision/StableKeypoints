@@ -1,4 +1,5 @@
 # load the dataset
+import os
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -64,7 +65,7 @@ def save_grid(maps, imgs, name):
     # remove axis
     for ax in axs.flatten():
         ax.axis("off")
-    plt.savefig(f"outputs/{name}_grid.png")
+    plt.savefig(name)
     plt.close()
 
 
@@ -94,7 +95,7 @@ def plot_point_correspondences(imgs, points, name):
     for ax in axs.flatten():
         ax.axis("off")
     # increase the resolution of the plot
-    plt.savefig(f"outputs/{name}_grid.png", dpi=300)
+    plt.savefig(name, dpi=300)
     # plt.savefig(f"outputs/{name}_grid.png")
     plt.close()
 
@@ -121,14 +122,15 @@ def visualize_attn_maps(
     augmentation_iterations=20,
     mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    save_folder = "outputs",
 ):
-    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     imgs = []
     maps = []
     gt_kpts = []
-    # for i in tqdm(range(num_images)):
-    for i in [527, 115, 121, 815, 753, 528, 487, 210, 263, 778]:
+    for i in tqdm(range(num_images)):
+    # for i in [527, 115, 121, 815, 753, 528, 487, 210, 263, 778]:
         batch = dataset[i]
 
         img = batch["img"]
@@ -161,10 +163,10 @@ def visualize_attn_maps(
     points = find_max_pixel(maps.view(num_images * num_points, 512, 512)) / 512.0
     points = points.reshape(num_images, num_points, 2)
 
-    plot_point_correspondences(imgs, points.cpu(), "unsupervised_keypoints")
+    plot_point_correspondences(imgs, points.cpu(), os.path.join(save_folder, "unsupervised_keypoints.png"))
 
     for i in range(num_points):
-        save_grid(maps[:, i].cpu(), imgs, f"keypoint_{i:03d}")
+        save_grid(maps[:, i].cpu(), imgs, os.path.join(save_folder, f"keypoint_{i:03d}.png"))
 
     if regressor is not None:
         est_points = points.view(num_images, -1) @ regressor
@@ -172,9 +174,9 @@ def visualize_attn_maps(
         plot_point_correspondences(
             imgs,
             est_points.view(num_images, 5, 2).cpu(),
-            "estimated_keypoints",
+            os.path.join(save_folder, "estimated_keypoints.png"),
         )
 
-        plot_point_correspondences(imgs, gt_kpts, "gt_keypoints")
+        plot_point_correspondences(imgs, gt_kpts, os.path.join(save_folder, "gt_keypoints.png"))
 
         pass

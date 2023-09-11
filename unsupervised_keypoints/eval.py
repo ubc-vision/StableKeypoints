@@ -1,4 +1,5 @@
 # load the dataset
+import os
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -498,8 +499,9 @@ def evaluate(
     augmentation_iterations=20,
     mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    save_folder = "outputs",
 ):
-    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     distances = []
 
@@ -616,4 +618,4 @@ def evaluate(
     print()
 
     # save argsorted all_values in torch
-    torch.save(torch.tensor(all_values), "argsort_test.pt")
+    torch.save(torch.tensor(all_values), os.path.join(save_folder, "argsort_test.pt"))
