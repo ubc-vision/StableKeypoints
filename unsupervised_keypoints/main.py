@@ -1,3 +1,4 @@
+import os
 import argparse
 import torch
 from unsupervised_keypoints.optimize_token import load_ldm
@@ -26,6 +27,25 @@ parser.add_argument(
     default="runwayml/stable-diffusion-v1-5",
     help="ldm model type",
 )
+# Dataset details
+parser.add_argument(
+    "--celeba_loc",
+    type=str,
+    default="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    help="Path to celeba dataset",
+)
+parser.add_argument(
+    "--mafl_loc",
+    type=str,
+    default="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    help="Path to mafl train test split",
+)
+parser.add_argument(
+    "--save_folder",
+    type=str,
+    default="outputs",
+    help="Where to save visualizations and checkpoints",
+)
 # make a term for sdxl, itll be bool and only true if we want to use sdxl
 parser.add_argument("--sdxl", action="store_true", help="use sdxl")
 parser.add_argument("--device", type=str, default="cuda:0", help="device to use")
@@ -39,6 +59,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
+)
+parser.add_argument(
+    "--max_num_images",
+    type=int,
+    default=19000,
+    help="number of samples to use for finding regressor",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[5, 6, 7, 8])
 parser.add_argument(
@@ -64,7 +90,7 @@ parser.add_argument(
     type=float,
     # 2 arguments
     nargs="+",
-    default=[0.25, 1.0],
+    default=[0.2, 1.0],
     help="scale factor for augmentation",
 )
 parser.add_argument(
@@ -94,24 +120,26 @@ args = parser.parse_args()
 
 ldm = load_ldm(args.device, args.model_type)
 
-embedding = optimize_embedding(
-    ldm,
-    wandb_log=args.wandb,
-    lr=args.lr,
-    num_steps=int(args.num_steps),
-    num_tokens=args.num_tokens,
-    device=args.device,
-    layers=args.layers,
-    sdxl=args.sdxl,
-    top_k=args.top_k,
-    kernel_size=args.kernel_size,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
-)
-torch.save(embedding, "embedding.pt")
-# embedding = torch.load("embedding.pt").to(args.device).detach()
+# embedding = optimize_embedding(
+#     ldm,
+#     wandb_log=args.wandb,
+#     lr=args.lr,
+#     num_steps=int(args.num_steps),
+#     num_tokens=args.num_tokens,
+#     device=args.device,
+#     layers=args.layers,
+#     sdxl=args.sdxl,
+#     top_k=args.top_k,
+#     kernel_size=args.kernel_size,
+#     augment_degrees=args.augment_degrees,
+#     augment_scale=args.augment_scale,
+#     augment_translate=args.augment_translate,
+#     augment_shear=args.augment_shear,
+#     mafl_loc=args.mafl_loc,
+#     celeba_loc=args.celeba_loc,
+# )
+# torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
+embedding = torch.load("embedding_best.pt").to(args.device).detach()
 #
 indices = find_best_indices(
     ldm,
@@ -126,8 +154,11 @@ indices = find_best_indices(
     augment_scale=args.augment_scale,
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
 )
-torch.save(indices, "indices.pt")
+torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
+
 # indices = torch.load("indices.pt").to(args.device).detach()
 
 # visualize embeddings
@@ -143,7 +174,9 @@ visualize_attn_maps(
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
-    device=args.device,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
+    save_folder=args.save_folder,
 )
 
 source_kpts, target_kpts = precompute_all_keypoints(
@@ -162,11 +195,14 @@ source_kpts, target_kpts = precompute_all_keypoints(
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
-    # max_num_images=1000,
+    max_num_images=args.max_num_images,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
 )
 
-torch.save(source_kpts, "source_keypoints.pt")
-torch.save(target_kpts, "target_keypoints.pt")
+
+torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
+torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
 # source_kpts = torch.load("keypoints.pt")
 # target_kpts = torch.load("target_keypoints.pt")
 
@@ -175,7 +211,7 @@ regressor = return_regressor(
     target_kpts.cpu().numpy().reshape(-1, 10),
 )
 regressor = torch.tensor(regressor)
-torch.save(regressor, "regressor.pt")
+torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
 
 # regressor = torch.load("regressor.pt")
 
@@ -192,6 +228,8 @@ visualize_attn_maps(
     augment_scale=args.augment_scale,
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
 )
 
 evaluate(
@@ -207,4 +245,6 @@ evaluate(
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
 )

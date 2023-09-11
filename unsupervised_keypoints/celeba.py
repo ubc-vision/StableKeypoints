@@ -16,20 +16,17 @@ class CelebA(Dataset):
     This class is used to create a custom dataset for training and testing the model.
     """
 
-    def __init__(self, split="train", align=True):
-        self.base_folder = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/"
-
-        self.mafl_loc = (
-            "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/"
-        )
+    def __init__(self, split="train", align=True, mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/", celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/"):
+        self.celeba_loc = celeba_loc
+        self.mafl_loc = mafl_loc
 
         if align:
             landmark_loc = os.path.join(
-                self.base_folder, "Anno", "list_landmarks_align_celeba.txt"
+                self.celeba_loc, "Anno", "list_landmarks_align_celeba.txt"
             )
         else:
             landmark_loc = os.path.join(
-                self.base_folder, "Anno", "list_landmarks_celeba.txt"
+                self.celeba_loc, "Anno", "list_landmarks_celeba.txt"
             )
 
         # load the .txt file
@@ -130,10 +127,10 @@ class CelebA(Dataset):
 
         if self.align:
             return os.path.join(
-                self.base_folder, "Img", "img_align_celeba_png", img_name
+                self.celeba_loc, "Img", "img_align_celeba_png", img_name
             )
         else:
-            return os.path.join(self.base_folder, "Img", "img_celeba", img_name)
+            return os.path.join(self.celeba_loc, "Img", "img_celeba", img_name)
 
 
 if __name__ == "__main__":

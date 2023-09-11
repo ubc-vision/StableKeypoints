@@ -506,8 +506,10 @@ def evaluate(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
+    mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
 ):
-    dataset = CelebA(split="test")
+    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     distances = []
 

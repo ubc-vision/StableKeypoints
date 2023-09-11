@@ -265,12 +265,14 @@ def optimize_embedding(
     augment_shear=(0.0, 0.0),
     kernel_size=5,
     sdxl=False,
+    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
 ):
     if wandb_log:
         # start a wandb session
         wandb.init(project="attention_maps")
 
-    dataset = CelebA(split="train")
+    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     invertible_transform = RandomAffineWithInverse(
         degrees=augment_degrees,
@@ -355,6 +357,9 @@ def optimize_embedding(
         _ddpm_loss = torch.tensor(0).to(device)
 
         _sharpening_loss = sharpening_loss(best_embeddings, kernel_size=kernel_size)
+        # instead get the argmax of each and apply it to the other
+        # then bluring etc as in sharpening loss
+        # make this bidirectional
         l2_loss = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted) * 10
 
         loss = l2_loss + _sharpening_loss + _ddpm_loss

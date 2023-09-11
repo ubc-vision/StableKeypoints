@@ -49,9 +49,11 @@ def find_best_indices(
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
+    mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
 ):
     # TODO if augment then use the invertable warp
-    dataset = CelebA(split="train")
+    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     invertible_transform = RandomAffineWithInverse(
         degrees=augment_degrees,
@@ -331,8 +333,10 @@ def precompute_all_keypoints(
     augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
     max_num_images=float("inf"),
+    mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
 ):
-    dataset = CelebA(split="train")
+    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     source_keypoints = []
     target_keypoints = []
