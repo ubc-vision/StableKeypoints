@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 from glob import glob
 from PIL import Image
-from unsupervised_keypoints.custom_transform import CustomTransform
+
+# from unsupervised_keypoints.custom_transform import CustomTransform
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import functional as F
@@ -16,7 +17,13 @@ class CelebA(Dataset):
     This class is used to create a custom dataset for training and testing the model.
     """
 
-    def __init__(self, split="train", align=True, mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/", celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/"):
+    def __init__(
+        self,
+        split="train",
+        align=True,
+        mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+        celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    ):
         self.celeba_loc = celeba_loc
         self.mafl_loc = mafl_loc
 
@@ -140,21 +147,23 @@ if __name__ == "__main__":
     ds = CelebA(align=True, split="test")
 
     transform = RandomAffineWithInverse(
-        degrees=30,
-        # scale=(1.0, 1.5),
-        translate=(0.0, 0.0),
-        # degrees=0,
-        scale=(1.0, 1.5),
-        # translate=(1.0, 1.0),
-        shear=(0.0, 0.0),
+        # degrees=100,
+        scale=(0.5, 0.5),
+        # translate=(0.0, 1.0),
+        translate=(2.0, 2.0),
     )
 
     img = ds[121]["img"]
     kpts = ds[121]["kpts"]
 
-    transformed_img, transformed_kpts = transform(img, kpts)
+    # transformed_img, transformed_kpts = transform(img, kpts)
+    transformed_img = transform(img)
+    transformed_kpts = transform.transform_keypoints(kpts, 512)
 
     initial_image = transform.inverse(transformed_img)
+    initial_keypoints_prime = transform.inverse_transform_keypoints(
+        transformed_kpts, 512
+    )
 
     # plot all of img, transformed_img, and initial_image in the same figure
     fig, axs = plt.subplots(1, 3)
@@ -169,6 +178,12 @@ if __name__ == "__main__":
         color="red",
     )
     axs[2].imshow(initial_image.permute(1, 2, 0).cpu().detach().numpy())
+    axs[2].scatter(
+        initial_keypoints_prime[:, 1] * 512.0,
+        initial_keypoints_prime[:, 0] * 512.0,
+        marker="x",
+        color="red",
+    )
     plt.savefig(f"outputs/image.png")
     plt.close()
 

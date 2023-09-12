@@ -115,8 +115,151 @@ def transform_keypoints(keypoints, angle, translate, scale, shear, img_size):
     return transformed_keypoints
 
 
+# class RandomAffineWithInverse:
+#     def __init__(self, degrees, scale, translate, shear):
+#         self.degrees = degrees
+#         self.scale = scale
+#         self.translate = translate
+#         self.shear = shear
+
+#         # Initialize self.last_params to 0s
+#         self.last_params = {
+#             "theta": torch.eye(2, 3).unsqueeze(0),
+#         }
+
+#     def create_affine_matrix(self, angle, scale, translations_pixels, shear):
+#         angle_rad = math.radians(angle)
+#         shear_rad = [math.radians(s) for s in shear]
+
+#         # Create affine matrix
+#         theta = torch.tensor(
+#             [
+#                 [math.cos(angle_rad), math.sin(angle_rad), translations_pixels[0]],
+#                 [-math.sin(angle_rad), math.cos(angle_rad), translations_pixels[1]],
+#             ],
+#             dtype=torch.float,
+#         )
+
+#         theta = theta * scale
+#         theta = theta.unsqueeze(0)  # Add batch dimension
+#         return theta
+
+#     def apply_transform_to_keypoints(self, keypoints, theta):
+#         # swap the x and y
+#         keypoints = keypoints[:, [1, 0]]
+#         # Convert keypoints from [0, 1] to [-1, 1]
+#         keypoints_normalized = keypoints * 2 - 1
+
+#         # Add a homogeneous coordinate to keypoints
+#         keypoints_homogeneous = torch.cat(
+#             [keypoints_normalized, torch.ones(keypoints.shape[0], 1)], dim=1
+#         )
+
+#         # Remove batch dimension of theta
+#         theta_squeezed = theta.squeeze(0)
+
+#         # Adjust the transformation matrix for keypoints.
+#         # Reverse scaling and translation direction
+#         adjusted_theta = theta_squeezed.clone()
+#         # adjusted_theta[:, :2] *= -1  # Reverse the scaling part
+#         # adjusted_theta[:, 2] *= -1  # Reverse the translation part
+
+#         # Perform the affine transformation
+#         transformed_keypoints_homogeneous = torch.matmul(
+#             keypoints_homogeneous, adjusted_theta.T
+#         )
+
+#         # Remove the homogeneous coordinate
+#         transformed_keypoints_normalized = transformed_keypoints_homogeneous[:, :2]
+
+#         # Convert keypoints back to [0, 1] from [-1, 1]
+#         transformed_keypoints = (transformed_keypoints_normalized + 1) / 2
+
+#         # swap the x and y
+#         transformed_keypoints = transformed_keypoints[:, [1, 0]]
+
+#         return transformed_keypoints
+
+#     def __call__(self, img_tensor, keypoints=None):
+#         img_tensor = img_tensor[None]
+
+#         # Calculate random parameters
+#         angle = random.uniform(-self.degrees, self.degrees)
+#         scale_factor = random.uniform(self.scale[0], self.scale[1])
+#         translations_percent = (
+#             random.uniform(-self.translate[0], self.translate[0]),
+#             random.uniform(-self.translate[1], self.translate[1]),
+#         )
+#         # translations_pixels = [
+#         #     translations_percent[0] * img_tensor.shape[-1],
+#         #     translations_percent[1] * img_tensor.shape[-2],
+#         # ]
+#         shear = [
+#             random.uniform(-self.shear[0], self.shear[0]),
+#             random.uniform(-self.shear[1], self.shear[1]),
+#         ]
+
+#         # Create the affine matrix
+#         theta = self.create_affine_matrix(
+#             angle, scale_factor, translations_percent, shear
+#         )
+
+#         # Store them for inverse transformation
+#         self.last_params = {
+#             "theta": theta,
+#         }
+
+#         # Apply transformation
+#         grid = F.affine_grid(theta, img_tensor.size(), align_corners=False).to(
+#             img_tensor.device
+#         )
+#         transformed_img = F.grid_sample(img_tensor, grid, align_corners=False)
+
+#         if keypoints is None:
+#             return transformed_img[0]
+
+#         transformed_keypoints = self.apply_transform_to_keypoints(keypoints, theta)
+
+#         return transformed_img[0], transformed_keypoints
+
+#     def inverse(self, img_tensor, keypoints=None):
+#         img_tensor = img_tensor[None]
+
+#         # Retrieve stored parameters
+#         theta = self.last_params["theta"]
+
+#         # Augment the affine matrix to make it 3x3
+#         theta_augmented = torch.cat(
+#             [theta, torch.Tensor([[0, 0, 1]]).expand(theta.shape[0], -1, -1)], dim=1
+#         )
+
+#         # Compute the inverse of the affine matrix
+#         theta_inv_augmented = torch.inverse(theta_augmented)
+#         theta_inv = theta_inv_augmented[:, :2, :]  # Take the 2x3 part back
+
+#         # Apply inverse transformation
+#         grid_inv = F.affine_grid(theta_inv, img_tensor.size(), align_corners=False).to(
+#             img_tensor.device
+#         )
+#         untransformed_img = F.grid_sample(img_tensor, grid_inv, align_corners=False)
+
+#         if keypoints is None:
+#             return untransformed_img[0]
+
+#         # # apply the inverse transformation to the keypoints
+#         # keypoints = torch.matmul(
+#         #     keypoints[None], theta_inv_augmented[:, :2, :].transpose(1, 2)
+#         # )
+
+#         transformed_keypoints = self.apply_transform_to_keypoints(keypoints, theta)
+
+#         return untransformed_img[0], transformed_keypoints
+
+
 class RandomAffineWithInverse:
-    def __init__(self, degrees, scale, translate, shear):
+    def __init__(
+        self, degrees=0, scale=(1.0, 1.0), translate=(0.0, 0.0), shear=(0.0, 0.0)
+    ):
         self.degrees = degrees
         self.scale = scale
         self.translate = translate
@@ -127,20 +270,20 @@ class RandomAffineWithInverse:
             "theta": torch.eye(2, 3).unsqueeze(0),
         }
 
-    def create_affine_matrix(self, angle, scale, translations_pixels, shear):
+    def create_affine_matrix(self, angle, scale, translations_percent, shear):
         angle_rad = math.radians(angle)
         shear_rad = [math.radians(s) for s in shear]
 
         # Create affine matrix
         theta = torch.tensor(
             [
-                [math.cos(angle_rad), math.sin(angle_rad), translations_pixels[0]],
-                [-math.sin(angle_rad), math.cos(angle_rad), translations_pixels[1]],
+                [math.cos(angle_rad), math.sin(angle_rad), translations_percent[0]],
+                [-math.sin(angle_rad), math.cos(angle_rad), translations_percent[1]],
             ],
             dtype=torch.float,
         )
 
-        theta = theta * scale
+        theta[:, :2] = theta[:, :2] * scale
         theta = theta.unsqueeze(0)  # Add batch dimension
         return theta
 
@@ -153,11 +296,9 @@ class RandomAffineWithInverse:
         translations_percent = (
             random.uniform(-self.translate[0], self.translate[0]),
             random.uniform(-self.translate[1], self.translate[1]),
+            # 1.0,
+            # 1.0,
         )
-        # translations_pixels = [
-        #     translations_percent[0] * img_tensor.shape[-1],
-        #     translations_percent[1] * img_tensor.shape[-2],
-        # ]
         shear = [
             random.uniform(-self.shear[0], self.shear[0]),
             random.uniform(-self.shear[1], self.shear[1]),
@@ -203,3 +344,83 @@ class RandomAffineWithInverse:
         untransformed_img = F.grid_sample(img_tensor, grid_inv, align_corners=False)
 
         return untransformed_img[0]
+
+    def transform_keypoints(self, keypoints, img_size):
+        keypoints = keypoints * 2 - 1
+        # Get the transformation matrix
+        theta = self.last_params["theta"][0]
+
+        # # Map normalized keypoints to pixel space
+        # keypoints_pixel = keypoints * torch.tensor(
+        #     img_size, dtype=keypoints.dtype
+        # ).flip(0)
+        # Map normalized keypoints to pixel space
+        keypoints_pixel = keypoints.flip(1)
+        # keypoints_pixel = -1 * keypoints[:, [1, 0]]
+        # keypoints_pixel = keypoints
+
+        # Convert to homogeneous coordinates
+        keypoints_homogeneous = torch.cat(
+            [
+                keypoints_pixel,
+                torch.ones(keypoints_pixel.shape[0], 1, dtype=keypoints.dtype),
+            ],
+            dim=1,
+        )
+
+        theta = self.last_params["theta"][0]
+        theta_augmented = torch.cat([theta, torch.Tensor([0, 0, 1]).view(1, -1)], dim=0)
+        theta_inv = torch.inverse(theta_augmented)[:2, :]
+
+        # Transform the keypoints
+        transformed_keypoints_homogeneous = keypoints_homogeneous.mm(theta_inv.t())
+
+        # Convert back to regular coordinates and normalize
+        transformed_keypoints_pixel = transformed_keypoints_homogeneous[:, :2]
+        # transformed_keypoints = transformed_keypoints_pixel / torch.tensor(
+        #     img_size, dtype=keypoints.dtype
+        # ).flip(0)
+        transformed_keypoints = transformed_keypoints_pixel.flip(1)
+        # transformed_keypoints = transformed_keypoints_pixel[:, [1, 0]]
+        # transformed_keypoints = transformed_keypoints_pixel
+
+        transformed_keypoints = transformed_keypoints / 2 + 0.5
+
+        return transformed_keypoints
+
+    def inverse_transform_keypoints(self, keypoints, img_size):
+        keypoints = keypoints * 2 - 1
+
+        # Get the transformation matrix and calculate its inverse
+        theta = self.last_params["theta"][0]
+        # theta_augmented = torch.cat([theta, torch.Tensor([0, 0, 1]).view(1, -1)], dim=0)
+        # theta_inv = torch.inverse(theta_augmented)[:2, :]
+
+        # Map normalized keypoints to pixel space
+        # keypoints_pixel = keypoints * torch.tensor(
+        #     img_size, dtype=keypoints.dtype
+        # ).flip(0)
+        keypoints_pixel = keypoints.flip(1)
+
+        # Convert to homogeneous coordinates
+        keypoints_homogeneous = torch.cat(
+            [
+                keypoints_pixel,
+                torch.ones(keypoints_pixel.shape[0], 1, dtype=keypoints.dtype),
+            ],
+            dim=1,
+        )
+
+        # Inversely transform the keypoints
+        transformed_keypoints_homogeneous = keypoints_homogeneous.mm(theta.t())
+
+        # Convert back to regular coordinates and normalize
+        transformed_keypoints_pixel = transformed_keypoints_homogeneous[:, :2]
+        # transformed_keypoints = transformed_keypoints_pixel / torch.tensor(
+        #     img_size, dtype=keypoints.dtype
+        # ).flip(0)
+        transformed_keypoints = transformed_keypoints_pixel.flip(1)
+
+        transformed_keypoints = transformed_keypoints / 2 + 0.5
+
+        return transformed_keypoints

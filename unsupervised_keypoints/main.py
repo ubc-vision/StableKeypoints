@@ -90,7 +90,7 @@ parser.add_argument(
     type=float,
     # 2 arguments
     nargs="+",
-    default=[0.2, 1.0],
+    default=[0.4, 0.4],
     help="scale factor for augmentation",
 )
 parser.add_argument(
@@ -98,7 +98,7 @@ parser.add_argument(
     type=float,
     nargs="+",
     # default=[0.3, 0.3],
-    default=[0.3, 0.3],
+    default=[0.25, 0.25],
     help="amount of translation for augmentation along x and y axis",
 )
 parser.add_argument(
@@ -113,6 +113,10 @@ parser.add_argument(
     type=int,
     default=10,
     help="number of iterations for augmentation",
+)
+# store true the boolean argument 'visualize'
+parser.add_argument(
+    "--visualize", action="store_true", help="visualize the attention maps"
 )
 parser.add_argument("--top_k", type=int, default=10, help="number of points to choose")
 
@@ -139,27 +143,26 @@ ldm = load_ldm(args.device, args.model_type)
 #     celeba_loc=args.celeba_loc,
 # )
 # torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
-embedding = torch.load("embedding_best.pt").to(args.device).detach()
+embedding = torch.load("embedding.pt").to(args.device).detach()
 #
-indices = find_best_indices(
-    ldm,
-    embedding,
-    num_steps=100,
-    num_tokens=args.num_tokens,
-    device=args.device,
-    layers=args.layers,
-    top_k=args.top_k,
-    augment=True,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
-    mafl_loc=args.mafl_loc,
-    celeba_loc=args.celeba_loc,
-)
-torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
-
-# indices = torch.load("indices.pt").to(args.device).detach()
+# indices = find_best_indices(
+#     ldm,
+#     embedding,
+#     num_steps=100,
+#     num_tokens=args.num_tokens,
+#     device=args.device,
+#     layers=args.layers,
+#     top_k=args.top_k,
+#     augment=True,
+#     augment_degrees=args.augment_degrees,
+#     augment_scale=args.augment_scale,
+#     augment_translate=args.augment_translate,
+#     augment_shear=args.augment_shear,
+#     mafl_loc=args.mafl_loc,
+#     celeba_loc=args.celeba_loc,
+# )
+# torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
+indices = torch.load("indices.pt").to(args.device).detach()
 
 # visualize embeddings
 visualize_attn_maps(
@@ -177,6 +180,7 @@ visualize_attn_maps(
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
     save_folder=args.save_folder,
+    visualize=args.visualize,
 )
 
 source_kpts, target_kpts = precompute_all_keypoints(
@@ -230,6 +234,7 @@ visualize_attn_maps(
     augment_shear=args.augment_shear,
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
+    save_folder=args.save_folder,
 )
 
 evaluate(
@@ -247,4 +252,5 @@ evaluate(
     augmentation_iterations=args.augmentation_iterations,
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
+    save_folder=args.save_folder,
 )

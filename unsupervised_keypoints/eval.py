@@ -1,4 +1,5 @@
 # load the dataset
+import os
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -425,20 +426,23 @@ def run_image_with_tokens_augmented(
                 torch.mean(
                     invertible_transform.inverse(
                         torch.tensor(augmented_img).permute(2, 0, 1)
-                    ).permute(1, 2, 0)
-                    - torch.tensor(image),
+                    )
+                    .permute(1, 2, 0)
+                    .to(device)
+                    - torch.tensor(image).to(device),
                     dim=-1,
                 )
             )
             mask = invertible_transform.inverse(torch.ones_like(num_samples))[
                 0, None, None
-            ]
-            kernel = torch.tensor(
-                [[1, 1, 1], [1, 1, 1], [1, 1, 1]], dtype=torch.float32
-            ).reshape(1, 1, 3, 3)
+            ].to(device)
+            kernel = (
+                torch.tensor([[1, 1, 1], [1, 1, 1], [1, 1, 1]], dtype=torch.float32)
+                .reshape(1, 1, 3, 3)
+                .to(device)
+            )
             mask = F.conv2d(mask, kernel, padding=1)
             mask = (mask == 9).float()
-
 
             diff *= mask[0, 0]
             diff = diff / diff.max()
@@ -490,6 +494,88 @@ def run_image_with_tokens_augmented(
 
 
 @torch.no_grad()
+def zoom_per_keypoint(
+    ldm,
+    image,
+    tokens,
+    indices,
+    device="cuda",
+    from_where=["down_cross", "mid_cross", "up_cross"],
+    layers=[0, 1, 2, 3, 4, 5],
+    augmentation_iterations=20,
+    noise_level=-1,
+    augment_degrees=30,
+    augment_scale=(0.9, 1.1),
+    augment_translate=(0.1, 0.1),
+    augment_shear=(0.0, 0.0),
+):
+    """
+    First forward passes the image with no augmentation and find the argmax for each keypoint
+    Then 'zoom' in on each keypoint by cropping the image around the keypoint
+    """
+    # if image is a torch.tensor, convert to numpy
+    if type(image) == torch.Tensor:
+        image = image.permute(1, 2, 0).detach().cpu().numpy()
+
+    num_samples = torch.zeros(len(indices), 512, 512).to(device)
+    sum_samples = torch.zeros(len(indices), 512, 512).to(device)
+
+    invertible_transform = RandomAffineWithInverse(
+        degrees=augment_degrees,
+        scale=augment_scale,
+        translate=augment_translate,
+        shear=augment_shear,
+    )
+
+    for i in range(augmentation_iterations):
+        augmented_img = (
+            invertible_transform(torch.tensor(image).permute(2, 0, 1))
+            .permute(1, 2, 0)
+            .numpy()
+        )
+
+        latents = ptp_utils.image2latent(ldm, augmented_img, device)
+
+        controller = ptp_utils.AttentionStore()
+
+        ptp_utils.register_attention_control(ldm, controller)
+
+        latents = ldm.scheduler.add_noise(
+            latents, torch.rand_like(latents), ldm.scheduler.timesteps[noise_level]
+        )
+
+        latents = ptp_utils.diffusion_step(
+            ldm,
+            controller,
+            latents,
+            tokens,
+            ldm.scheduler.timesteps[noise_level],
+            cfg=False,
+        )
+
+        _attention_maps = collect_maps(
+            controller,
+            from_where=from_where,
+            upsample_res=512,
+            layers=layers,
+            indices=indices,
+        )
+
+        _attention_maps = _attention_maps.mean((0, 1))
+
+        num_samples += invertible_transform.inverse(torch.ones_like(num_samples))
+        sum_samples += invertible_transform.inverse(_attention_maps)
+
+    # visualize sum_samples/num_samples
+    attention_maps = sum_samples / num_samples
+
+    # replace all nans with 0s
+    attention_maps[attention_maps != attention_maps] = 0
+
+    return attention_maps
+
+
+@torch.no_grad()
 def evaluate(
     ldm,
     context,
@@ -506,10 +592,11 @@ def evaluate(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
-    mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    save_folder="outputs",
 ):
-    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     distances = []
 
@@ -626,4 +713,4 @@ def evaluate(
     print()
 
     # save argsorted all_values in torch
-    torch.save(torch.tensor(all_values), "argsort_test.pt")
+    torch.save(torch.tensor(all_values), os.path.join(save_folder, "argsort_test.pt"))
