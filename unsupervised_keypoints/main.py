@@ -90,7 +90,7 @@ parser.add_argument(
     type=float,
     # 2 arguments
     nargs="+",
-    default=[1.0, 1.0],
+    default=[0.4, 1.0],
     help="scale factor for augmentation",
 )
 parser.add_argument(
