@@ -90,7 +90,7 @@ parser.add_argument(
     type=float,
     # 2 arguments
     nargs="+",
-    default=[0.4, 0.4],
+    default=[1.0, 1.0],
     help="scale factor for augmentation",
 )
 parser.add_argument(
@@ -181,6 +181,7 @@ visualize_attn_maps(
     celeba_loc=args.celeba_loc,
     save_folder=args.save_folder,
     visualize=args.visualize,
+    device=args.device,
 )
 
 source_kpts, target_kpts = precompute_all_keypoints(
@@ -235,6 +236,7 @@ visualize_attn_maps(
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
     save_folder=args.save_folder,
+    device=args.device,
 )
 
 evaluate(
@@ -253,4 +255,5 @@ evaluate(
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
     save_folder=args.save_folder,
+    device=args.device,
 )
