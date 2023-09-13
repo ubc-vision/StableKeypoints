@@ -124,45 +124,45 @@ args = parser.parse_args()
 
 ldm = load_ldm(args.device, args.model_type)
 
-# embedding = optimize_embedding(
-#     ldm,
-#     wandb_log=args.wandb,
-#     lr=args.lr,
-#     num_steps=int(args.num_steps),
-#     num_tokens=args.num_tokens,
-#     device=args.device,
-#     layers=args.layers,
-#     sdxl=args.sdxl,
-#     top_k=args.top_k,
-#     kernel_size=args.kernel_size,
-#     augment_degrees=args.augment_degrees,
-#     augment_scale=args.augment_scale,
-#     augment_translate=args.augment_translate,
-#     augment_shear=args.augment_shear,
-#     mafl_loc=args.mafl_loc,
-#     celeba_loc=args.celeba_loc,
-# )
-# torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
-embedding = torch.load("embedding.pt").to(args.device).detach()
+embedding = optimize_embedding(
+    ldm,
+    wandb_log=args.wandb,
+    lr=args.lr,
+    num_steps=int(args.num_steps),
+    num_tokens=args.num_tokens,
+    device=args.device,
+    layers=args.layers,
+    sdxl=args.sdxl,
+    top_k=args.top_k,
+    kernel_size=args.kernel_size,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
+)
+torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
+# embedding = torch.load("embedding.pt").to(args.device).detach()
 #
-# indices = find_best_indices(
-#     ldm,
-#     embedding,
-#     num_steps=100,
-#     num_tokens=args.num_tokens,
-#     device=args.device,
-#     layers=args.layers,
-#     top_k=args.top_k,
-#     augment=True,
-#     augment_degrees=args.augment_degrees,
-#     augment_scale=args.augment_scale,
-#     augment_translate=args.augment_translate,
-#     augment_shear=args.augment_shear,
-#     mafl_loc=args.mafl_loc,
-#     celeba_loc=args.celeba_loc,
-# )
-# torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
-indices = torch.load("indices.pt").to(args.device).detach()
+indices = find_best_indices(
+    ldm,
+    embedding,
+    num_steps=100,
+    num_tokens=args.num_tokens,
+    device=args.device,
+    layers=args.layers,
+    top_k=args.top_k,
+    augment=True,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
+)
+torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
+# indices = torch.load("indices.pt").to(args.device).detach()
 
 # visualize embeddings
 visualize_attn_maps(
