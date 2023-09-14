@@ -359,12 +359,12 @@ def optimize_embedding(
     # every iteration return image, pixel_loc
 
     if context is None:
-        # context = ptp_utils.init_random_noise(device, num_words=num_tokens)
-        context = (
-            torch.load("proper_translation_in_augmentations/embedding.pt")
-            .to(device)
-            .detach()
-        )
+        context = ptp_utils.init_random_noise(device, num_words=num_tokens)
+        # context = (
+        #     torch.load("proper_translation_in_augmentations/embedding.pt")
+        #     .to(device)
+        #     .detach()
+        # )
         # context = torch.load("embedding.pt").to(device).detach()
 
     context.requires_grad = True

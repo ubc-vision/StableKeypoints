@@ -66,12 +66,6 @@ parser.add_argument(
     default=0.1,
     help="Weight of the equivariance loss",
 )
-parser.add_argument(
-    "--max_num_images",
-    type=int,
-    default=19000,
-    help="number of samples to use for finding regressor",
-)
 parser.add_argument("--layers", type=int, nargs="+", default=[5, 6, 7, 8])
 parser.add_argument(
     "--noise_level",
