@@ -343,9 +343,6 @@ def optimize_embedding(
     sigma=1.0,
     equivariance_loss_weight=0.1,
 ):
-    if wandb_log:
-        # start a wandb session
-        wandb.init(project="attention_maps")
 
     dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
