@@ -127,6 +127,10 @@ args = parser.parse_args()
 
 ldm = load_ldm(args.device, args.model_type)
 
+# if args.save_folder doesnt exist create it
+if not os.path.exists(args.save_folder):
+    os.makedirs(args.save_folder)
+
 embedding = optimize_embedding(
     ldm,
     wandb_log=args.wandb,
