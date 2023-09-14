@@ -1,4 +1,5 @@
 import os
+import wandb
 import argparse
 import torch
 from unsupervised_keypoints.optimize_token import load_ldm
@@ -45,6 +46,12 @@ parser.add_argument(
     type=str,
     default="outputs",
     help="Where to save visualizations and checkpoints",
+)
+parser.add_argument(
+    "--wandb_name",
+    type=str,
+    default="temp",
+    help="name of the wandb run",
 )
 # make a term for sdxl, itll be bool and only true if we want to use sdxl
 parser.add_argument("--sdxl", action="store_true", help="use sdxl")
@@ -124,6 +131,10 @@ ldm = load_ldm(args.device, args.model_type)
 # if args.save_folder doesnt exist create it
 if not os.path.exists(args.save_folder):
     os.makedirs(args.save_folder)
+
+if args.wandb_log:
+    # start a wandb session
+    wandb.init(project="attention_maps", name=args.wandb_name)
 
 embedding = optimize_embedding(
     ldm,
