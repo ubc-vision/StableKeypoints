@@ -70,7 +70,7 @@ parser.add_argument(
 parser.add_argument(
     "--equivariance_loss_weight",
     type=float,
-    default=0.1,
+    default=1.0,
     help="Weight of the equivariance loss",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[5, 6, 7, 8])
@@ -132,7 +132,7 @@ ldm = load_ldm(args.device, args.model_type)
 if not os.path.exists(args.save_folder):
     os.makedirs(args.save_folder)
 
-if args.wandb_log:
+if args.wandb:
     # start a wandb session
     wandb.init(project="attention_maps", name=args.wandb_name)
 
