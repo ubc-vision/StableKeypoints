@@ -49,8 +49,8 @@ def find_best_indices(
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
-    mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
 ):
     # TODO if augment then use the invertable warp
     dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -317,31 +317,24 @@ def precompute_all_keypoints(
     ldm,
     context,
     top_indices,
-    wandb_log=True,
-    lr=1e-3,
-    num_steps=1e4,
     device="cuda",
     noise_level=-1,
-    upsample_res=32,
     layers=[0, 1, 2, 3, 4, 5],
     from_where=["down_cross", "mid_cross", "up_cross"],
-    num_tokens=1000,
-    top_k=30,
     augment_degrees=30,
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
-    max_num_images=float("inf"),
-    mafl_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    celeba_loc = "/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
+    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
 ):
     dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     source_keypoints = []
     target_keypoints = []
 
-    for iteration in tqdm(range(min(len(dataset), max_num_images))):
+    for iteration in tqdm(range(len(dataset))):
         mini_batch = dataset[iteration]
 
         image = mini_batch["img"]

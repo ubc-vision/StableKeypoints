@@ -14,7 +14,7 @@ import wandb
 
 # from unsupervised_keypoints.optimize_token import init_random_noise
 
-from unsupervised_keypoints.optimize import collect_maps
+from unsupervised_keypoints import optimize
 
 
 def save_img(map, img, point, name):
@@ -70,7 +70,7 @@ def get_attn_map(
         cfg=False,
     )
 
-    attention_maps = collect_maps(
+    attention_maps = optimize.collect_maps(
         controller,
         from_where=from_where,
         upsample_res=upsample_res,
@@ -388,7 +388,7 @@ def run_image_with_tokens_augmented(
             cfg=False,
         )
 
-        _attention_maps = collect_maps(
+        _attention_maps = optimize.collect_maps(
             controller,
             from_where=from_where,
             upsample_res=512,
@@ -553,7 +553,7 @@ def zoom_per_keypoint(
             cfg=False,
         )
 
-        _attention_maps = collect_maps(
+        _attention_maps = optimize.collect_maps(
             controller,
             from_where=from_where,
             upsample_res=512,
@@ -595,6 +595,7 @@ def evaluate(
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     save_folder="outputs",
+    wandb_log=False,
 ):
     dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
@@ -699,6 +700,9 @@ def evaluate(
         if i % 100 == 0:
             print()
         # Extract the 10 worst distances (and their indices) from the priority queue
+
+    if wandb_log:
+        wandb.log({"mean_distance": torch.mean(torch.stack(distances))})
 
     worst_10 = []
     while not worst_l2.empty():

@@ -252,17 +252,25 @@ def visualize_image_with_points(image, point, name, save_folder="outputs"):
 
 
 def gaussian_circle(pos, size=64, sigma=16, device="cuda"):
-    """Create a 2D Gaussian circle with a given size, standard deviation, and center coordinates.
+    """Create a batch of 2D Gaussian circles with a given size, standard deviation, and center coordinates.
 
-    pos is in between 0 and 1
+    pos is in between 0 and 1 and has shape [batch_size, 2]
 
     """
-    _pos = pos * size
+    batch_size = pos.shape[0]
+    _pos = pos * size  # Shape [batch_size, 2]
+    _pos = _pos.unsqueeze(1).unsqueeze(1)  # Shape [batch_size, 1, 1, 2]
+
     grid = torch.meshgrid(torch.arange(size).to(device), torch.arange(size).to(device))
-    grid = torch.stack(grid, dim=-1)
-    dist_sq = (grid[..., 1] - _pos[0]) ** 2 + (grid[..., 0] - _pos[1]) ** 2
+    grid = torch.stack(grid, dim=-1) + 0.5  # Shape [size, size, 2]
+    grid = grid.unsqueeze(0)  # Shape [1, size, size, 2]
+
+    dist_sq = (grid[..., 1] - _pos[..., 1]) ** 2 + (
+        grid[..., 0] - _pos[..., 0]
+    ) ** 2  # Shape [batch_size, size, size]
     dist_sq = -1 * dist_sq / (2.0 * sigma**2.0)
-    gaussian = torch.exp(dist_sq)
+    gaussian = torch.exp(dist_sq)  # Shape [batch_size, size, size]
+
     return gaussian
 
 

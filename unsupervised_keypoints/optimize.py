@@ -3,9 +3,11 @@ import torch
 import numpy as np
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints import sdxl_monkey_patch
+from unsupervised_keypoints import eval
 import torch.nn.functional as F
 import torch.distributions as dist
 from unsupervised_keypoints.celeba import CelebA
+from unsupervised_keypoints import optimize_token
 import torch.nn as nn
 
 # now import weights and biases
@@ -124,42 +126,114 @@ def gaussian_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-4):
     return loss
 
 
-def sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1, l1=False):
+def find_pos_from_index(attn_map):
+    T, H, W = attn_map.shape
+
+    index = attn_map.view(T, -1).argmax(dim=1)
+
+    # Convert 1D index to 2D indices
+    rows = index // W
+    cols = index % W
+
+    # Normalize to [0, 1]
+    rows_normalized = rows.float() / (H - 1)
+    cols_normalized = cols.float() / (W - 1)
+
+    # Combine into pos
+    pos = torch.stack([cols_normalized, rows_normalized], dim=1)
+
+    return pos
+
+
+def equivariance_loss(
+    embeddings_initial,
+    embeddings_transformed,
+    transform,
+    kernel_size=5,
+    sigma=1.0,
+    temperature=1e-1,
+    device="cuda",
+):
+    # get the argmax for both embeddings_initial and embeddings_uninverted
+
+    initial_pos = eval.find_max_pixel(embeddings_initial) / 32
+    transformed_pos = eval.find_max_pixel(embeddings_transformed) / 32
+
+    transformed_pos_prime = transform.transform_keypoints(initial_pos)
+
+    initial_pos_prime = transform.inverse_transform_keypoints(transformed_pos)
+
+    within_image = ((transformed_pos_prime < 1) * (transformed_pos_prime > 0)).sum(
+        dim=1
+    ) == 2
+
+    loss_initial = find_gaussian_loss_at_point(
+        embeddings_initial,
+        initial_pos_prime,
+        sigma=sigma,
+        temperature=temperature,
+        device=device,
+        indices=within_image,
+    )
+
+    loss_transformed = find_gaussian_loss_at_point(
+        embeddings_transformed,
+        transformed_pos_prime,
+        sigma=sigma,
+        temperature=temperature,
+        device=device,
+        indices=within_image,
+    )
+
+    return (loss_initial + loss_transformed) / 2
+
+
+def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
+    pos = eval.find_max_pixel(attn_map) / 32
+
+    loss = find_gaussian_loss_at_point(
+        attn_map,
+        pos,
+        sigma=sigma,
+        temperature=temperature,
+        device=device,
+    )
+
+    return loss
+
+
+def find_gaussian_loss_at_point(
+    attn_map, pos, sigma=1.0, temperature=1e-1, device="cuda", indices=None
+):
+    """
+    pos is a location between 0 and 1
+    """
     # attn_map is of shape (T, H, W)
     T, H, W = attn_map.shape
 
     # Scale attn_map by temperature
-    attn_map_scaled = (
-        attn_map / temperature
-    )  # Adding channel dimension, shape (T, 1, H, W)
+    attn_map_scaled = attn_map / temperature
 
     # Apply spatial softmax over attn_map to get probabilities
     spatial_softmax = torch.nn.Softmax2d()
-    attn_probs = spatial_softmax(attn_map_scaled)  # Removing channel dimension
+    attn_probs = spatial_softmax(attn_map_scaled)
 
-    # Find argmax and create one-hot encoding
-    argmax_indices = attn_probs.view(T, -1).argmax(dim=1)
-    one_hot = torch.zeros_like(attn_probs.view(T, -1)).scatter_(
-        1, argmax_indices.view(-1, 1), 1
-    )
-    one_hot = one_hot.view(T, H, W)
+    # Create Gaussian circle at the given position
+    target = optimize_token.gaussian_circle(
+        pos, size=H, sigma=sigma, device=device
+    )  # Assuming H and W are the same
+    target = target.to(attn_map.device)
 
-    # Create Gaussian kernel
-    gaussian_kernel = create_gaussian_kernel(kernel_size, sigma).to(attn_map.device)
-    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size)
+    # Normalize the target
+    target = target / target.max()
 
-    # Apply Gaussian smoothing to the one-hot encoding
-    target = F.conv2d(one_hot.unsqueeze(1), gaussian_kernel, padding=kernel_size // 2)
-    target = target.view(T, H * W)
-    target = target / target.max(dim=1, keepdim=True)[0]
-    target = target.view(T, H, W)
+    # possibly select a subset of indices
+    if indices is not None:
+        attn_probs = attn_probs[indices]
+        target = target[indices]
 
     # Compute loss
-    if l1:
-        loss = F.l1_loss(attn_probs, target)
-    else:
-        loss = F.mse_loss(attn_probs, target)
-    # loss = nn.L1Loss()(attn_probs, target)
+    loss = F.mse_loss(attn_probs, target)
 
     return loss
 
@@ -263,10 +337,11 @@ def optimize_embedding(
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
-    kernel_size=5,
     sdxl=False,
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    sigma=1.0,
+    equivariance_loss_weight=0.1,
 ):
     if wandb_log:
         # start a wandb session
@@ -284,7 +359,12 @@ def optimize_embedding(
     # every iteration return image, pixel_loc
 
     if context is None:
-        context = ptp_utils.init_random_noise(device, num_words=num_tokens)
+        # context = ptp_utils.init_random_noise(device, num_words=num_tokens)
+        context = (
+            torch.load("proper_translation_in_augmentations/embedding.pt")
+            .to(device)
+            .detach()
+        )
         # context = torch.load("embedding.pt").to(device).detach()
 
     context.requires_grad = True
@@ -306,7 +386,7 @@ def optimize_embedding(
 
         image = mini_batch["img"]
 
-        vanilla_attn_maps = ptp_utils.run_and_find_attn(
+        attn_maps = ptp_utils.run_and_find_attn(
             ldm,
             image,
             context,
@@ -319,7 +399,7 @@ def optimize_embedding(
 
         transformed_img = invertible_transform(image)
 
-        attention_maps = ptp_utils.run_and_find_attn(
+        attention_maps_transformed = ptp_utils.run_and_find_attn(
             ldm,
             transformed_img,
             context,
@@ -330,18 +410,14 @@ def optimize_embedding(
             device=device,
         )
 
-        uninverted_attn_maps = invertible_transform.inverse(attention_maps)
-
         top_embedding_indices = ptp_utils.find_top_k(
-            attention_maps.view(num_tokens, -1), top_k
+            attn_maps.view(num_tokens, -1), top_k
         )
 
-        # transformed image, then found attn maps
-        best_embeddings = attention_maps[top_embedding_indices]
-        # transformed, found attn maps, then inverted
-        best_embeddings_uninverted = uninverted_attn_maps[top_embedding_indices]
         # never had transformation applied
-        best_embeddings_vanilla = vanilla_attn_maps[top_embedding_indices]
+        best_embeddings = attn_maps[top_embedding_indices]
+        # transformed image, then found attn maps
+        best_embeddings_transformed = attention_maps_transformed[top_embedding_indices]
 
         # _ddpm_loss = (
         #     ddpm_loss(
@@ -356,13 +432,24 @@ def optimize_embedding(
         # )
         _ddpm_loss = torch.tensor(0).to(device)
 
-        _sharpening_loss = sharpening_loss(best_embeddings, kernel_size=kernel_size)
+        _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
+
+        _loss_equivariance = equivariance_loss(
+            best_embeddings,
+            best_embeddings_transformed,
+            invertible_transform,
+            sigma=sigma,
+            device=device,
+        )
         # instead get the argmax of each and apply it to the other
         # then bluring etc as in sharpening loss
-        # make this bidirectional
-        l2_loss = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted) * 10
+        # _loss_equivariance = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted) * 10
 
-        loss = l2_loss + _sharpening_loss + _ddpm_loss
+        loss = (
+            _loss_equivariance * equivariance_loss_weight
+            + _sharpening_loss
+            + _ddpm_loss
+        )
 
         loss.backward()
         optimizer.step()
@@ -372,19 +459,15 @@ def optimize_embedding(
             wandb.log(
                 {
                     "loss": loss.item(),
-                    "l2_loss": l2_loss.item(),
+                    "_loss_equivariance": _loss_equivariance.item(),
                     "_sharpening_loss": _sharpening_loss.item(),
                     "_ddpm_loss": _ddpm_loss.item(),
                 }
             )
         else:
             print(
-                f"loss: {loss.item()}, l2_loss: {l2_loss.item()}, sharpening_loss: {_sharpening_loss.item()}"
+                f"loss: {loss.item()}, _loss_equivariance: {_loss_equivariance.item()}, sharpening_loss: {_sharpening_loss.item()}"
             )
-
-    # end the wandb session
-    if wandb_log:
-        wandb.finish()
 
     print(f"optimization took {time.time() - start} seconds")
 

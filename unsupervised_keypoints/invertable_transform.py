@@ -307,7 +307,7 @@ class RandomAffineWithInverse:
         # Create the affine matrix
         theta = self.create_affine_matrix(
             angle, scale_factor, translations_percent, shear
-        )
+        ).to(img_tensor.device)
 
         # Store them for inverse transformation
         self.last_params = {
@@ -345,7 +345,7 @@ class RandomAffineWithInverse:
 
         return untransformed_img[0]
 
-    def transform_keypoints(self, keypoints, img_size):
+    def transform_keypoints(self, keypoints):
         keypoints = keypoints * 2 - 1
         # Get the transformation matrix
         theta = self.last_params["theta"][0]
@@ -363,13 +363,17 @@ class RandomAffineWithInverse:
         keypoints_homogeneous = torch.cat(
             [
                 keypoints_pixel,
-                torch.ones(keypoints_pixel.shape[0], 1, dtype=keypoints.dtype),
+                torch.ones(keypoints_pixel.shape[0], 1, dtype=keypoints.dtype).to(
+                    keypoints.device
+                ),
             ],
             dim=1,
         )
 
         theta = self.last_params["theta"][0]
-        theta_augmented = torch.cat([theta, torch.Tensor([0, 0, 1]).view(1, -1)], dim=0)
+        theta_augmented = torch.cat(
+            [theta, torch.Tensor([0, 0, 1]).view(1, -1)], dim=0
+        ).to(keypoints.device)
         theta_inv = torch.inverse(theta_augmented)[:2, :]
 
         # Transform the keypoints
@@ -388,11 +392,11 @@ class RandomAffineWithInverse:
 
         return transformed_keypoints
 
-    def inverse_transform_keypoints(self, keypoints, img_size):
+    def inverse_transform_keypoints(self, keypoints):
         keypoints = keypoints * 2 - 1
 
         # Get the transformation matrix and calculate its inverse
-        theta = self.last_params["theta"][0]
+        theta = self.last_params["theta"][0].to(keypoints.device)
         # theta_augmented = torch.cat([theta, torch.Tensor([0, 0, 1]).view(1, -1)], dim=0)
         # theta_inv = torch.inverse(theta_augmented)[:2, :]
 
@@ -406,7 +410,9 @@ class RandomAffineWithInverse:
         keypoints_homogeneous = torch.cat(
             [
                 keypoints_pixel,
-                torch.ones(keypoints_pixel.shape[0], 1, dtype=keypoints.dtype),
+                torch.ones(keypoints_pixel.shape[0], 1, dtype=keypoints.dtype).to(
+                    keypoints_pixel.device
+                ),
             ],
             dim=1,
         )

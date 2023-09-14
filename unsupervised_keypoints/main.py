@@ -61,6 +61,12 @@ parser.add_argument(
     "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
 )
 parser.add_argument(
+    "--equivariance_loss_weight",
+    type=float,
+    default=0.1,
+    help="Weight of the equivariance loss",
+)
+parser.add_argument(
     "--max_num_images",
     type=int,
     default=19000,
@@ -74,10 +80,7 @@ parser.add_argument(
     help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
 )
 parser.add_argument(
-    "--kernel_size",
-    type=int,
-    default=3,
-    help="size of blur over the ground truth attention map",
+    "--sigma", type=float, default=0.8, help="sigma for the gaussian kernel"
 )
 parser.add_argument(
     "--augment_degrees",
@@ -124,45 +127,54 @@ args = parser.parse_args()
 
 ldm = load_ldm(args.device, args.model_type)
 
-# embedding = optimize_embedding(
-#     ldm,
-#     wandb_log=args.wandb,
-#     lr=args.lr,
-#     num_steps=int(args.num_steps),
-#     num_tokens=args.num_tokens,
-#     device=args.device,
-#     layers=args.layers,
-#     sdxl=args.sdxl,
-#     top_k=args.top_k,
-#     kernel_size=args.kernel_size,
-#     augment_degrees=args.augment_degrees,
-#     augment_scale=args.augment_scale,
-#     augment_translate=args.augment_translate,
-#     augment_shear=args.augment_shear,
-#     mafl_loc=args.mafl_loc,
-#     celeba_loc=args.celeba_loc,
+embedding = optimize_embedding(
+    ldm,
+    wandb_log=args.wandb,
+    lr=args.lr,
+    num_steps=int(args.num_steps),
+    num_tokens=args.num_tokens,
+    device=args.device,
+    layers=args.layers,
+    sdxl=args.sdxl,
+    top_k=args.top_k,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
+    sigma=args.sigma,
+    equivariance_loss_weight=args.equivariance_loss_weight,
+)
+torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
+# embedding = (
+#     torch.load("proper_translation_in_augmentations/embedding.pt")
+#     .to(args.device)
+#     .detach()
 # )
-# torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
-embedding = torch.load("embedding.pt").to(args.device).detach()
 #
-# indices = find_best_indices(
-#     ldm,
-#     embedding,
-#     num_steps=100,
-#     num_tokens=args.num_tokens,
-#     device=args.device,
-#     layers=args.layers,
-#     top_k=args.top_k,
-#     augment=True,
-#     augment_degrees=args.augment_degrees,
-#     augment_scale=args.augment_scale,
-#     augment_translate=args.augment_translate,
-#     augment_shear=args.augment_shear,
-#     mafl_loc=args.mafl_loc,
-#     celeba_loc=args.celeba_loc,
+indices = find_best_indices(
+    ldm,
+    embedding,
+    num_steps=100,
+    num_tokens=args.num_tokens,
+    device=args.device,
+    layers=args.layers,
+    top_k=args.top_k,
+    augment=True,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    mafl_loc=args.mafl_loc,
+    celeba_loc=args.celeba_loc,
+)
+torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
+# indices = (
+#     torch.load("proper_translation_in_augmentations/indices.pt")
+#     .to(args.device)
+#     .detach()
 # )
-# torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
-indices = torch.load("indices.pt").to(args.device).detach()
 
 # visualize embeddings
 visualize_attn_maps(
@@ -188,19 +200,13 @@ source_kpts, target_kpts = precompute_all_keypoints(
     ldm,
     embedding,
     indices,
-    wandb_log=args.wandb,
-    lr=1e-2,
-    num_steps=1e4,
-    num_tokens=args.num_tokens,
     device=args.device,
     layers=args.layers,
-    top_k=args.top_k,
     augment_degrees=args.augment_degrees,
     augment_scale=args.augment_scale,
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
-    max_num_images=args.max_num_images,
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
 )
@@ -256,4 +262,5 @@ evaluate(
     celeba_loc=args.celeba_loc,
     save_folder=args.save_folder,
     device=args.device,
+    wandb_log=args.wandb,
 )
