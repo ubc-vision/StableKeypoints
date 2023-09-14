@@ -185,7 +185,7 @@ def equivariance_loss(
         indices=within_image,
     )
 
-    return (loss_initial + loss_transformed) / 2
+    return (loss_initial + loss_transformed) / torch.sum(within_image)
 
 
 def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
