@@ -166,7 +166,7 @@ def equivariance_loss(
     within_image = ((transformed_pos_prime < 1) * (transformed_pos_prime > 0)).sum(
         dim=1
     ) == 2
-    
+
     if within_image.sum() == 0:
         return torch.tensor(0).to(device)
 
@@ -193,11 +193,12 @@ def equivariance_loss(
 
 def old_equivariance_loss(embeddings_initial, embeddings_transformed, transform):
     # untransform the embeddings_transformed
-    embeddings_initial_prime = transform.inverse_transform_keypoints(embeddings_transformed)
-    
+    embeddings_initial_prime = transform.inverse(embeddings_transformed)
+
     loss = F.mse_loss(embeddings_initial, embeddings_initial_prime)
-    
+
     return loss
+
 
 def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
     pos = eval.find_max_pixel(attn_map) / 32
@@ -356,7 +357,6 @@ def optimize_embedding(
     old_equivariance_loss_weight=10,
     batch_size=4,
 ):
-
     dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
     invertible_transform = RandomAffineWithInverse(
@@ -432,25 +432,27 @@ def optimize_embedding(
             sigma=sigma,
             device=device,
         )
-        
-        _old_loss_equivariance = old_equivariance_loss(best_embeddings, best_embeddings_transformed, invertible_transform)
+
+        _old_loss_equivariance = old_equivariance_loss(
+            best_embeddings, best_embeddings_transformed, invertible_transform
+        )
         # instead get the argmax of each and apply it to the other
         # then bluring etc as in sharpening loss
         # _loss_equivariance = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted) * 10
 
         loss = (
             _loss_equivariance * equivariance_loss_weight
-            + _old_loss_equivariance*old_equivariance_loss_weight
+            + _old_loss_equivariance * old_equivariance_loss_weight
             + _sharpening_loss
         )
-        
-        running_equivariance_loss += _loss_equivariance/batch_size
-        running_sharpening_loss += _sharpening_loss/batch_size
-        
+
+        running_equivariance_loss += _loss_equivariance / batch_size
+        running_sharpening_loss += _sharpening_loss / batch_size
+
         loss = loss / batch_size
 
         loss.backward()
-        if (iteration+1) % batch_size == 0:
+        if (iteration + 1) % batch_size == 0:
             optimizer.step()
             optimizer.zero_grad()
 
