@@ -166,6 +166,9 @@ def equivariance_loss(
     within_image = ((transformed_pos_prime < 1) * (transformed_pos_prime > 0)).sum(
         dim=1
     ) == 2
+    
+    if within_image.sum() == 0:
+        return torch.tensor(0).to(device)
 
     loss_initial = find_gaussian_loss_at_point(
         embeddings_initial,
@@ -187,6 +190,14 @@ def equivariance_loss(
 
     return (loss_initial + loss_transformed) / torch.sum(within_image)
 
+
+def old_equivariance_loss(embeddings_initial, embeddings_transformed, transform):
+    # untransform the embeddings_transformed
+    embeddings_initial_prime = transform.inverse_transform_keypoints(embeddings_transformed)
+    
+    loss = F.mse_loss(embeddings_initial, embeddings_initial_prime)
+    
+    return loss
 
 def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
     pos = eval.find_max_pixel(attn_map) / 32
@@ -342,6 +353,8 @@ def optimize_embedding(
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     sigma=1.0,
     equivariance_loss_weight=0.1,
+    old_equivariance_loss_weight=10,
+    batch_size=4,
 ):
 
     dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -357,12 +370,6 @@ def optimize_embedding(
 
     if context is None:
         context = ptp_utils.init_random_noise(device, num_words=num_tokens)
-        # context = (
-        #     torch.load("proper_translation_in_augmentations/embedding.pt")
-        #     .to(device)
-        #     .detach()
-        # )
-        # context = torch.load("embedding.pt").to(device).detach()
 
     context.requires_grad = True
 
@@ -374,8 +381,8 @@ def optimize_embedding(
 
     start = time.time()
 
-    prev_loss = 0
-    prev_acc = 0
+    running_equivariance_loss = 0
+    running_sharpening_loss = 0
 
     for iteration in range(num_steps):
         index = np.random.randint(len(dataset))
@@ -416,19 +423,6 @@ def optimize_embedding(
         # transformed image, then found attn maps
         best_embeddings_transformed = attention_maps_transformed[top_embedding_indices]
 
-        # _ddpm_loss = (
-        #     ddpm_loss(
-        #         ldm,
-        #         image,
-        #         context[:, top_embedding_indices],
-        #         best_embeddings,
-        #         noise_level=noise_level,
-        #         device=device,
-        #     )
-        #     * 1000
-        # )
-        _ddpm_loss = torch.tensor(0).to(device)
-
         _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
 
         _loss_equivariance = equivariance_loss(
@@ -438,33 +432,42 @@ def optimize_embedding(
             sigma=sigma,
             device=device,
         )
+        
+        _old_loss_equivariance = old_equivariance_loss(best_embeddings, best_embeddings_transformed, invertible_transform)
         # instead get the argmax of each and apply it to the other
         # then bluring etc as in sharpening loss
         # _loss_equivariance = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted) * 10
 
         loss = (
             _loss_equivariance * equivariance_loss_weight
+            + _old_loss_equivariance*old_equivariance_loss_weight
             + _sharpening_loss
-            + _ddpm_loss
         )
+        
+        running_equivariance_loss += _loss_equivariance/batch_size
+        running_sharpening_loss += _sharpening_loss/batch_size
+        
+        loss = loss / batch_size
 
         loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+        if (iteration+1) % batch_size == 0:
+            optimizer.step()
+            optimizer.zero_grad()
 
-        if wandb_log:
-            wandb.log(
-                {
-                    "loss": loss.item(),
-                    "_loss_equivariance": _loss_equivariance.item(),
-                    "_sharpening_loss": _sharpening_loss.item(),
-                    "_ddpm_loss": _ddpm_loss.item(),
-                }
-            )
-        else:
-            print(
-                f"loss: {loss.item()}, _loss_equivariance: {_loss_equivariance.item()}, sharpening_loss: {_sharpening_loss.item()}"
-            )
+            if wandb_log:
+                wandb.log(
+                    {
+                        "loss": loss.item(),
+                        "running_equivariance_loss": running_equivariance_loss.item(),
+                        "running_sharpening_loss": running_sharpening_loss.item(),
+                    }
+                )
+            else:
+                print(
+                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}"
+                )
+            running_equivariance_loss = 0
+            running_sharpening_loss = 0
 
     print(f"optimization took {time.time() - start} seconds")
 

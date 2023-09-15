@@ -68,10 +68,19 @@ parser.add_argument(
     "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
 )
 parser.add_argument(
+    "--batch_size", type=int, default=4, help="number of tokens to optimize"
+)
+parser.add_argument(
     "--equivariance_loss_weight",
     type=float,
     default=1.0,
     help="Weight of the equivariance loss",
+)
+parser.add_argument(
+    "--old_equivariance_loss_weight",
+    type=float,
+    default=10.0,
+    help="Weight of the old equivariance loss",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[5, 6, 7, 8])
 parser.add_argument(
@@ -135,6 +144,8 @@ if not os.path.exists(args.save_folder):
 if args.wandb:
     # start a wandb session
     wandb.init(project="attention_maps", name=args.wandb_name)
+    # save the arguments to wandb
+    wandb.config.update(args)
 
 embedding = optimize_embedding(
     ldm,
@@ -154,6 +165,8 @@ embedding = optimize_embedding(
     celeba_loc=args.celeba_loc,
     sigma=args.sigma,
     equivariance_loss_weight=args.equivariance_loss_weight,
+    old_equivariance_loss_weight=args.old_equivariance_loss_weight,
+    batch_size=args.batch_size,
 )
 torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 # embedding = (
