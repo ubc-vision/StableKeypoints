@@ -144,8 +144,6 @@ if not os.path.exists(args.save_folder):
 if args.wandb:
     # start a wandb session
     wandb.init(project="attention_maps", name=args.wandb_name, config=vars(args))
-    # save the arguments to wandb
-    # wandb.config.update(vars(args))
 
 embedding = optimize_embedding(
     ldm,

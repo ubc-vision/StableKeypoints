@@ -381,6 +381,7 @@ def optimize_embedding(
 
     start = time.time()
 
+    running_old_equivariance_loss = 0
     running_equivariance_loss = 0
     running_sharpening_loss = 0
 
@@ -423,7 +424,7 @@ def optimize_embedding(
         # transformed image, then found attn maps
         best_embeddings_transformed = attention_maps_transformed[top_embedding_indices]
 
-        _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
+        _sharpening_loss = sharpening_loss(best_embeddings_transformed, device=device, sigma=sigma)
 
         _loss_equivariance = equivariance_loss(
             best_embeddings,
@@ -448,6 +449,7 @@ def optimize_embedding(
 
         running_equivariance_loss += _loss_equivariance / batch_size
         running_sharpening_loss += _sharpening_loss / batch_size
+        running_old_equivariance_loss += _old_loss_equivariance / batch_size
 
         loss = loss / batch_size
 
@@ -462,14 +464,16 @@ def optimize_embedding(
                         "loss": loss.item(),
                         "running_equivariance_loss": running_equivariance_loss.item(),
                         "running_sharpening_loss": running_sharpening_loss.item(),
+                        "running_old_equivariance_loss": running_old_equivariance_loss.item(),
                     }
                 )
             else:
                 print(
-                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}"
+                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item(), _old_loss_equivariance: {running_old_equivariance_loss.item()}}"
                 )
             running_equivariance_loss = 0
             running_sharpening_loss = 0
+            running_old_equivariance_loss = 0
 
     print(f"optimization took {time.time() - start} seconds")
 
