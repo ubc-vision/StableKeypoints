@@ -258,7 +258,11 @@ def transform_keypoints(keypoints, angle, translate, scale, shear, img_size):
 
 class RandomAffineWithInverse:
     def __init__(
-        self, degrees=0, scale=(1.0, 1.0), translate=(0.0, 0.0), shear=(0.0, 0.0)
+        self,
+        degrees=0,
+        scale=(1.0, 1.0),
+        translate=(0.0, 0.0),
+        shear=(0.0, 0.0),
     ):
         self.degrees = degrees
         self.scale = scale
@@ -287,27 +291,28 @@ class RandomAffineWithInverse:
         theta = theta.unsqueeze(0)  # Add batch dimension
         return theta
 
-    def __call__(self, img_tensor):
+    def __call__(self, img_tensor, theta=None):
         img_tensor = img_tensor[None]
 
-        # Calculate random parameters
-        angle = random.uniform(-self.degrees, self.degrees)
-        scale_factor = random.uniform(self.scale[0], self.scale[1])
-        translations_percent = (
-            random.uniform(-self.translate[0], self.translate[0]),
-            random.uniform(-self.translate[1], self.translate[1]),
-            # 1.0,
-            # 1.0,
-        )
-        shear = [
-            random.uniform(-self.shear[0], self.shear[0]),
-            random.uniform(-self.shear[1], self.shear[1]),
-        ]
+        if theta is None:
+            # Calculate random parameters
+            angle = random.uniform(-self.degrees, self.degrees)
+            scale_factor = random.uniform(self.scale[0], self.scale[1])
+            translations_percent = (
+                random.uniform(-self.translate[0], self.translate[0]),
+                random.uniform(-self.translate[1], self.translate[1]),
+                # 1.0,
+                # 1.0,
+            )
+            shear = [
+                random.uniform(-self.shear[0], self.shear[0]),
+                random.uniform(-self.shear[1], self.shear[1]),
+            ]
 
-        # Create the affine matrix
-        theta = self.create_affine_matrix(
-            angle, scale_factor, translations_percent, shear
-        ).to(img_tensor.device)
+            # Create the affine matrix
+            theta = self.create_affine_matrix(
+                angle, scale_factor, translations_percent, shear
+            ).to(img_tensor.device)
 
         # Store them for inverse transformation
         self.last_params = {
@@ -430,3 +435,19 @@ class RandomAffineWithInverse:
         transformed_keypoints = transformed_keypoints / 2 + 0.5
 
         return transformed_keypoints
+
+
+def return_theta(scale, pixel_loc):
+    """
+    Pixel_loc between 0 and 1
+    """
+
+    rescaled_loc = pixel_loc * 2 - 1
+    theta = torch.tensor(
+        [
+            [scale, 0, rescaled_loc[1]],
+            [0, scale, rescaled_loc[0]],
+        ]
+    )
+    theta = theta.unsqueeze(0)
+    return theta

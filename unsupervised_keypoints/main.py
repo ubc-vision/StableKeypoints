@@ -90,7 +90,7 @@ parser.add_argument(
     help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
 )
 parser.add_argument(
-    "--sigma", type=float, default=0.8, help="sigma for the gaussian kernel"
+    "--sigma", type=float, default=1.0, help="sigma for the gaussian kernel"
 )
 parser.add_argument(
     "--augment_degrees",
@@ -198,7 +198,7 @@ torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
 #     .detach()
 # )
 
-# visualize embeddings
+# # visualize embeddings
 visualize_attn_maps(
     ldm,
     embedding,
@@ -236,8 +236,12 @@ source_kpts, target_kpts = precompute_all_keypoints(
 
 torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
 torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
-# source_kpts = torch.load("keypoints.pt")
-# target_kpts = torch.load("target_keypoints.pt")
+# source_kpts = torch.load(os.path.join(args.save_folder, "source_keypoints.pt")).to(
+# args.device
+# )
+# target_kpts = torch.load(os.path.join(args.save_folder, "target_keypoints.pt")).to(
+# args.device
+# )
 
 regressor = return_regressor(
     source_kpts.cpu().numpy().reshape(-1, 20),
@@ -246,7 +250,7 @@ regressor = return_regressor(
 regressor = torch.tensor(regressor)
 torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
 
-# regressor = torch.load("regressor.pt")
+# regressor = torch.load("proper_translation_in_augmentations/regressor.pt")
 
 # visualize embeddings
 visualize_attn_maps(
@@ -285,4 +289,5 @@ evaluate(
     save_folder=args.save_folder,
     device=args.device,
     wandb_log=args.wandb,
+    visualize=args.visualize,
 )

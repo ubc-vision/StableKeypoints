@@ -200,6 +200,46 @@ def old_equivariance_loss(embeddings_initial, embeddings_transformed, transform)
     return loss
 
 
+def olf_sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1, l1=False):
+    # attn_map is of shape (T, H, W)
+    T, H, W = attn_map.shape
+
+    # Scale attn_map by temperature
+    attn_map_scaled = (
+        attn_map / temperature
+    )  # Adding channel dimension, shape (T, 1, H, W)
+
+    # Apply spatial softmax over attn_map to get probabilities
+    spatial_softmax = torch.nn.Softmax2d()
+    attn_probs = spatial_softmax(attn_map_scaled)  # Removing channel dimension
+
+    # Find argmax and create one-hot encoding
+    argmax_indices = attn_probs.view(T, -1).argmax(dim=1)
+    one_hot = torch.zeros_like(attn_probs.view(T, -1)).scatter_(
+        1, argmax_indices.view(-1, 1), 1
+    )
+    one_hot = one_hot.view(T, H, W)
+
+    # Create Gaussian kernel
+    gaussian_kernel = create_gaussian_kernel(kernel_size, sigma).to(attn_map.device)
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size)
+
+    # Apply Gaussian smoothing to the one-hot encoding
+    target = F.conv2d(one_hot.unsqueeze(1), gaussian_kernel, padding=kernel_size // 2)
+    target = target.view(T, H * W)
+    target = target / target.max(dim=1, keepdim=True)[0]
+    target = target.view(T, H, W)
+
+    # Compute loss
+    if l1:
+        loss = F.l1_loss(attn_probs, target)
+    else:
+        loss = F.mse_loss(attn_probs, target)
+    # loss = nn.L1Loss()(attn_probs, target)
+
+    return loss
+
+
 def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
     pos = eval.find_max_pixel(attn_map) / 32
 
@@ -332,6 +372,37 @@ def variance_loss(heatmaps):
     return torch.mean(std_dev)
 
 
+def spreading_loss(heatmaps):
+    # Get the shape of the heatmaps
+    batch_size, m, n = heatmaps.shape
+
+    # Compute the total value of the heatmaps
+    total_value = torch.sum(heatmaps, dim=[1, 2], keepdim=True)
+
+    # Normalize the heatmaps
+    normalized_heatmaps = heatmaps / (
+        total_value + 1e-6
+    )  # Adding a small constant to avoid division by zero
+
+    # Create meshgrid to represent the coordinates
+    x = torch.arange(0, m).float().view(1, m, 1).to(heatmaps.device)
+    y = torch.arange(0, n).float().view(1, 1, n).to(heatmaps.device)
+
+    # Compute the weighted sum for x and y
+    x_sum = torch.sum(x * normalized_heatmaps, dim=[1, 2])
+    y_sum = torch.sum(y * normalized_heatmaps, dim=[1, 2])
+
+    locs = torch.stack([x_sum, y_sum], dim=1)
+
+    # Compute the pairwise distance between each pair of points
+    total_dist = 0
+    for i in range(locs.shape[0]):
+        for j in range(locs.shape[0]):
+            total_dist += torch.norm(locs[i] - locs[j])
+
+    return total_dist / (locs.shape[0] * (locs.shape[0] - 1))
+
+
 def optimize_embedding(
     ldm,
     wandb_log=True,
@@ -423,7 +494,9 @@ def optimize_embedding(
         # transformed image, then found attn maps
         best_embeddings_transformed = attention_maps_transformed[top_embedding_indices]
 
-        _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
+        _sharpening_loss = sharpening_loss(
+            best_embeddings_transformed, device=device, sigma=sigma
+        )
 
         _loss_equivariance = equivariance_loss(
             best_embeddings,
@@ -436,9 +509,8 @@ def optimize_embedding(
         _old_loss_equivariance = old_equivariance_loss(
             best_embeddings, best_embeddings_transformed, invertible_transform
         )
-        # instead get the argmax of each and apply it to the other
-        # then bluring etc as in sharpening loss
-        # _loss_equivariance = nn.MSELoss()(best_embeddings_vanilla, best_embeddings_uninverted) * 10
+
+        _spreading_loss = spreading_loss(best_embeddings)
 
         loss = (
             _loss_equivariance * equivariance_loss_weight

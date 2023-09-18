@@ -183,6 +183,8 @@ def run_and_find_attn(
     # take the mean over the first 2 dimensions
     attention_maps = torch.mean(attention_maps, dim=(0, 1))
 
+    controller.reset()
+
     # attention_maps[:, :, :3] = 0
     # attention_maps[:, :, -3:] = 0
     # attention_maps[:, :3, :] = 0
