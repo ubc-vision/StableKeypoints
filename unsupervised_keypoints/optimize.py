@@ -426,6 +426,7 @@ def optimize_embedding(
     sigma=1.0,
     equivariance_loss_weight=0.1,
     old_equivariance_loss_weight=10,
+    spreading_loss_weight=0.01,
     batch_size=4,
 ):
     dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -452,8 +453,11 @@ def optimize_embedding(
 
     start = time.time()
 
+    running_old_equivariance_loss = 0
     running_equivariance_loss = 0
     running_sharpening_loss = 0
+    running_spreading_loss = 0
+    running_total_loss = 0
 
     for iteration in range(num_steps):
         index = np.random.randint(len(dataset))
@@ -515,11 +519,15 @@ def optimize_embedding(
         loss = (
             _loss_equivariance * equivariance_loss_weight
             + _old_loss_equivariance * old_equivariance_loss_weight
+            + _spreading_loss * spreading_loss_weight
             + _sharpening_loss
         )
 
         running_equivariance_loss += _loss_equivariance / batch_size
         running_sharpening_loss += _sharpening_loss / batch_size
+        running_old_equivariance_loss += _old_loss_equivariance / batch_size
+        running_spreading_loss += _spreading_loss / batch_size
+        running_total_loss += loss / batch_size
 
         loss = loss / batch_size
 
@@ -531,17 +539,22 @@ def optimize_embedding(
             if wandb_log:
                 wandb.log(
                     {
-                        "loss": loss.item(),
+                        "loss": running_total_loss.item(),
                         "running_equivariance_loss": running_equivariance_loss.item(),
                         "running_sharpening_loss": running_sharpening_loss.item(),
+                        "running_old_equivariance_loss": running_old_equivariance_loss.item(),
+                        "running_spreading_loss": running_spreading_loss.item(),
                     }
                 )
             else:
                 print(
-                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}"
+                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}, _old_loss_equivariance: {running_old_equivariance_loss.item()}, _spreading_loss: {running_spreading_loss.item()}, running_total_loss: {running_total_loss.item()}"
                 )
             running_equivariance_loss = 0
             running_sharpening_loss = 0
+            running_old_equivariance_loss = 0
+            running_spreading_loss = 0
+            running_total_loss = 0
 
     print(f"optimization took {time.time() - start} seconds")
 

@@ -82,6 +82,12 @@ parser.add_argument(
     default=10.0,
     help="Weight of the old equivariance loss",
 )
+parser.add_argument(
+    "--spreading_loss_weight",
+    type=float,
+    default=0.01,
+    help="Weight of the loss that encourages spreading of the keypoints",
+)
 parser.add_argument("--layers", type=int, nargs="+", default=[5, 6, 7, 8])
 parser.add_argument(
     "--noise_level",
@@ -144,8 +150,6 @@ if not os.path.exists(args.save_folder):
 if args.wandb:
     # start a wandb session
     wandb.init(project="attention_maps", name=args.wandb_name, config=vars(args))
-    # save the arguments to wandb
-    # wandb.config.update(vars(args))
 
 embedding = optimize_embedding(
     ldm,
@@ -167,6 +171,7 @@ embedding = optimize_embedding(
     equivariance_loss_weight=args.equivariance_loss_weight,
     old_equivariance_loss_weight=args.old_equivariance_loss_weight,
     batch_size=args.batch_size,
+    spreading_loss_weight=args.spreading_loss_weight,
 )
 torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 # embedding = (
