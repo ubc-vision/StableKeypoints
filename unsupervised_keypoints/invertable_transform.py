@@ -355,14 +355,7 @@ class RandomAffineWithInverse:
         # Get the transformation matrix
         theta = self.last_params["theta"][0]
 
-        # # Map normalized keypoints to pixel space
-        # keypoints_pixel = keypoints * torch.tensor(
-        #     img_size, dtype=keypoints.dtype
-        # ).flip(0)
-        # Map normalized keypoints to pixel space
         keypoints_pixel = keypoints.flip(1)
-        # keypoints_pixel = -1 * keypoints[:, [1, 0]]
-        # keypoints_pixel = keypoints
 
         # Convert to homogeneous coordinates
         keypoints_homogeneous = torch.cat(
@@ -437,16 +430,22 @@ class RandomAffineWithInverse:
         return transformed_keypoints
 
 
-def return_theta(scale, pixel_loc):
+def return_theta(scale, pixel_loc, rotation_angle_degrees=0):
     """
     Pixel_loc between 0 and 1
+    Rotation_angle_degrees between 0 and 360
     """
 
     rescaled_loc = pixel_loc * 2 - 1
+
+    rotation_angle_radians = math.radians(rotation_angle_degrees)
+    cos_theta = math.cos(rotation_angle_radians)
+    sin_theta = math.sin(rotation_angle_radians)
+
     theta = torch.tensor(
         [
-            [scale, 0, rescaled_loc[1]],
-            [0, scale, rescaled_loc[0]],
+            [scale * cos_theta, -scale * sin_theta, rescaled_loc[1]],
+            [scale * sin_theta, scale * cos_theta, rescaled_loc[0]],
         ]
     )
     theta = theta.unsqueeze(0)

@@ -329,6 +329,7 @@ def precompute_all_keypoints(
     augmentation_iterations=20,
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    visualize=False,
 ):
     dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
 
@@ -375,6 +376,7 @@ def precompute_all_keypoints(
             layers=layers,
             num_zooms=2,
             noise_level=noise_level,
+            visualize=visualize,
         )
 
         source_keypoints.append(highest_indices)

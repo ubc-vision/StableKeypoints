@@ -328,11 +328,16 @@ def progressively_zoom_into_image(
     num_zooms=2,
     noise_level=-1,
     visualize=False,
+    rotation_degrees=15,
 ):
     """
     First forward passes the image with no augmentation and find the argmax for each keypoint
     Then 'zoom' in on each keypoint by cropping the image around the keypoint
     """
+
+    num_samples = torch.zeros(len(indices), 512, 512).to(device)
+    sum_samples = torch.zeros(len(indices), 512, 512).to(device)
+
     points = []
 
     # if image is a torch.tensor, convert to numpy
@@ -346,18 +351,17 @@ def progressively_zoom_into_image(
         layers=layers,
         noise_level=noise_level,
         from_where=from_where,
-        upsample_res=32,
+        upsample_res=512,
+        indices=indices,
     )
 
-    initial_maps = initial_maps[indices]
-
     highest_indices, confidences = find_max_pixel(initial_maps, return_confidences=True)
-    highest_indices = highest_indices / 32.0
+    highest_indices = highest_indices / 512.0
 
     if visualize:
         import matplotlib.pyplot as plt
 
-        fig, axs = plt.subplots(2, 11)
+        fig, axs = plt.subplots(4, 11)
         axs[0, 0].imshow(image)
         axs[1, 0].imshow(image)
         for i in range(highest_indices.shape[0]):
@@ -372,7 +376,10 @@ def progressively_zoom_into_image(
     transform = RandomAffineWithInverse()
 
     for keypoint in range(highest_indices.shape[0]):
-        theta = return_theta(0.5, highest_indices[keypoint])
+        # randomly choose rotation between -rotation_degrees and rotation_degrees
+        random_rot = torch.rand(1) * 2 * rotation_degrees - rotation_degrees
+
+        theta = return_theta(0.5, highest_indices[keypoint], random_rot)
 
         augmented_img = (
             transform(torch.tensor(image).permute(2, 0, 1), theta)
@@ -387,15 +394,27 @@ def progressively_zoom_into_image(
             layers=layers,
             noise_level=noise_level,
             from_where=from_where,
-            upsample_res=32,
+            upsample_res=512,
+            indices=indices,
         )
 
-        maps = maps[indices]
+        # transform all keypoints to this view to see which are in view
+        # untransform the maps to the original view and add the maps which are within view
+
+        transformed_highest_indices = transform.transform_keypoints(highest_indices)
+        within_view = (
+            (transformed_highest_indices > 0.1) * (transformed_highest_indices < 0.9)
+        ).sum(dim=1) == 2
+
+        sum_samples[within_view] += transform.inverse(maps)[within_view]
+        num_samples[within_view] += transform.inverse(torch.ones_like(maps))[
+            within_view
+        ]
 
         highest_indices_iteration, confidences = find_max_pixel(
             maps, return_confidences=True
         )
-        highest_indices_iteration = highest_indices_iteration / 32.0
+        highest_indices_iteration = highest_indices_iteration / 512.0
 
         inverted_kpts = transform.inverse_transform_keypoints(highest_indices_iteration)
 
@@ -440,6 +459,10 @@ def progressively_zoom_into_image(
 
     points = torch.stack(points)
 
+    attention_maps = sum_samples / num_samples
+    # replace all nans with 0s
+    attention_maps[attention_maps != attention_maps] = 0
+
     if visualize:
         for i in range(points.shape[0]):
             axs[1, 0].scatter(
@@ -447,6 +470,9 @@ def progressively_zoom_into_image(
                 points[i, 0].cpu() * 512,
                 marker=f"${i}$",
             )
+
+            axs[2, i + 1].imshow(attention_maps[i].cpu())
+            axs[3, i + 1].imshow((num_samples[i] / num_samples[i].max()).cpu())
         # # increase resolution of pyplot to 512x2048
         fig.set_size_inches(4096 / 100, 4096 / 400)
         plt.savefig("initial.png")

@@ -400,7 +400,8 @@ def spreading_loss(heatmaps):
         for j in range(locs.shape[0]):
             total_dist += torch.norm(locs[i] - locs[j])
 
-    return total_dist / (locs.shape[0] * (locs.shape[0] - 1))
+    # we want to maximize the distance between the points
+    return -total_dist / (locs.shape[0] * (locs.shape[0] - 1))
 
 
 def optimize_embedding(

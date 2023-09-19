@@ -148,6 +148,7 @@ def run_and_find_attn(
     from_where=["down_cross", "mid_cross", "up_cross"],
     layers=[0, 1, 2, 3, 4, 5],
     upsample_res=32,
+    indices=None,
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -178,6 +179,7 @@ def run_and_find_attn(
         from_where=from_where,
         upsample_res=upsample_res,
         layers=layers,
+        indices=indices,
     )
 
     # take the mean over the first 2 dimensions

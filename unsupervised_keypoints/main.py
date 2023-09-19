@@ -68,12 +68,12 @@ parser.add_argument(
     "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
 )
 parser.add_argument(
-    "--batch_size", type=int, default=4, help="number of tokens to optimize"
+    "--batch_size", type=int, default=1, help="size of the batch for optimization"
 )
 parser.add_argument(
     "--equivariance_loss_weight",
     type=float,
-    default=1.0,
+    default=0.0,
     help="Weight of the equivariance loss",
 )
 parser.add_argument(
@@ -85,7 +85,8 @@ parser.add_argument(
 parser.add_argument(
     "--spreading_loss_weight",
     type=float,
-    default=0.01,
+    # default=0,
+    default=0.0001,
     help="Weight of the loss that encourages spreading of the keypoints",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[5, 6, 7, 8])
@@ -151,59 +152,55 @@ if args.wandb:
     # start a wandb session
     wandb.init(project="attention_maps", name=args.wandb_name, config=vars(args))
 
-embedding = optimize_embedding(
-    ldm,
-    wandb_log=args.wandb,
-    lr=args.lr,
-    num_steps=int(args.num_steps),
-    num_tokens=args.num_tokens,
-    device=args.device,
-    layers=args.layers,
-    sdxl=args.sdxl,
-    top_k=args.top_k,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
-    mafl_loc=args.mafl_loc,
-    celeba_loc=args.celeba_loc,
-    sigma=args.sigma,
-    equivariance_loss_weight=args.equivariance_loss_weight,
-    old_equivariance_loss_weight=args.old_equivariance_loss_weight,
-    batch_size=args.batch_size,
-    spreading_loss_weight=args.spreading_loss_weight,
-)
-torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
-# embedding = (
-#     torch.load("proper_translation_in_augmentations/embedding.pt")
-#     .to(args.device)
-#     .detach()
+# embedding = optimize_embedding(
+#     ldm,
+#     wandb_log=args.wandb,
+#     lr=args.lr,
+#     num_steps=int(args.num_steps),
+#     num_tokens=args.num_tokens,
+#     device=args.device,
+#     layers=args.layers,
+#     sdxl=args.sdxl,
+#     top_k=args.top_k,
+#     augment_degrees=args.augment_degrees,
+#     augment_scale=args.augment_scale,
+#     augment_translate=args.augment_translate,
+#     augment_shear=args.augment_shear,
+#     mafl_loc=args.mafl_loc,
+#     celeba_loc=args.celeba_loc,
+#     sigma=args.sigma,
+#     equivariance_loss_weight=args.equivariance_loss_weight,
+#     old_equivariance_loss_weight=args.old_equivariance_loss_weight,
+#     batch_size=args.batch_size,
+#     spreading_loss_weight=args.spreading_loss_weight,
 # )
+# torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
+embedding = (
+    torch.load(os.path.join(args.save_folder, "embedding.pt")).to(args.device).detach()
+)
 #
-indices = find_best_indices(
-    ldm,
-    embedding,
-    num_steps=100,
-    num_tokens=args.num_tokens,
-    device=args.device,
-    layers=args.layers,
-    top_k=args.top_k,
-    augment=True,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
-    mafl_loc=args.mafl_loc,
-    celeba_loc=args.celeba_loc,
-)
-torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
-# indices = (
-#     torch.load("proper_translation_in_augmentations/indices.pt")
-#     .to(args.device)
-#     .detach()
+# indices = find_best_indices(
+#     ldm,
+#     embedding,
+#     num_steps=100,
+#     num_tokens=args.num_tokens,
+#     device=args.device,
+#     layers=args.layers,
+#     top_k=args.top_k,
+#     augment=True,
+#     augment_degrees=args.augment_degrees,
+#     augment_scale=args.augment_scale,
+#     augment_translate=args.augment_translate,
+#     augment_shear=args.augment_shear,
+#     mafl_loc=args.mafl_loc,
+#     celeba_loc=args.celeba_loc,
 # )
+# torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
+indices = (
+    torch.load(os.path.join(args.save_folder, "indices.pt")).to(args.device).detach()
+)
 
-# # visualize embeddings
+# # # visualize embeddings
 visualize_attn_maps(
     ldm,
     embedding,
@@ -236,16 +233,17 @@ source_kpts, target_kpts = precompute_all_keypoints(
     augmentation_iterations=args.augmentation_iterations,
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
+    visualize=args.visualize,
 )
 
 
 torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
 torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
 # source_kpts = torch.load(os.path.join(args.save_folder, "source_keypoints.pt")).to(
-# args.device
+#     args.device
 # )
 # target_kpts = torch.load(os.path.join(args.save_folder, "target_keypoints.pt")).to(
-# args.device
+#     args.device
 # )
 
 regressor = return_regressor(
@@ -255,7 +253,7 @@ regressor = return_regressor(
 regressor = torch.tensor(regressor)
 torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
 
-# regressor = torch.load("proper_translation_in_augmentations/regressor.pt")
+# regressor = torch.load(os.path.join(args.save_folder, "regressor.pt"))
 
 # visualize embeddings
 visualize_attn_maps(
