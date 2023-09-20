@@ -254,6 +254,14 @@ def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
     return loss
 
 
+def parent_loss(attn_map, parent_keypoints):
+    locs = differentiable_argmax(attn_map)
+
+    loss = F.mse_loss(locs, parent_keypoints)
+
+    return loss
+
+
 def find_gaussian_loss_at_point(
     attn_map, pos, sigma=1.0, temperature=1e-1, device="cuda", indices=None
 ):
@@ -373,6 +381,19 @@ def variance_loss(heatmaps):
 
 
 def spreading_loss(heatmaps):
+    locs = differentiable_argmax(heatmaps)
+
+    # Compute the pairwise distance between each pair of points
+    total_dist = 0
+    for i in range(locs.shape[0]):
+        for j in range(locs.shape[0]):
+            total_dist += torch.norm(locs[i] - locs[j])
+
+    # we want to maximize the distance between the points
+    return -total_dist / (locs.shape[0] * (locs.shape[0] - 1))
+
+
+def differentiable_argmax(heatmaps):
     # Get the shape of the heatmaps
     batch_size, m, n = heatmaps.shape
 
@@ -394,18 +415,13 @@ def spreading_loss(heatmaps):
 
     locs = torch.stack([x_sum, y_sum], dim=1)
 
-    # Compute the pairwise distance between each pair of points
-    total_dist = 0
-    for i in range(locs.shape[0]):
-        for j in range(locs.shape[0]):
-            total_dist += torch.norm(locs[i] - locs[j])
-
-    # we want to maximize the distance between the points
-    return -total_dist / (locs.shape[0] * (locs.shape[0] - 1))
+    return locs
 
 
 def optimize_embedding(
     ldm,
+    parent_keypoints=None,
+    top_k_strategy="entropy",
     wandb_log=True,
     context=None,
     device="cuda",
@@ -490,18 +506,24 @@ def optimize_embedding(
             device=device,
         )
 
-        top_embedding_indices = ptp_utils.find_top_k(
-            attn_maps.view(num_tokens, -1), top_k
-        )
+        if top_k_strategy == "entropy":
+            top_embedding_indices = ptp_utils.find_top_k(
+                attn_maps.view(num_tokens, -1), top_k
+            )
+        elif top_k_strategy == "consistent":
+            top_embedding_indices = torch.arange(top_k)
 
         # never had transformation applied
         best_embeddings = attn_maps[top_embedding_indices]
         # transformed image, then found attn maps
         best_embeddings_transformed = attention_maps_transformed[top_embedding_indices]
 
-        _sharpening_loss = sharpening_loss(
-            best_embeddings_transformed, device=device, sigma=sigma
-        )
+        if parent_keypoints is not None:
+            _parent_loss = parent_loss(best_embeddings, parent_keypoints)
+        else:
+            _parent_loss = torch.tensor(0).to(device)
+
+        _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
 
         _loss_equivariance = equivariance_loss(
             best_embeddings,
