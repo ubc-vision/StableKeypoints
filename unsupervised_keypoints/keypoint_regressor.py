@@ -11,7 +11,7 @@ from unsupervised_keypoints.optimize import collect_maps
 from unsupervised_keypoints.eval import (
     find_corresponding_points,
     run_image_with_tokens_augmented,
-    progressively_zoom_into_image,
+    # progressively_zoom_into_image,
 )
 
 from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
@@ -40,7 +40,7 @@ def find_best_indices(
     num_steps=100,
     device="cuda",
     noise_level=-1,
-    upsample_res=32,
+    upsample_res=256,
     layers=[0, 1, 2, 3, 4, 5],
     from_where=["down_cross", "mid_cross", "up_cross"],
     num_tokens=1000,
@@ -346,27 +346,7 @@ def precompute_all_keypoints(
         if type(image) == torch.Tensor:
             image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-        # attention_maps = run_image_with_tokens_augmented(
-        #     ldm,
-        #     image,
-        #     context,
-        #     top_indices,
-        #     device=device,
-        #     from_where=from_where,
-        #     layers=layers,
-        #     noise_level=noise_level,
-        #     augmentation_iterations=augmentation_iterations,
-        #     augment_degrees=augment_degrees,
-        #     augment_scale=augment_scale,
-        #     augment_translate=augment_translate,
-        #     augment_shear=augment_shear,
-        # )
-        # highest_indices, values = find_max_pixel(
-        #     attention_maps, return_confidences=True
-        # )
-        # highest_indices = highest_indices / 512.0
-
-        highest_indices = progressively_zoom_into_image(
+        attention_maps = run_image_with_tokens_augmented(
             ldm,
             image,
             context,
@@ -374,10 +354,17 @@ def precompute_all_keypoints(
             device=device,
             from_where=from_where,
             layers=layers,
-            num_zooms=2,
             noise_level=noise_level,
-            visualize=visualize,
+            augmentation_iterations=augmentation_iterations,
+            augment_degrees=augment_degrees,
+            augment_scale=augment_scale,
+            augment_translate=augment_translate,
+            augment_shear=augment_shear,
         )
+        highest_indices, values = find_max_pixel(
+            attention_maps, return_confidences=True
+        )
+        highest_indices = highest_indices / 512.0
 
         source_keypoints.append(highest_indices)
         target_keypoints.append(kpts)
