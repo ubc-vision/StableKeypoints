@@ -704,20 +704,7 @@ def evaluate(
 
         img = batch["img"]
 
-        highest_indices = progressively_zoom_into_image(
-            ldm,
-            img,
-            context,
-            indices,
-            device=device,
-            from_where=from_where,
-            layers=layers,
-            num_zooms=2,
-            noise_level=noise_level,
-            visualize=visualize,
-        )
-
-        # attention_maps = run_image_with_tokens_augmented(
+        # highest_indices = progressively_zoom_into_image(
         #     ldm,
         #     img,
         #     context,
@@ -725,18 +712,31 @@ def evaluate(
         #     device=device,
         #     from_where=from_where,
         #     layers=layers,
+        #     num_zooms=2,
         #     noise_level=noise_level,
-        #     augmentation_iterations=augmentation_iterations,
-        #     augment_degrees=augment_degrees,
-        #     augment_scale=augment_scale,
-        #     augment_translate=augment_translate,
-        #     augment_shear=augment_shear,
-        #     # visualize=True,
+        #     visualize=visualize,
         # )
-        # highest_indices, confidences = find_max_pixel(
-        #     attention_maps, return_confidences=True
-        # )
-        # highest_indices = highest_indices / 512.0
+
+        attention_maps = run_image_with_tokens_augmented(
+            ldm,
+            img,
+            context,
+            indices,
+            device=device,
+            from_where=from_where,
+            layers=layers,
+            noise_level=noise_level,
+            augmentation_iterations=augmentation_iterations,
+            augment_degrees=augment_degrees,
+            augment_scale=augment_scale,
+            augment_translate=augment_translate,
+            augment_shear=augment_shear,
+            # visualize=True,
+        )
+        highest_indices, confidences = find_max_pixel(
+            attention_maps, return_confidences=True
+        )
+        highest_indices = highest_indices / 512.0
 
         # estimated_kpts = regressor(highest_indices.view(-1))
         estimated_kpts = highest_indices.view(1, -1) @ regressor

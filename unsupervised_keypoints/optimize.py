@@ -525,6 +525,7 @@ def optimize_embedding(
 
         _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
 
+
         _loss_equivariance = equivariance_loss(
             best_embeddings,
             best_embeddings_transformed,
@@ -539,12 +540,21 @@ def optimize_embedding(
 
         _spreading_loss = spreading_loss(best_embeddings)
 
-        loss = (
-            _loss_equivariance * equivariance_loss_weight
-            + _old_loss_equivariance * old_equivariance_loss_weight
-            + _spreading_loss * spreading_loss_weight
-            + _sharpening_loss
-        )
+        # use the old loss for the first 1000 iterations 
+        # new loss is unstable for early iterations
+        if iteration < 1000:
+            loss = (
+                _old_loss_equivariance * old_equivariance_loss_weight
+                + _spreading_loss * spreading_loss_weight
+                + _sharpening_loss
+            )
+        else:
+            loss = (
+                _loss_equivariance * equivariance_loss_weight
+                + _old_loss_equivariance * old_equivariance_loss_weight
+                + _spreading_loss * spreading_loss_weight
+                + _sharpening_loss
+            )
 
         running_equivariance_loss += _loss_equivariance / batch_size
         running_sharpening_loss += _sharpening_loss / batch_size
