@@ -11,7 +11,7 @@ from unsupervised_keypoints.optimize import collect_maps
 from unsupervised_keypoints.eval import (
     find_corresponding_points,
     run_image_with_tokens_augmented,
-    progressively_zoom_into_image,
+    # progressively_zoom_into_image,
 )
 
 from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
@@ -40,7 +40,7 @@ def find_best_indices(
     num_steps=100,
     device="cuda",
     noise_level=-1,
-    upsample_res=32,
+    upsample_res=256,
     layers=[0, 1, 2, 3, 4, 5],
     from_where=["down_cross", "mid_cross", "up_cross"],
     num_tokens=1000,
@@ -365,19 +365,6 @@ def precompute_all_keypoints(
             attention_maps, return_confidences=True
         )
         highest_indices = highest_indices / 512.0
-
-        # highest_indices = progressively_zoom_into_image(
-        #     ldm,
-        #     image,
-        #     context,
-        #     top_indices,
-        #     device=device,
-        #     from_where=from_where,
-        #     layers=layers,
-        #     num_zooms=2,
-        #     noise_level=noise_level,
-        #     visualize=visualize,
-        # )
 
         source_keypoints.append(highest_indices)
         target_keypoints.append(kpts)

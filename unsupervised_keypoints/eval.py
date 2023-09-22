@@ -38,144 +38,51 @@ def save_img(map, img, point, name):
     plt.close()
 
 
-def get_attn_map(
-    ldm,
-    image,
-    context,
-    device="cuda",
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    upsample_res=32,
-    layers=[0, 1, 2, 3, 4, 5],
-    noise_level=-1,
-    num_tokens=77,
-):
-    # if image is a torch.tensor, convert to numpy
-    if type(image) == torch.Tensor:
-        image = image.permute(1, 2, 0).detach().cpu().numpy()
+# def get_attn_map(
+#     ldm,
+#     image,
+#     context,
+#     device="cuda",
+#     from_where=["down_cross", "mid_cross", "up_cross"],
+#     upsample_res=32,
+#     layers=[0, 1, 2, 3, 4, 5],
+#     noise_level=-1,
+#     num_tokens=77,
+# ):
+#     # if image is a torch.tensor, convert to numpy
+#     if type(image) == torch.Tensor:
+#         image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-    with torch.no_grad():
-        latent = ptp_utils.image2latent(ldm, image, device)
+#     with torch.no_grad():
+#         latent = ptp_utils.image2latent(ldm, image, device)
 
-    noisy_image = ldm.scheduler.add_noise(
-        latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level]
-    )
+#     noisy_image = ldm.scheduler.add_noise(
+#         latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level]
+#     )
 
-    controller = ptp_utils.AttentionStore()
+#     controller = ptp_utils.AttentionStore()
 
-    ptp_utils.register_attention_control(ldm, controller)
+#     ptp_utils.register_attention_control(ldm, controller)
 
-    _ = ptp_utils.diffusion_step(
-        ldm,
-        controller,
-        noisy_image,
-        context,
-        ldm.scheduler.timesteps[noise_level],
-        cfg=False,
-    )
+#     _ = ptp_utils.diffusion_step(
+#         ldm,
+#         controller,
+#         noisy_image,
+#         context,
+#         ldm.scheduler.timesteps[noise_level],
+#         cfg=False,
+#     )
 
-    attention_maps = optimize.collect_maps(
-        controller,
-        from_where=from_where,
-        upsample_res=upsample_res,
-        layers=layers,
-    )
+#     attention_maps = optimize.collect_maps(
+#         controller,
+#         from_where=from_where,
+#         upsample_res=upsample_res,
+#         layers=layers,
+#     )
 
-    attention_maps = torch.mean(attention_maps, dim=(0, 1))
+#     attention_maps = torch.mean(attention_maps, dim=(0, 1))
 
-    return attention_maps
-
-
-def run_example(
-    ldm,
-    batch,
-    context,
-    threshold_value=0.5,
-    device="cuda",
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    upsample_res=32,
-    layers=[0, 1, 2, 3, 4, 5],
-    noise_level=-1,
-):
-    image = batch["img"]
-    label = batch["label"]
-
-    attention_maps = get_attn_map(
-        ldm,
-        image,
-        context,
-        device=device,
-        from_where=from_where,
-        upsample_res=upsample_res,
-        layers=layers,
-        noise_level=noise_level,
-    )
-    num_maps = attention_maps.shape[0]
-
-    # the label should just be the maximum of the attention maps
-    attn_map_max = torch.max(attention_maps)
-
-    # compare threshold_value to attn_map_max with label
-    # if below threshold_value, then label should be 0, if above threshold_value, then label should be 1
-    est_label = (attn_map_max > threshold_value).to(torch.float)
-
-    bool_correct = (est_label == label).to(torch.float)
-
-    return bool_correct, attn_map_max
-
-
-def eval_embedding(
-    ldm,
-    context,
-    device="cuda",
-    num_steps=2000,
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    upsample_res=32,
-    layers=[0, 1, 2, 3, 4, 5],
-    lr=5e-3,
-    noise_level=-1,
-):
-    dogs = Cats_Dogs(dogs=True, train=False)
-    cats = Cats_Dogs(dogs=False, train=False)
-
-    if context is None:
-        context = ptp_utils.init_random_noise(device)
-
-    context.requires_grad = True
-
-    # optimize context to maximize attention at pixel_loc
-    optimizer = torch.optim.Adam([context], lr=lr)
-
-    dog_accuracies = []
-    est_dog_maxes = []
-
-    for i in tqdm(range(len(dogs))):
-        batch = dogs[i]
-        accuracy, est_max = run_example(ldm, batch, context, threshold_value=0.1)
-        dog_accuracies.append(accuracy.cpu().numpy())
-        est_dog_maxes.append(est_max.detach().cpu().numpy())
-
-    cat_accuracies = []
-    est_cat_maxes = []
-    for i in tqdm(range(len(cats))):
-        batch = cats[i]
-        accuracy, est_max = run_example(ldm, batch, context, threshold_value=0.1)
-        cat_accuracies.append(accuracy.cpu().numpy())
-        est_cat_maxes.append(est_max.detach().cpu().numpy())
-
-    print(f"dog accuracy: {np.mean(dog_accuracies)}")
-    print(f"cat accuracy: {np.mean(cat_accuracies)}")
-    print(f"overall accuracy: {np.mean(dog_accuracies + cat_accuracies)}")
-
-    # save the bins for the dog and cat maxes with matplotlib
-    import matplotlib.pyplot as plt
-
-    plt.hist(est_dog_maxes, bins=100, alpha=0.5, label="dog")
-    plt.hist(est_cat_maxes, bins=100, alpha=0.5, label="cat")
-    plt.legend(loc="upper right")
-    plt.show()
-    plt.savefig("dog_cat_maxes.png")
-
-    return np.mean(dog_accuracies + cat_accuracies)
+#     return attention_maps
 
 
 def find_max_pixel(map, return_confidences=False):
@@ -316,170 +223,176 @@ def find_corresponding_points(maps, num_points=10):
 #     )
 
 
-@torch.no_grad()
-def progressively_zoom_into_image(
-    ldm,
-    image,
-    context,
-    indices,
-    device="cuda",
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    layers=[0, 1, 2, 3, 4, 5],
-    num_zooms=2,
-    noise_level=-1,
-    visualize=False,
-    rotation_degrees=15,
-):
-    """
-    First forward passes the image with no augmentation and find the argmax for each keypoint
-    Then 'zoom' in on each keypoint by cropping the image around the keypoint
-    """
+# @torch.no_grad()
+# def progressively_zoom_into_image(
+#     ldm,
+#     image,
+#     context,
+#     indices,
+#     device="cuda",
+#     from_where=["down_cross", "mid_cross", "up_cross"],
+#     layers=[0, 1, 2, 3, 4, 5],
+#     num_zooms=2,
+#     noise_level=-1,
+#     visualize=False,
+#     rotation_degrees=15,
+# ):
+#     """
+#     First forward passes the image with no augmentation and find the argmax for each keypoint
+#     Then 'zoom' in on each keypoint by cropping the image around the keypoint
+#     """
 
-    num_samples = torch.zeros(len(indices), 512, 512).to(device)
-    sum_samples = torch.zeros(len(indices), 512, 512).to(device)
+#     num_samples = torch.zeros(len(indices), 512, 512).to(device)
+#     sum_samples = torch.zeros(len(indices), 512, 512).to(device)
 
-    points = []
+#     points = []
 
-    # if image is a torch.tensor, convert to numpy
-    if type(image) == torch.Tensor:
-        image = image.permute(1, 2, 0).detach().cpu().numpy()
+#     # if image is a torch.tensor, convert to numpy
+#     if type(image) == torch.Tensor:
+#         image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-    initial_maps = ptp_utils.run_and_find_attn(
-        ldm,
-        image,
-        context,
-        layers=layers,
-        noise_level=noise_level,
-        from_where=from_where,
-        upsample_res=512,
-        indices=indices,
-    )
+#     if parent_keypoints is None:
+#         initial_maps = ptp_utils.run_and_find_attn(
+#             ldm,
+#             image,
+#             context,
+#             layers=layers,
+#             noise_level=noise_level,
+#             from_where=from_where,
+#             upsample_res=512,
+#             indices=indices,
+#         )
 
-    highest_indices, confidences = find_max_pixel(initial_maps, return_confidences=True)
-    highest_indices = highest_indices / 512.0
+#         highest_indices, confidences = find_max_pixel(
+#             initial_maps, return_confidences=True
+#         )
+#         highest_indices = highest_indices / 512.0
 
-    if visualize:
-        import matplotlib.pyplot as plt
+#     else:
+#         highest_indices = parent_keypoints.clone()
 
-        fig, axs = plt.subplots(4, 11)
-        axs[0, 0].imshow(image)
-        axs[1, 0].imshow(image)
-        for i in range(highest_indices.shape[0]):
-            # make the point the number f"{i}"
+#     if visualize:
+#         import matplotlib.pyplot as plt
 
-            axs[0, 0].scatter(
-                highest_indices[i, 1].cpu() * 512,
-                highest_indices[i, 0].cpu() * 512,
-                marker=f"${i}$",
-            )
+#         fig, axs = plt.subplots(4, 11)
+#         axs[0, 0].imshow(image)
+#         axs[1, 0].imshow(image)
+#         for i in range(highest_indices.shape[0]):
+#             # make the point the number f"{i}"
 
-    transform = RandomAffineWithInverse()
+#             axs[0, 0].scatter(
+#                 highest_indices[i, 1].cpu() * 512,
+#                 highest_indices[i, 0].cpu() * 512,
+#                 marker=f"${i}$",
+#             )
 
-    for keypoint in range(highest_indices.shape[0]):
-        # randomly choose rotation between -rotation_degrees and rotation_degrees
-        random_rot = torch.rand(1) * 2 * rotation_degrees - rotation_degrees
+#     transform = RandomAffineWithInverse()
 
-        theta = return_theta(0.5, highest_indices[keypoint], random_rot)
+#     for keypoint in range(highest_indices.shape[0]):
+#         # randomly choose rotation between -rotation_degrees and rotation_degrees
+#         random_rot = torch.rand(1) * 2 * rotation_degrees - rotation_degrees
 
-        augmented_img = (
-            transform(torch.tensor(image).permute(2, 0, 1), theta)
-            .permute(1, 2, 0)
-            .numpy()
-        )
+#         theta = return_theta(0.5, highest_indices[keypoint], random_rot)
 
-        maps = ptp_utils.run_and_find_attn(
-            ldm,
-            augmented_img,
-            context,
-            layers=layers,
-            noise_level=noise_level,
-            from_where=from_where,
-            upsample_res=512,
-            indices=indices,
-        )
+#         augmented_img = (
+#             transform(torch.tensor(image).permute(2, 0, 1), theta)
+#             .permute(1, 2, 0)
+#             .numpy()
+#         )
 
-        # transform all keypoints to this view to see which are in view
-        # untransform the maps to the original view and add the maps which are within view
+#         maps = ptp_utils.run_and_find_attn(
+#             ldm,
+#             augmented_img,
+#             context,
+#             layers=layers,
+#             noise_level=noise_level,
+#             from_where=from_where,
+#             upsample_res=512,
+#             indices=indices,
+#         )
 
-        transformed_highest_indices = transform.transform_keypoints(highest_indices)
-        within_view = (
-            (transformed_highest_indices > 0.1) * (transformed_highest_indices < 0.9)
-        ).sum(dim=1) == 2
+#         # transform all keypoints to this view to see which are in view
+#         # untransform the maps to the original view and add the maps which are within view
 
-        sum_samples[within_view] += transform.inverse(maps)[within_view]
-        num_samples[within_view] += transform.inverse(torch.ones_like(maps))[
-            within_view
-        ]
+#         transformed_highest_indices = transform.transform_keypoints(highest_indices)
+#         within_view = (
+#             (transformed_highest_indices > 0.1) * (transformed_highest_indices < 0.9)
+#         ).sum(dim=1) == 2
 
-        highest_indices_iteration, confidences = find_max_pixel(
-            maps, return_confidences=True
-        )
-        highest_indices_iteration = highest_indices_iteration / 512.0
+#         sum_samples[within_view] += transform.inverse(maps)[within_view]
+#         num_samples[within_view] += transform.inverse(torch.ones_like(maps))[
+#             within_view
+#         ]
 
-        inverted_kpts = transform.inverse_transform_keypoints(highest_indices_iteration)
+#         highest_indices_iteration, confidences = find_max_pixel(
+#             maps, return_confidences=True
+#         )
+#         highest_indices_iteration = highest_indices_iteration / 512.0
 
-        points.append(inverted_kpts[keypoint])
+#         inverted_kpts = transform.inverse_transform_keypoints(highest_indices_iteration)
 
-        if visualize:
-            axs[0, keypoint + 1].scatter(
-                256,
-                256,
-                marker=f"${keypoint}$",
-            )
+#         points.append(inverted_kpts[keypoint])
 
-            axs[0, keypoint + 1].scatter(
-                highest_indices_iteration[keypoint, 1].cpu() * 512,
-                highest_indices_iteration[keypoint, 0].cpu() * 512,
-                marker=f"${keypoint}$",
-            )
+#         if visualize:
+#             axs[0, keypoint + 1].scatter(
+#                 256,
+#                 256,
+#                 marker=f"${keypoint}$",
+#             )
 
-            axs[0, keypoint + 1].imshow(augmented_img)
+#             axs[0, keypoint + 1].scatter(
+#                 highest_indices_iteration[keypoint, 1].cpu() * 512,
+#                 highest_indices_iteration[keypoint, 0].cpu() * 512,
+#                 marker=f"${keypoint}$",
+#             )
 
-            # upscale maps to 512x512
-            maps_upscaled = torch.nn.functional.interpolate(
-                maps[keypoint, None, None],
-                size=(512, 512),
-                mode="bilinear",
-                align_corners=False,
-            )[0, 0]
-            axs[1, keypoint + 1].imshow(maps_upscaled.cpu(), alpha=0.5)
-            axs[1, keypoint + 1].imshow(augmented_img, alpha=0.5)
+#             axs[0, keypoint + 1].imshow(augmented_img)
 
-            axs[1, keypoint + 1].scatter(
-                highest_indices_iteration[keypoint, 1].cpu() * 512,
-                highest_indices_iteration[keypoint, 0].cpu() * 512,
-                marker=f"${keypoint}$",
-            )
+#             # upscale maps to 512x512
+#             maps_upscaled = torch.nn.functional.interpolate(
+#                 maps[keypoint, None, None],
+#                 size=(512, 512),
+#                 mode="bilinear",
+#                 align_corners=False,
+#             )[0, 0]
+#             axs[1, keypoint + 1].imshow(maps_upscaled.cpu(), alpha=0.5)
+#             axs[1, keypoint + 1].imshow(augmented_img, alpha=0.5)
 
-            axs[1, 0].scatter(
-                inverted_kpts[keypoint, 1].cpu() * 512,
-                inverted_kpts[keypoint, 0].cpu() * 512,
-                marker=f"${keypoint}$",
-            )
+#             axs[1, keypoint + 1].scatter(
+#                 highest_indices_iteration[keypoint, 1].cpu() * 512,
+#                 highest_indices_iteration[keypoint, 0].cpu() * 512,
+#                 marker=f"${keypoint}$",
+#             )
 
-    points = torch.stack(points)
+#             axs[1, 0].scatter(
+#                 inverted_kpts[keypoint, 1].cpu() * 512,
+#                 inverted_kpts[keypoint, 0].cpu() * 512,
+#                 marker=f"${keypoint}$",
+#             )
 
-    attention_maps = sum_samples / num_samples
-    # replace all nans with 0s
-    attention_maps[attention_maps != attention_maps] = 0
+#     points = torch.stack(points)
 
-    if visualize:
-        for i in range(points.shape[0]):
-            axs[1, 0].scatter(
-                points[i, 1].cpu() * 512,
-                points[i, 0].cpu() * 512,
-                marker=f"${i}$",
-            )
+#     attention_maps = sum_samples / num_samples
+#     # replace all nans with 0s
+#     attention_maps[attention_maps != attention_maps] = 0
 
-            axs[2, i + 1].imshow(attention_maps[i].cpu())
-            axs[3, i + 1].imshow((num_samples[i] / num_samples[i].max()).cpu())
-        # # increase resolution of pyplot to 512x2048
-        fig.set_size_inches(4096 / 100, 4096 / 400)
-        plt.savefig("initial.png")
+#     if visualize:
+#         for i in range(points.shape[0]):
+#             axs[1, 0].scatter(
+#                 points[i, 1].cpu() * 512,
+#                 points[i, 0].cpu() * 512,
+#                 marker=f"${i}$",
+#             )
 
-        pass
+#             axs[2, i + 1].imshow(attention_maps[i].cpu())
+#             axs[3, i + 1].imshow((num_samples[i] / num_samples[i].max()).cpu())
+#         # # increase resolution of pyplot to 512x2048
+#         fig.set_size_inches(4096 / 100, 4096 / 400)
+#         plt.savefig("initial.png")
 
-    return points
+#         pass
+
+#     return points
 
 
 @torch.no_grad()
@@ -566,8 +479,6 @@ def run_image_with_tokens_augmented(
         )
 
         _attention_maps = _attention_maps.mean((0, 1))
-
-        controller.reset()
 
         num_samples += invertible_transform.inverse(torch.ones_like(num_samples))
         sum_samples += invertible_transform.inverse(_attention_maps)
@@ -703,19 +614,6 @@ def evaluate(
         batch = dataset[i]
 
         img = batch["img"]
-
-        # highest_indices = progressively_zoom_into_image(
-        #     ldm,
-        #     img,
-        #     context,
-        #     indices,
-        #     device=device,
-        #     from_where=from_where,
-        #     layers=layers,
-        #     num_zooms=2,
-        #     noise_level=noise_level,
-        #     visualize=visualize,
-        # )
 
         attention_maps = run_image_with_tokens_augmented(
             ldm,

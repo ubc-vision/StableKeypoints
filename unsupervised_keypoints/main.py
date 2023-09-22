@@ -13,7 +13,7 @@ from unsupervised_keypoints.keypoint_regressor import (
     return_regressor,
 )
 
-from unsupervised_keypoints.eval import eval_embedding, evaluate
+from unsupervised_keypoints.eval import evaluate
 from unsupervised_keypoints.visualize import visualize_attn_maps
 
 
@@ -65,10 +65,17 @@ parser.add_argument(
     "--num_steps", type=int, default=1e4, help="number of steps to optimize"
 )
 parser.add_argument(
-    "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
+    "--num_tokens", type=int, default=100, help="number of tokens to optimize"
 )
 parser.add_argument(
     "--batch_size", type=int, default=1, help="size of the batch for optimization"
+)
+parser.add_argument(
+    "--top_k_strategy",
+    type=str,
+    default="entropy",
+    choices=["entropy", "consistent"],
+    help="strategy for choosing top k tokens",
 )
 parser.add_argument(
     "--equivariance_loss_weight",
@@ -89,7 +96,7 @@ parser.add_argument(
     default=0.0001,
     help="Weight of the loss that encourages spreading of the keypoints",
 )
-parser.add_argument("--layers", type=int, nargs="+", default=[5, 6, 7, 8])
+parser.add_argument("--layers", type=int, nargs="+", default=[0, 1, 2, 3])
 parser.add_argument(
     "--noise_level",
     type=int,
@@ -97,7 +104,7 @@ parser.add_argument(
     help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
 )
 parser.add_argument(
-    "--sigma", type=float, default=1.0, help="sigma for the gaussian kernel"
+    "--sigma", type=float, default=3.0, help="sigma for the gaussian kernel"
 )
 parser.add_argument(
     "--augment_degrees",
@@ -110,7 +117,7 @@ parser.add_argument(
     type=float,
     # 2 arguments
     nargs="+",
-    default=[0.4, 1.0],
+    default=[0.9, 1.1],
     help="scale factor for augmentation",
 )
 parser.add_argument(
@@ -154,6 +161,7 @@ if args.wandb:
 
 embedding = optimize_embedding(
     ldm,
+    top_k_strategy=args.top_k_strategy,
     wandb_log=args.wandb,
     lr=args.lr,
     num_steps=int(args.num_steps),

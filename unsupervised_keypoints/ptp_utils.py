@@ -75,8 +75,8 @@ class AttentionStore(AttentionControl):
 
     def forward(self, attn, is_cross: bool, place_in_unet: str):
         key = f"{place_in_unet}_{'cross' if is_cross else 'self'}"
-        if attn.shape[1] <= 32**2:  # avoid memory overhead
-            self.step_store[key].append(attn)
+        # if attn.shape[1] <= 32**2:  # avoid memory overhead
+        self.step_store[key].append(attn)
         return attn
 
     def between_steps(self):
@@ -356,6 +356,7 @@ def register_attention_control(model, controller):
             h = self.heads
             q = self.to_q(x)
             is_cross = context is not None
+
             context = context if is_cross else x
             k = self.to_k(context)
             v = self.to_v(context)
@@ -375,8 +376,45 @@ def register_attention_control(model, controller):
             # attention, what we cannot get enough of
             attn = torch.nn.Softmax(dim=-1)(sim)
             attn = attn.clone()
-            attn = controller(attn, is_cross, place_in_unet)
+            # if (
+            #     is_cross
+            #     and sequence_length <= 32**2
+            #     and len(controller.step_store["up_cross"]) < 4
+            # ):
+            #     attn = controller(attn, is_cross, place_in_unet)
             out = torch.matmul(attn, v)
+
+            if (
+                is_cross
+                and sequence_length <= 32**2
+                and len(controller.step_store["up_cross"]) < 4
+            ):
+                x_reshaped = x.reshape(
+                    batch_size,
+                    int(sequence_length**0.5),
+                    int(sequence_length**0.5),
+                    dim,
+                ).permute(0, 3, 1, 2)
+                # upsample to 256x256
+                x_reshaped = (
+                    F.interpolate(
+                        x_reshaped,
+                        size=(256, 256),
+                        mode="bicubic",
+                        align_corners=False,
+                    )
+                    .permute(0, 2, 3, 1)
+                    .reshape(batch_size, -1, dim)
+                )
+
+                q = self.to_q(x_reshaped)
+                q = self.reshape_heads_to_batch_dim(q)
+
+                sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+                attn = torch.nn.Softmax(dim=-1)(sim)
+                attn = attn.clone()
+
+                attn = controller(attn, is_cross, place_in_unet)
 
             out = self.reshape_batch_dim_to_heads(out)
             return to_out(out)
@@ -407,12 +445,12 @@ def register_attention_control(model, controller):
     cross_att_count = 0
     sub_nets = model.unet.named_children()
     for net in sub_nets:
-        if "down" in net[0]:
-            cross_att_count += register_recr(net[1], 0, "down")
-        elif "up" in net[0]:
+        # if "down" in net[0]:
+        #     cross_att_count += register_recr(net[1], 0, "down")
+        if "up" in net[0]:
             cross_att_count += register_recr(net[1], 0, "up")
-        elif "mid" in net[0]:
-            cross_att_count += register_recr(net[1], 0, "mid")
+        # elif "mid" in net[0]:
+        #     cross_att_count += register_recr(net[1], 0, "mid")
 
     controller.num_att_layers = cross_att_count
 

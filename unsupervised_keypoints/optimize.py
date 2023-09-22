@@ -21,7 +21,7 @@ from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
 
 def collect_maps(
     controller,
-    from_where=["down_cross", "mid_cross", "up_cross"],
+    from_where=["up_cross"],
     upsample_res=512,
     layers=[0, 1, 2, 3, 4, 5],
     indices=None,
@@ -30,7 +30,7 @@ def collect_maps(
     returns the bilinearly upsampled attention map of size upsample_res x upsample_res for the first word in the prompt
     """
 
-    attention_maps = controller.get_average_attention()
+    attention_maps = controller.step_store
 
     imgs = []
 
@@ -59,13 +59,15 @@ def collect_maps(
                 img = F.interpolate(
                     img,
                     size=(upsample_res, upsample_res),
-                    mode="bilinear",
+                    mode="bicubic",
                     align_corners=False,
                 )
 
             imgs.append(img)
 
     imgs = torch.stack(imgs, dim=0)
+
+    controller.reset()
 
     return imgs
 
@@ -156,8 +158,10 @@ def equivariance_loss(
 ):
     # get the argmax for both embeddings_initial and embeddings_uninverted
 
-    initial_pos = eval.find_max_pixel(embeddings_initial) / 32
-    transformed_pos = eval.find_max_pixel(embeddings_transformed) / 32
+    initial_pos = eval.find_max_pixel(embeddings_initial) / embeddings_initial.shape[-1]
+    transformed_pos = (
+        eval.find_max_pixel(embeddings_transformed) / embeddings_transformed.shape[-1]
+    )
 
     transformed_pos_prime = transform.transform_keypoints(initial_pos)
 
@@ -241,7 +245,7 @@ def olf_sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1, l1
 
 
 def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
-    pos = eval.find_max_pixel(attn_map) / 32
+    pos = eval.find_max_pixel(attn_map) / attn_map.shape[-1]
 
     loss = find_gaussian_loss_at_point(
         attn_map,
@@ -254,20 +258,13 @@ def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
     return loss
 
 
-def parent_loss(attn_map, parent_keypoints):
-    locs = differentiable_argmax(attn_map)
-
-    loss = F.mse_loss(locs, parent_keypoints)
-
-    return loss
-
-
 def find_gaussian_loss_at_point(
     attn_map, pos, sigma=1.0, temperature=1e-1, device="cuda", indices=None
 ):
     """
     pos is a location between 0 and 1
     """
+
     # attn_map is of shape (T, H, W)
     T, H, W = attn_map.shape
 
@@ -283,9 +280,6 @@ def find_gaussian_loss_at_point(
         pos, size=H, sigma=sigma, device=device
     )  # Assuming H and W are the same
     target = target.to(attn_map.device)
-
-    # Normalize the target
-    target = target / target.max()
 
     # possibly select a subset of indices
     if indices is not None:
@@ -420,14 +414,13 @@ def differentiable_argmax(heatmaps):
 
 def optimize_embedding(
     ldm,
-    parent_keypoints=None,
     top_k_strategy="entropy",
     wandb_log=True,
     context=None,
     device="cuda",
     num_steps=2000,
     from_where=["down_cross", "mid_cross", "up_cross"],
-    upsample_res=32,
+    upsample_res=256,
     layers=[0, 1, 2, 3, 4, 5],
     lr=5e-3,
     noise_level=-1,
@@ -517,11 +510,6 @@ def optimize_embedding(
         best_embeddings = attn_maps[top_embedding_indices]
         # transformed image, then found attn maps
         best_embeddings_transformed = attention_maps_transformed[top_embedding_indices]
-
-        if parent_keypoints is not None:
-            _parent_loss = parent_loss(best_embeddings, parent_keypoints)
-        else:
-            _parent_loss = torch.tensor(0).to(device)
 
         _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
 
