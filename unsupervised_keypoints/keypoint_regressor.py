@@ -375,7 +375,8 @@ def precompute_all_keypoints(
 def return_regressor(X, Y):
     import numpy as np
 
-    W = np.linalg.inv(X.T @ X) @ X.T @ Y
+    # W = np.linalg.inv(X.T @ X) @ X.T @ Y
+    W = np.linalg.pinv(X.T @ X) @ X.T @ Y
 
     return W
 

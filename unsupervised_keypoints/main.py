@@ -1,5 +1,6 @@
 import os
 import wandb
+import numpy as np
 import argparse
 import torch
 from unsupervised_keypoints.optimize_token import load_ldm
@@ -255,8 +256,8 @@ torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
 # )
 
 regressor = return_regressor(
-    source_kpts.cpu().numpy().reshape(-1, 20),
-    target_kpts.cpu().numpy().reshape(-1, 10),
+    source_kpts.cpu().numpy().reshape(-1, 20).astype(np.float64),
+    target_kpts.cpu().numpy().reshape(-1, 10).astype(np.float64),
 )
 regressor = torch.tensor(regressor)
 torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
