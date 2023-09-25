@@ -2,6 +2,7 @@ import os
 import wandb
 import argparse
 import torch
+import numpy as np
 from unsupervised_keypoints.optimize_token import load_ldm
 from unsupervised_keypoints.keypoint_regressor import LinearProjection
 from unsupervised_keypoints.optimize import optimize_embedding
@@ -76,6 +77,12 @@ parser.add_argument(
     default="entropy",
     choices=["entropy", "consistent"],
     help="strategy for choosing top k tokens",
+)
+parser.add_argument(
+    "--sharpening_loss_weight",
+    type=float,
+    default=1e2,
+    help="Weight of the equivariance loss",
 )
 parser.add_argument(
     "--equivariance_loss_weight",
@@ -177,6 +184,7 @@ embedding = optimize_embedding(
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
     sigma=args.sigma,
+    sharpening_loss_weight=args.sharpening_loss_weight,
     equivariance_loss_weight=args.equivariance_loss_weight,
     old_equivariance_loss_weight=args.old_equivariance_loss_weight,
     batch_size=args.batch_size,
@@ -255,10 +263,10 @@ torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
 # )
 
 regressor = return_regressor(
-    source_kpts.cpu().numpy().reshape(-1, 20),
-    target_kpts.cpu().numpy().reshape(-1, 10),
+    source_kpts.cpu().numpy().reshape(-1, 20).astype(np.float64),
+    target_kpts.cpu().numpy().reshape(-1, 10).astype(np.float64),
 )
-regressor = torch.tensor(regressor)
+regressor = torch.tensor(regressor).to(torch.float32)
 torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
 
 # regressor = torch.load(os.path.join(args.save_folder, "regressor.pt"))

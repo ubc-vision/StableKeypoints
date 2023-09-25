@@ -244,7 +244,7 @@ def olf_sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1, l1
     return loss
 
 
-def sharpening_loss(attn_map, sigma=1.0, temperature=1e-1, device="cuda"):
+def sharpening_loss(attn_map, sigma=1.0, temperature=1e1, device="cuda"):
     pos = eval.find_max_pixel(attn_map) / attn_map.shape[-1]
 
     loss = find_gaussian_loss_at_point(
@@ -269,11 +269,15 @@ def find_gaussian_loss_at_point(
     T, H, W = attn_map.shape
 
     # Scale attn_map by temperature
-    attn_map_scaled = attn_map / temperature
+    # attn_map_scaled = attn_map / temperature
 
     # Apply spatial softmax over attn_map to get probabilities
-    spatial_softmax = torch.nn.Softmax2d()
-    attn_probs = spatial_softmax(attn_map_scaled)
+    # spatial_softmax = torch.nn.Softmax2d()
+    # attn_probs = spatial_softmax(attn_map_scaled)
+    # Apply softmax along the flattened H and W dimensions for each slice in T
+    # attn_probs = F.softmax(
+    #     attn_map_scaled.view(attn_map_scaled.shape[0], -1), dim=1
+    # ).view(attn_map_scaled.shape)
 
     # Create Gaussian circle at the given position
     target = optimize_token.gaussian_circle(
@@ -283,11 +287,11 @@ def find_gaussian_loss_at_point(
 
     # possibly select a subset of indices
     if indices is not None:
-        attn_probs = attn_probs[indices]
+        attn_map = attn_map[indices]
         target = target[indices]
 
     # Compute loss
-    loss = F.mse_loss(attn_probs, target)
+    loss = F.mse_loss(attn_map, target)
 
     return loss
 
@@ -374,7 +378,18 @@ def variance_loss(heatmaps):
     return torch.mean(std_dev)
 
 
-def spreading_loss(heatmaps):
+def spreading_loss(heatmaps, temperature=1e-1):
+    # Scale attn_map by temperature
+    heatmaps = heatmaps / temperature
+
+    # spatial_softmax = torch.nn.Softmax2d()
+
+    heatmaps = F.softmax(heatmaps.view(heatmaps.shape[0], -1), dim=1).view(
+        heatmaps.shape
+    )
+
+    # heatmaps = spatial_softmax(heatmaps)  # Removing channel dimension
+
     locs = differentiable_argmax(heatmaps)
 
     # Compute the pairwise distance between each pair of points
@@ -434,6 +449,7 @@ def optimize_embedding(
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     sigma=1.0,
+    sharpening_loss_weight=1e2,
     equivariance_loss_weight=0.1,
     old_equivariance_loss_weight=10,
     spreading_loss_weight=0.01,
@@ -513,7 +529,6 @@ def optimize_embedding(
 
         _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
 
-
         _loss_equivariance = equivariance_loss(
             best_embeddings,
             best_embeddings_transformed,
@@ -528,21 +543,14 @@ def optimize_embedding(
 
         _spreading_loss = spreading_loss(best_embeddings)
 
-        # use the old loss for the first 1000 iterations 
+        # use the old loss for the first 1000 iterations
         # new loss is unstable for early iterations
-        if iteration < 1000:
-            loss = (
-                _old_loss_equivariance * old_equivariance_loss_weight
-                + _spreading_loss * spreading_loss_weight
-                + _sharpening_loss
-            )
-        else:
-            loss = (
-                _loss_equivariance * equivariance_loss_weight
-                + _old_loss_equivariance * old_equivariance_loss_weight
-                + _spreading_loss * spreading_loss_weight
-                + _sharpening_loss
-            )
+        loss = (
+            _loss_equivariance * equivariance_loss_weight
+            + _old_loss_equivariance * old_equivariance_loss_weight
+            + _spreading_loss * spreading_loss_weight
+            + _sharpening_loss * sharpening_loss_weight
+        )
 
         running_equivariance_loss += _loss_equivariance / batch_size
         running_sharpening_loss += _sharpening_loss / batch_size
