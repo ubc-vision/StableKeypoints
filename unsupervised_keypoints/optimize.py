@@ -378,13 +378,6 @@ def variance_loss(heatmaps):
     return torch.mean(std_dev)
 
 
-<<<<<<< HEAD
-def spreading_loss(heatmaps):
-    
-    spatial_softmax = torch.nn.Softmax2d()
-    heatmaps = spatial_softmax(heatmaps)  # Removing channel dimension
-    
-=======
 def spreading_loss(heatmaps, temperature=1e-1):
     # Scale attn_map by temperature
     heatmaps = heatmaps / temperature
@@ -397,7 +390,6 @@ def spreading_loss(heatmaps, temperature=1e-1):
 
     # heatmaps = spatial_softmax(heatmaps)  # Removing channel dimension
 
->>>>>>> fa5318e478b66ac6a03d2c4e2e5ff5433487ee5c
     locs = differentiable_argmax(heatmaps)
 
     # Compute the pairwise distance between each pair of points
