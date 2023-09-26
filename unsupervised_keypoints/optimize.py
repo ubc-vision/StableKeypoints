@@ -54,7 +54,7 @@ def collect_maps(
 
             img = img.permute(0, 3, 1, 2)
 
-            if upsample_res != -1:
+            if upsample_res != -1 and img.shape[1] ** 0.5 != upsample_res:
                 # bilinearly upsample the image to img_sizeximg_size
                 img = F.interpolate(
                     img,
