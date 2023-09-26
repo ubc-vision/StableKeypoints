@@ -52,9 +52,12 @@ def find_best_indices(
     augment_shear=(0.0, 0.0),
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    dataset_name = "celeba_aligned",
 ):
-    # TODO if augment then use the invertable warp
-    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    if dataset_name == "celeba_aligned":
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    elif dataset_name == "celeba_wild":
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
 
     invertible_transform = RandomAffineWithInverse(
         degrees=augment_degrees,
@@ -330,8 +333,12 @@ def precompute_all_keypoints(
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     visualize=False,
+    dataset_name = "celeba_aligned",
 ):
-    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    if dataset_name == "celeba_aligned":
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    elif dataset_name == "celeba_wild":
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
 
     source_keypoints = []
     target_keypoints = []
@@ -374,6 +381,10 @@ def precompute_all_keypoints(
 
 def return_regressor(X, Y):
     import numpy as np
+    
+    # find mean of X
+    X = X - 0.5
+    Y = Y - 0.5
 
     # W = np.linalg.inv(X.T @ X) @ X.T @ Y
     W = np.linalg.pinv(X.T @ X) @ X.T @ Y

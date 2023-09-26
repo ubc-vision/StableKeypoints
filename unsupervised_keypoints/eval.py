@@ -597,8 +597,12 @@ def evaluate(
     save_folder="outputs",
     wandb_log=False,
     visualize=False,
+    dataset_name = "celeba_aligned",
 ):
-    dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    if dataset_name == "celeba_aligned":
+        dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    elif dataset_name == "celeba_wild":
+        dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
 
     distances = []
 
@@ -637,7 +641,7 @@ def evaluate(
         highest_indices = highest_indices / 512.0
 
         # estimated_kpts = regressor(highest_indices.view(-1))
-        estimated_kpts = highest_indices.view(1, -1) @ regressor
+        estimated_kpts = ((highest_indices.view(1, -1)-0.5) @ regressor)+0.5
 
         estimated_kpts = estimated_kpts.view(-1, 2)
 

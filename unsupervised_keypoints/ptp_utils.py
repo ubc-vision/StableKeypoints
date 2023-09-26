@@ -395,11 +395,11 @@ def register_attention_control(model, controller):
                     int(sequence_length**0.5),
                     dim,
                 ).permute(0, 3, 1, 2)
-                # upsample to 512x512
+                # upsample to 256x256
                 x_reshaped = (
                     F.interpolate(
                         x_reshaped,
-                        size=(512, 512),
+                        size=(256, 256),
                         mode="bicubic",
                         align_corners=False,
                     )

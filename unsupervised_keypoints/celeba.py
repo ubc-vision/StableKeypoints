@@ -23,6 +23,7 @@ class CelebA(Dataset):
         align=True,
         mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
         celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+        iou_threshold= 0.3,
     ):
         self.celeba_loc = celeba_loc
         self.mafl_loc = mafl_loc
@@ -49,13 +50,32 @@ class CelebA(Dataset):
         elif split == "train":
             self.file_names = open(os.path.join(self.mafl_loc, "training.txt"), "r")
         self.file_names = self.file_names.readlines()
+        
+        # filter file_names to only include images where the bounding box covers a certain threshold of the image
+        if not align:
+            
+            bboxes= open(os.path.join(self.celeba_loc, "Anno", "list_bbox_celeba.txt"), "r")
+            bboxes = bboxes.readlines()[2:]
+            
+            indices_to_remove = []
 
-        # # Define a transform pipeline
-        # self.transform = CustomTransform(
-        # degrees=30,  # Random rotation between -30 and 30 degrees
-        # scale=(1.0, 1.0),
-        # translate=(0.0, 0.0),
-        # )
+            for i in range(len(self.file_names)):
+                this_file_index = self.find_local_index(i)
+                
+                this_bbox = bboxes[this_file_index].split()[1:]
+                this_bbox = [int(x) for x in this_bbox]
+                
+                width, height = Image.open(self.return_img_path(this_file_index)).size
+                
+                if this_bbox[2]*this_bbox[3] < height*width*iou_threshold:
+                    indices_to_remove.append(i)
+
+            # Remove the elements
+            for i in reversed(indices_to_remove):
+                self.file_names.pop(i)
+                    
+
+
         self.transform = transforms.Compose(
             [
                 transforms.RandomAffine(
