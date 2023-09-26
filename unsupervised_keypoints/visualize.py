@@ -124,8 +124,12 @@ def visualize_attn_maps(
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     save_folder="outputs",
     visualize=False,
+    dataset_name = "celeba_aligned",
 ):
-    dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    if dataset_name == "celeba_aligned":
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    elif dataset_name == "celeba_wild":
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
 
     imgs = []
     maps = []
@@ -174,7 +178,7 @@ def visualize_attn_maps(
         )
 
     if regressor is not None:
-        est_points = points.view(num_images, -1) @ regressor
+        est_points = ((points.view(num_images, -1)-0.5) @ regressor)+0.5
 
         plot_point_correspondences(
             imgs,

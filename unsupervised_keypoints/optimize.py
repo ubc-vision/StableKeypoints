@@ -147,55 +147,55 @@ def find_pos_from_index(attn_map):
     return pos
 
 
-def equivariance_loss(
-    embeddings_initial,
-    embeddings_transformed,
-    transform,
-    kernel_size=5,
-    sigma=1.0,
-    temperature=1e-1,
-    device="cuda",
-):
-    # get the argmax for both embeddings_initial and embeddings_uninverted
+# def equivariance_loss(
+#     embeddings_initial,
+#     embeddings_transformed,
+#     transform,
+#     kernel_size=5,
+#     sigma=1.0,
+#     temperature=1e-1,
+#     device="cuda",
+# ):
+#     # get the argmax for both embeddings_initial and embeddings_uninverted
 
-    initial_pos = eval.find_max_pixel(embeddings_initial) / embeddings_initial.shape[-1]
-    transformed_pos = (
-        eval.find_max_pixel(embeddings_transformed) / embeddings_transformed.shape[-1]
-    )
+#     initial_pos = eval.find_max_pixel(embeddings_initial) / embeddings_initial.shape[-1]
+#     transformed_pos = (
+#         eval.find_max_pixel(embeddings_transformed) / embeddings_transformed.shape[-1]
+#     )
 
-    transformed_pos_prime = transform.transform_keypoints(initial_pos)
+#     transformed_pos_prime = transform.transform_keypoints(initial_pos)
 
-    initial_pos_prime = transform.inverse_transform_keypoints(transformed_pos)
+#     initial_pos_prime = transform.inverse_transform_keypoints(transformed_pos)
 
-    within_image = ((transformed_pos_prime < 1) * (transformed_pos_prime > 0)).sum(
-        dim=1
-    ) == 2
+#     within_image = ((transformed_pos_prime < 1) * (transformed_pos_prime > 0)).sum(
+#         dim=1
+#     ) == 2
 
-    if within_image.sum() == 0:
-        return torch.tensor(0).to(device)
+#     if within_image.sum() == 0:
+#         return torch.tensor(0).to(device)
 
-    loss_initial = find_gaussian_loss_at_point(
-        embeddings_initial,
-        initial_pos_prime,
-        sigma=sigma,
-        temperature=temperature,
-        device=device,
-        indices=within_image,
-    )
+#     loss_initial = find_gaussian_loss_at_point(
+#         embeddings_initial,
+#         initial_pos_prime,
+#         sigma=sigma,
+#         temperature=temperature,
+#         device=device,
+#         indices=within_image,
+#     )
 
-    loss_transformed = find_gaussian_loss_at_point(
-        embeddings_transformed,
-        transformed_pos_prime,
-        sigma=sigma,
-        temperature=temperature,
-        device=device,
-        indices=within_image,
-    )
+#     loss_transformed = find_gaussian_loss_at_point(
+#         embeddings_transformed,
+#         transformed_pos_prime,
+#         sigma=sigma,
+#         temperature=temperature,
+#         device=device,
+#         indices=within_image,
+#     )
 
-    return (loss_initial + loss_transformed) / torch.sum(within_image)
+#     return (loss_initial + loss_transformed) / torch.sum(within_image)
 
 
-def old_equivariance_loss(embeddings_initial, embeddings_transformed, transform):
+def equivariance_loss(embeddings_initial, embeddings_transformed, transform):
     # untransform the embeddings_transformed
     embeddings_initial_prime = transform.inverse(embeddings_transformed)
 
@@ -296,7 +296,7 @@ def find_gaussian_loss_at_point(
     return loss
 
 
-def ddpm_loss(ldm, image, selected_context, masks, noise_level=-8, device="cuda"):
+def ddpm_loss(ldm, image, selected_context, masks=None, noise_level=-8, device="cuda"):
     """
     Passing in just the selected tokens, this masks the region that they can see (after detaching from the graph)
     This is a regularizer to make sure the token represents a similar concept across the dataset
@@ -316,9 +316,9 @@ def ddpm_loss(ldm, image, selected_context, masks, noise_level=-8, device="cuda"
         latent, noise, ldm.scheduler.timesteps[noise_level]
     )
 
-    controller = ptp_utils.AttentionStore()
+    # controller = ptp_utils.AttentionStore()
 
-    ptp_utils.register_attention_control(ldm, controller)
+    # ptp_utils.register_attention_control(ldm, controller)
 
     noise_pred = ldm.unet(
         noisy_image,
@@ -326,19 +326,22 @@ def ddpm_loss(ldm, image, selected_context, masks, noise_level=-8, device="cuda"
         encoder_hidden_states=selected_context,
     )["sample"]
 
-    _mask = masks.reshape(masks.shape[0], masks.shape[1] * masks.shape[2]).detach()
-    _mask = _mask / _mask.max(dim=1, keepdim=True)[0]
-    _mask = _mask.sum(dim=0)
-    _mask = _mask.reshape(1, 1, int(_mask.shape[0] ** 0.5), int(_mask.shape[0] ** 0.5))
-    # bilinearly upsample to noise_pred.shape
-    _mask = F.interpolate(
-        _mask,
-        size=(noise_pred.shape[2], noise_pred.shape[3]),
-        mode="bilinear",
-        align_corners=False,
-    )
+    if masks is not None:
+        _mask = masks.reshape(masks.shape[0], masks.shape[1] * masks.shape[2]).detach()
+        _mask = _mask / _mask.max(dim=1, keepdim=True)[0]
+        _mask = _mask.sum(dim=0)
+        _mask = _mask.reshape(1, 1, int(_mask.shape[0] ** 0.5), int(_mask.shape[0] ** 0.5))
+        # bilinearly upsample to noise_pred.shape
+        _mask = F.interpolate(
+            _mask,
+            size=(noise_pred.shape[2], noise_pred.shape[3]),
+            mode="bilinear",
+            align_corners=False,
+        )
 
-    ddpm_loss = nn.MSELoss()(noise_pred * _mask, noise * _mask) / torch.sum(_mask)
+        ddpm_loss = nn.MSELoss()(noise_pred * _mask, noise * _mask) / torch.sum(_mask)
+    else:
+        ddpm_loss = nn.MSELoss()(noise_pred, noise)
 
     return ddpm_loss
 
@@ -449,13 +452,19 @@ def optimize_embedding(
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     sigma=1.0,
-    sharpening_loss_weight=1e2,
-    equivariance_loss_weight=0.1,
-    old_equivariance_loss_weight=10,
+    sharpening_loss_weight=100,
+    equivariance_loss_weight=100,
     spreading_loss_weight=0.01,
+    ddpm_loss_weight = 0.01,
     batch_size=4,
+    dataset_name = "celeba_aligned",
 ):
-    dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    
+    if dataset_name == "celeba_aligned":
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+    elif dataset_name == "celeba_wild":
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+
 
     invertible_transform = RandomAffineWithInverse(
         degrees=augment_degrees,
@@ -479,11 +488,12 @@ def optimize_embedding(
 
     start = time.time()
 
-    running_old_equivariance_loss = 0
     running_equivariance_loss = 0
     running_sharpening_loss = 0
     running_spreading_loss = 0
+    running_ddpm_loss = 0
     running_total_loss = 0
+    
 
     for iteration in range(num_steps):
         index = np.random.randint(len(dataset))
@@ -530,16 +540,10 @@ def optimize_embedding(
         _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
 
         _loss_equivariance = equivariance_loss(
-            best_embeddings,
-            best_embeddings_transformed,
-            invertible_transform,
-            sigma=sigma,
-            device=device,
-        )
-
-        _old_loss_equivariance = old_equivariance_loss(
             best_embeddings, best_embeddings_transformed, invertible_transform
         )
+        
+        _ddpm_loss = ddpm_loss(ldm, image, context[:, top_embedding_indices])
 
         _spreading_loss = spreading_loss(best_embeddings)
 
@@ -547,15 +551,15 @@ def optimize_embedding(
         # new loss is unstable for early iterations
         loss = (
             _loss_equivariance * equivariance_loss_weight
-            + _old_loss_equivariance * old_equivariance_loss_weight
             + _spreading_loss * spreading_loss_weight
             + _sharpening_loss * sharpening_loss_weight
+            + _ddpm_loss * ddpm_loss_weight
         )
 
         running_equivariance_loss += _loss_equivariance / batch_size
         running_sharpening_loss += _sharpening_loss / batch_size
-        running_old_equivariance_loss += _old_loss_equivariance / batch_size
         running_spreading_loss += _spreading_loss / batch_size
+        running_ddpm_loss += _ddpm_loss / batch_size
         running_total_loss += loss / batch_size
 
         loss = loss / batch_size
@@ -571,18 +575,18 @@ def optimize_embedding(
                         "loss": running_total_loss.item(),
                         "running_equivariance_loss": running_equivariance_loss.item(),
                         "running_sharpening_loss": running_sharpening_loss.item(),
-                        "running_old_equivariance_loss": running_old_equivariance_loss.item(),
                         "running_spreading_loss": running_spreading_loss.item(),
+                        "running_ddpm_loss": running_ddpm_loss.item(),
                     }
                 )
             else:
                 print(
-                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}, _old_loss_equivariance: {running_old_equivariance_loss.item()}, _spreading_loss: {running_spreading_loss.item()}, running_total_loss: {running_total_loss.item()}"
+                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}, _spreading_loss: {running_spreading_loss.item()}, running_total_loss: {running_total_loss.item()}, running_ddpm_loss: {running_ddpm_loss.item()}"
                 )
             running_equivariance_loss = 0
             running_sharpening_loss = 0
-            running_old_equivariance_loss = 0
             running_spreading_loss = 0
+            running_ddpm_loss = 0
             running_total_loss = 0
 
     print(f"optimization took {time.time() - start} seconds")

@@ -55,6 +55,14 @@ parser.add_argument(
     default="temp",
     help="name of the wandb run",
 )
+parser.add_argument(
+    "--dataset_name",
+    # set the choices to be "mafl" and "celeba_aligned"
+    choices=["celeba_aligned", "celeba_wild"],
+    type=str,
+    default="celeba_aligned",
+    help="name of the dataset to use",
+)
 # make a term for sdxl, itll be bool and only true if we want to use sdxl
 parser.add_argument("--sdxl", action="store_true", help="use sdxl")
 parser.add_argument("--device", type=str, default="cuda:0", help="device to use")
@@ -80,21 +88,21 @@ parser.add_argument(
     help="strategy for choosing top k tokens",
 )
 parser.add_argument(
+    "--ddpm_loss_weight",
+    type=float,
+    default=0.1,
+    help="Weight of the DDPM loss",
+)
+parser.add_argument(
     "--sharpening_loss_weight",
     type=float,
-    default=1e2,
-    help="Weight of the equivariance loss",
+    default=100,
+    help="Weight of the sharpening loss",
 )
 parser.add_argument(
     "--equivariance_loss_weight",
     type=float,
-    default=0.0,
-    help="Weight of the equivariance loss",
-)
-parser.add_argument(
-    "--old_equivariance_loss_weight",
-    type=float,
-    default=10.0,
+    default=100.0,
     help="Weight of the old equivariance loss",
 )
 parser.add_argument(
@@ -187,9 +195,10 @@ embedding = optimize_embedding(
     sigma=args.sigma,
     sharpening_loss_weight=args.sharpening_loss_weight,
     equivariance_loss_weight=args.equivariance_loss_weight,
-    old_equivariance_loss_weight=args.old_equivariance_loss_weight,
     batch_size=args.batch_size,
     spreading_loss_weight=args.spreading_loss_weight,
+    ddpm_loss_weight = args.ddpm_loss_weight,
+    dataset_name = args.dataset_name,
 )
 torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 # embedding = (
@@ -211,6 +220,7 @@ indices = find_best_indices(
     augment_shear=args.augment_shear,
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
+    dataset_name = args.dataset_name,
 )
 torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
 # indices = (
@@ -235,6 +245,7 @@ visualize_attn_maps(
     save_folder=args.save_folder,
     visualize=args.visualize,
     device=args.device,
+    dataset_name = args.dataset_name,
 )
 
 source_kpts, target_kpts = precompute_all_keypoints(
@@ -251,6 +262,7 @@ source_kpts, target_kpts = precompute_all_keypoints(
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
     visualize=args.visualize,
+    dataset_name = args.dataset_name,
 )
 
 
@@ -289,6 +301,7 @@ visualize_attn_maps(
     celeba_loc=args.celeba_loc,
     save_folder=args.save_folder,
     device=args.device,
+    dataset_name = args.dataset_name,
 )
 
 evaluate(
@@ -310,4 +323,5 @@ evaluate(
     device=args.device,
     wandb_log=args.wandb,
     visualize=args.visualize,
+    dataset_name = args.dataset_name,
 )
