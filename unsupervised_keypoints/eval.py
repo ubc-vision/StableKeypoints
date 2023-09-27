@@ -85,7 +85,7 @@ def save_img(map, img, point, name):
 #     return attention_maps
 
 
-def find_max_pixel(map, return_confidences=False):
+def find_max_pixel(map):
     """
     finds the pixel of the map with the highest value
     map shape [batch_size, h, w]
@@ -104,16 +104,7 @@ def find_max_pixel(map, return_confidences=False):
     # offset by a half a pixel to get the center of the pixel
     max_indices = max_indices + 0.5
 
-    if not return_confidences:
-        return max_indices
-
-    batch_indices = torch.arange(10, device="cuda:0").view(-1, 1)
-    indices = torch.cat((batch_indices, max_indices), dim=1).long()
-
-    # Use the indices to gather the values
-    values = map[indices[:, 0], indices[:, 1], indices[:, 2]]
-
-    return max_indices, values
+    return max_indices
 
 
 def pixel_from_weighted_avg(heatmaps):
@@ -635,9 +626,7 @@ def evaluate(
             augment_shear=augment_shear,
             # visualize=True,
         )
-        highest_indices, confidences = find_max_pixel(
-            attention_maps, return_confidences=True
-        )
+        highest_indices = find_max_pixel(attention_maps)
         highest_indices = highest_indices / 512.0
 
         # estimated_kpts = regressor(highest_indices.view(-1))

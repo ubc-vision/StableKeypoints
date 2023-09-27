@@ -273,9 +273,7 @@ def supervise_regressor(
             )
 
             # get the argmax of each of the best_embeddings
-            highest_indices, values = find_max_pixel(
-                attention_maps, return_confidences=True
-            )
+            highest_indices = find_max_pixel(attention_maps)
 
             highest_indices = highest_indices / 512.0
 
@@ -368,9 +366,7 @@ def precompute_all_keypoints(
             augment_translate=augment_translate,
             augment_shear=augment_shear,
         )
-        highest_indices, values = find_max_pixel(
-            attention_maps, return_confidences=True
-        )
+        highest_indices = find_max_pixel(attention_maps)
         highest_indices = highest_indices / 512.0
 
         source_keypoints.append(highest_indices)
@@ -386,30 +382,30 @@ def return_regressor(X, Y):
     X = X - 0.5
     Y = Y - 0.5
 
-    # W = np.linalg.inv(X.T @ X) @ X.T @ Y
-    W = np.linalg.pinv(X.T @ X) @ X.T @ Y
+    # # W = np.linalg.inv(X.T @ X) @ X.T @ Y
+    # W = np.linalg.pinv(X.T @ X) @ X.T @ Y
 
-    return W
+    # return W
 
-    # from sklearn.linear_model import RANSACRegressor
-    # from sklearn.linear_model import LinearRegression
-    # linear_model = LinearRegression(fit_intercept=False)
-    # ransac = RANSACRegressor(
-    #     base_estimator=linear_model,
-    #     min_samples=int(0.1 * len(X)),  # 10% of the data
-    #     max_trials=10000,  # Very high number of trials
-    #     residual_threshold=None,  # Will set based on preliminary fit or other criteria
-    #     loss="squared_error",
-    # )
+    from sklearn.linear_model import RANSACRegressor
+    from sklearn.linear_model import LinearRegression
+    linear_model = LinearRegression(fit_intercept=False)
+    ransac = RANSACRegressor(
+        base_estimator=linear_model,
+        min_samples=int(0.1 * len(X)),  # 10% of the data
+        max_trials=10000,  # Very high number of trials
+        residual_threshold=None,  # Will set based on preliminary fit or other criteria
+        loss="squared_error",
+    )
 
-    # ransac.fit(X, Y)
+    ransac.fit(X, Y)
 
-    # linear_model_fitted = ransac.estimator_
+    linear_model_fitted = ransac.estimator_
 
-    # # Get the coefficients and intercept
-    # W = linear_model_fitted.coef_
+    # Get the coefficients and intercept
+    W = linear_model_fitted.coef_
 
-    # return W.T
+    return W.T
 
 
 if __name__ == "__main__":
