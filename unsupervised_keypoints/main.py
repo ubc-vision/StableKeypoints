@@ -275,9 +275,9 @@ torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
 #     args.device
 # )
 
-regressor = return_regressor(
-    source_kpts.cpu().numpy().reshape(-1, 20).astype(np.float64),
-    target_kpts.cpu().numpy().reshape(-1, 10).astype(np.float64),
+regressor = return_regressor( 
+    source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
+    target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
 )
 regressor = torch.tensor(regressor).to(torch.float32)
 torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))

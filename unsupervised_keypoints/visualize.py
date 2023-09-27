@@ -127,15 +127,15 @@ def visualize_attn_maps(
     dataset_name = "celeba_aligned",
 ):
     if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+        dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
     elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+        dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
 
     imgs = []
     maps = []
     gt_kpts = []
-    for i in tqdm(range(num_images)):
-        # for i in [527, 115, 121, 815, 753, 528, 487, 210, 263, 778]:
+    # for i in tqdm(range(num_images)):
+    for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:
         batch = dataset[i]
 
         img = batch["img"]
