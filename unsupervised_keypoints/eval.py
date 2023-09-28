@@ -89,6 +89,8 @@ def find_max_pixel(map):
     """
     finds the pixel of the map with the highest value
     map shape [batch_size, h, w]
+    
+    output shape [batch_size, 2]
     """
 
     batch_size, h, w = map.shape

@@ -19,6 +19,7 @@ from typing import Optional, Union, Tuple, List, Dict
 from tqdm.notebook import tqdm
 import torch.nn.functional as F
 import abc
+from unsupervised_keypoints.eval import find_max_pixel
 
 from PIL import Image
 
@@ -106,21 +107,49 @@ class AttentionStore(AttentionControl):
         self.attention_store = {}
 
 
-def find_top_k(attention_maps, top_k):
+def find_top_k(attention_maps, top_k, min_dist=0.05):
     """
-    attention_maps is of shape [batch_size, image_size]
+    attention_maps is of shape [batch_size, image_h, image_w]
+    
+    min_dist set to 0 becomes a simple top_k
     """
+    
+    device = attention_maps.device
+    
+    batch_size, image_h, image_w = attention_maps.shape
+    
+    max_pixel_locations = find_max_pixel(attention_maps)/image_h
 
     # Normalize the activation maps to represent probability distributions
-    attention_maps_softmax = torch.softmax(attention_maps, dim=-1)
+    attention_maps_softmax = torch.softmax(attention_maps.view(batch_size, image_h * image_w), dim=-1)
 
     # Compute the entropy of each token
     entropy = dist.Categorical(probs=attention_maps_softmax).entropy()
+    
+    # find the argsort for entropy
+    entropy_argsort = torch.argsort(entropy, dim=-1, descending=False)
+    
+    selected_indices = [entropy_argsort[0]]
+    
+    this_index = 1
+    
+    while len(selected_indices) < top_k:
+            
+        # get the current index
+        this_entropy_index = entropy_argsort[this_index]
+        
+        # get the location of the current index
+        this_entropy_index_location = max_pixel_locations[this_entropy_index]
+        
+        # check if the location is far enough away from the other selected indices
+        if torch.all(torch.sqrt(torch.sum((this_entropy_index_location - torch.index_select(max_pixel_locations, 0, torch.tensor(selected_indices).to(device)))**2, dim=-1)) > min_dist):
+            selected_indices.append(this_entropy_index.item())
+        
+        this_index += 1
+        
+        assert this_index < batch_size, "Not enough unique indices found"
 
-    # Select the top_k tokens with the lowest entropy
-    _, top_embedding_indices = torch.topk(entropy, top_k, largest=False)
-
-    return top_embedding_indices
+    return torch.tensor(selected_indices).to(device)
 
 
 def random_range(size, min_val, max_val, dtype=torch.float32):

@@ -53,6 +53,7 @@ def find_best_indices(
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     dataset_name = "celeba_aligned",
+    min_dist = 0.05,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -67,8 +68,9 @@ def find_best_indices(
     )
 
     maps = []
+    indices_list = []
 
-    for _ in range(num_steps):
+    for _ in tqdm(range(num_steps)):
         mini_batch = dataset[np.random.randint(len(dataset))]
 
         image = mini_batch["img"]
@@ -85,14 +87,17 @@ def find_best_indices(
             from_where=from_where,
             upsample_res=upsample_res,
         )
+        
+        _indices = ptp_utils.find_top_k(attention_maps, top_k, min_dist=min_dist)
+        
+        indices_list.append(_indices)
 
-        maps.append(attention_maps)
-
-    maps = torch.stack(maps, dim=0)
-
-    maps = maps.reshape(num_steps, num_tokens, upsample_res, upsample_res)
-
-    points, indices = find_corresponding_points(maps, num_points=top_k)
+    # find the top_k most common indices
+    indices_list = torch.stack(indices_list)
+    indices_list = indices_list.reshape(-1)
+    indices, counts = torch.unique(indices_list, return_counts=True)
+    indices = indices[counts.argsort(descending=True)]
+    indices = indices[:top_k]
 
     return indices
 
