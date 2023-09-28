@@ -19,6 +19,7 @@ class CelebA(Dataset):
 
     def __init__(
         self,
+        max_len=-1,
         split="train",
         align=True,
         mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
@@ -27,6 +28,8 @@ class CelebA(Dataset):
     ):
         self.celeba_loc = celeba_loc
         self.mafl_loc = mafl_loc
+        
+        self.max_len = max_len
 
         if align:
             landmark_loc = os.path.join(
@@ -44,6 +47,8 @@ class CelebA(Dataset):
         self.num_kps = 5
 
         self.align = align
+        
+        self.split = split
 
         if split == "test":
             self.file_names = open(os.path.join(self.mafl_loc, "testing.txt"), "r")
@@ -87,6 +92,8 @@ class CelebA(Dataset):
         )
 
     def __len__(self):
+        if self.max_len != -1:
+            return self.max_len
         return len(self.file_names)
 
     def find_local_index(self, global_index):

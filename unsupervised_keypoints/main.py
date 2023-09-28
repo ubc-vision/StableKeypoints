@@ -63,6 +63,12 @@ parser.add_argument(
     default="celeba_aligned",
     help="name of the dataset to use",
 )
+parser.add_argument(
+    "--max_len",
+    type=int,
+    default=-1,
+    help="max length of the dataset. -1 means no max length",
+)
 # make a term for sdxl, itll be bool and only true if we want to use sdxl
 parser.add_argument("--sdxl", action="store_true", help="use sdxl")
 parser.add_argument("--device", type=str, default="cuda:0", help="device to use")
@@ -199,6 +205,7 @@ embedding = optimize_embedding(
     spreading_loss_weight=args.spreading_loss_weight,
     ddpm_loss_weight = args.ddpm_loss_weight,
     dataset_name = args.dataset_name,
+    max_len=args.max_len,
 )
 torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 # embedding = (

@@ -134,8 +134,8 @@ def visualize_attn_maps(
     imgs = []
     maps = []
     gt_kpts = []
-    # for i in tqdm(range(num_images)):
-    for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:
+    for i in tqdm(range(num_images)):
+    # for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:
         batch = dataset[i]
 
         img = batch["img"]
