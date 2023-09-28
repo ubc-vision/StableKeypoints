@@ -460,6 +460,7 @@ def optimize_embedding(
     batch_size=4,
     dataset_name = "celeba_aligned",
     max_len=-1,
+    min_dist=0.05,
 ):
     
     if dataset_name == "celeba_aligned":
@@ -529,7 +530,7 @@ def optimize_embedding(
 
         if top_k_strategy == "entropy":
             top_embedding_indices = ptp_utils.find_top_k(
-                attn_maps.view(num_tokens, -1), top_k
+                attn_maps, top_k, min_dist = min_dist,
             )
         elif top_k_strategy == "consistent":
             top_embedding_indices = torch.arange(top_k)
