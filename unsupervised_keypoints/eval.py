@@ -675,6 +675,7 @@ def evaluate(
 
     if wandb_log:
         wandb.log({"mean_distance": torch.mean(torch.stack(distances))})
+    print()
 
     worst_10 = []
     while not worst_l2.empty():

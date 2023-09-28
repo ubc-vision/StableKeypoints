@@ -1,6 +1,7 @@
 # load the dataset
 import torch
 import numpy as np
+from tqdm import tqdm
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints import sdxl_monkey_patch
 from unsupervised_keypoints import eval
@@ -399,12 +400,13 @@ def optimize_embedding(
     ddpm_loss_weight = 0.01,
     batch_size=4,
     dataset_name = "celeba_aligned",
+    max_len=-1,
 ):
     
     if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, max_len=max_len)
     elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False, max_len=max_len)
 
 
     invertible_transform = RandomAffineWithInverse(
@@ -436,7 +438,7 @@ def optimize_embedding(
     running_total_loss = 0
     
 
-    for iteration in range(num_steps):
+    for iteration in tqdm(range(num_steps)):
         index = np.random.randint(len(dataset))
         mini_batch = dataset[index]
 
