@@ -103,7 +103,7 @@ parser.add_argument(
 parser.add_argument(
     "--min_dist",
     type=float,
-    default=0.05,
+    default=0.1,
     help="minimum distance between the keypoints, as a fraction of the image size",
 )
 
@@ -153,7 +153,7 @@ parser.add_argument(
     type=float,
     # 2 arguments
     nargs="+",
-    default=[0.9, 1.1],
+    default=[0.8, 1.0],
     help="scale factor for augmentation",
 )
 parser.add_argument(
