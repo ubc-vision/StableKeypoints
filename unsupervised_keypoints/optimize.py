@@ -55,7 +55,7 @@ def collect_maps(
 
             img = img.permute(0, 3, 1, 2)
 
-            if upsample_res != -1:
+            if upsample_res != -1 and img.shape[1] ** 0.5 != upsample_res:
                 # bilinearly upsample the image to img_sizeximg_size
                 img = F.interpolate(
                     img,
@@ -148,54 +148,6 @@ def find_pos_from_index(attn_map):
     return pos
 
 
-# def equivariance_loss(
-#     embeddings_initial,
-#     embeddings_transformed,
-#     transform,
-#     kernel_size=5,
-#     sigma=1.0,
-#     temperature=1e-1,
-#     device="cuda",
-# ):
-#     # get the argmax for both embeddings_initial and embeddings_uninverted
-
-#     initial_pos = eval.find_max_pixel(embeddings_initial) / embeddings_initial.shape[-1]
-#     transformed_pos = (
-#         eval.find_max_pixel(embeddings_transformed) / embeddings_transformed.shape[-1]
-#     )
-
-#     transformed_pos_prime = transform.transform_keypoints(initial_pos)
-
-#     initial_pos_prime = transform.inverse_transform_keypoints(transformed_pos)
-
-#     within_image = ((transformed_pos_prime < 1) * (transformed_pos_prime > 0)).sum(
-#         dim=1
-#     ) == 2
-
-#     if within_image.sum() == 0:
-#         return torch.tensor(0).to(device)
-
-#     loss_initial = find_gaussian_loss_at_point(
-#         embeddings_initial,
-#         initial_pos_prime,
-#         sigma=sigma,
-#         temperature=temperature,
-#         device=device,
-#         indices=within_image,
-#     )
-
-#     loss_transformed = find_gaussian_loss_at_point(
-#         embeddings_transformed,
-#         transformed_pos_prime,
-#         sigma=sigma,
-#         temperature=temperature,
-#         device=device,
-#         indices=within_image,
-#     )
-
-#     return (loss_initial + loss_transformed) / torch.sum(within_image)
-
-
 def equivariance_loss(embeddings_initial, embeddings_transformed, transform):
     # untransform the embeddings_transformed
     embeddings_initial_prime = transform.inverse(embeddings_transformed)
@@ -268,17 +220,6 @@ def find_gaussian_loss_at_point(
 
     # attn_map is of shape (T, H, W)
     T, H, W = attn_map.shape
-
-    # Scale attn_map by temperature
-    # attn_map_scaled = attn_map / temperature
-
-    # Apply spatial softmax over attn_map to get probabilities
-    # spatial_softmax = torch.nn.Softmax2d()
-    # attn_probs = spatial_softmax(attn_map_scaled)
-    # Apply softmax along the flattened H and W dimensions for each slice in T
-    # attn_probs = F.softmax(
-    #     attn_map_scaled.view(attn_map_scaled.shape[0], -1), dim=1
-    # ).view(attn_map_scaled.shape)
 
     # Create Gaussian circle at the given position
     target = optimize_token.gaussian_circle(
@@ -455,8 +396,6 @@ def optimize_embedding(
     sigma=1.0,
     sharpening_loss_weight=100,
     equivariance_loss_weight=100,
-    spreading_loss_weight=0.01,
-    ddpm_loss_weight = 0.01,
     batch_size=4,
     dataset_name = "celeba_aligned",
     max_len=-1,
@@ -493,8 +432,6 @@ def optimize_embedding(
 
     running_equivariance_loss = 0
     running_sharpening_loss = 0
-    running_spreading_loss = 0
-    running_ddpm_loss = 0
     running_total_loss = 0
     
 
@@ -546,23 +483,23 @@ def optimize_embedding(
             best_embeddings, best_embeddings_transformed, invertible_transform
         )
         
-        _ddpm_loss = ddpm_loss(ldm, image, context[:, top_embedding_indices])
+        # _ddpm_loss = ddpm_loss(ldm, image, context[:, top_embedding_indices])
 
-        _spreading_loss = spreading_loss(best_embeddings)
+        # _spreading_loss = spreading_loss(best_embeddings)
 
         # use the old loss for the first 1000 iterations
         # new loss is unstable for early iterations
         loss = (
             _loss_equivariance * equivariance_loss_weight
-            + _spreading_loss * spreading_loss_weight
+            # + _spreading_loss * spreading_loss_weight
             + _sharpening_loss * sharpening_loss_weight
-            + _ddpm_loss * ddpm_loss_weight
+            # + _ddpm_loss * ddpm_loss_weight
         )
 
         running_equivariance_loss += _loss_equivariance / batch_size
         running_sharpening_loss += _sharpening_loss / batch_size
-        running_spreading_loss += _spreading_loss / batch_size
-        running_ddpm_loss += _ddpm_loss / batch_size
+        # running_spreading_loss += _spreading_loss / batch_size
+        # running_ddpm_loss += _ddpm_loss / batch_size
         running_total_loss += loss / batch_size
 
         loss = loss / batch_size
@@ -578,150 +515,19 @@ def optimize_embedding(
                         "loss": running_total_loss.item(),
                         "running_equivariance_loss": running_equivariance_loss.item(),
                         "running_sharpening_loss": running_sharpening_loss.item(),
-                        "running_spreading_loss": running_spreading_loss.item(),
-                        "running_ddpm_loss": running_ddpm_loss.item(),
+                        # "running_spreading_loss": running_spreading_loss.item(),
+                        # "running_ddpm_loss": running_ddpm_loss.item(),
                     }
                 )
             else:
                 print(
-                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}, _spreading_loss: {running_spreading_loss.item()}, running_total_loss: {running_total_loss.item()}, running_ddpm_loss: {running_ddpm_loss.item()}"
+                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}, running_total_loss: {running_total_loss.item()}"
                 )
             running_equivariance_loss = 0
             running_sharpening_loss = 0
-            running_spreading_loss = 0
-            running_ddpm_loss = 0
             running_total_loss = 0
 
     print(f"optimization took {time.time() - start} seconds")
 
     return context
 
-
-# def optimize_embedding_ddpm(
-#     ldm,
-#     wandb_log=True,
-#     context=None,
-#     device="cuda",
-#     num_steps=2000,
-#     from_where=["down_cross", "mid_cross", "up_cross"],
-#     upsample_res=32,
-#     layers=[0, 1, 2, 3, 4, 5],
-#     lr=5e-3,
-#     noise_level=-1,
-#     num_tokens=1000,
-#     top_k=10,
-# ):
-#     if wandb_log:
-#         # start a wandb session
-#         wandb.init(project="attention_maps")
-
-#     dataset = CelebA()
-
-#     context = ptp_utils.init_random_noise(device, num_words=num_tokens)
-
-#     image_context = ptp_utils.init_random_noise(device, num_words=1)
-
-#     context.requires_grad = True
-#     image_context.requires_grad = True
-
-#     # optimize context to maximize attention at pixel_loc
-#     optimizer = torch.optim.Adam([context, image_context], lr=lr)
-
-#     for _ in range(num_steps):
-#         mini_batch = dataset[np.random.randint(len(dataset))]
-
-#         image = mini_batch["img"]
-
-#         # if image is a torch.tensor, convert to numpy
-#         if type(image) == torch.Tensor:
-#             image = image.permute(1, 2, 0).detach().cpu().numpy()
-
-#         with torch.no_grad():
-#             latent = ptp_utils.image2latent(ldm, image, device)
-
-#         noise = torch.rand_like(latent)
-
-#         noisy_image = ldm.scheduler.add_noise(
-#             latent, noise, ldm.scheduler.timesteps[noise_level]
-#         )
-
-#         controller = ptp_utils.AttentionStore()
-
-#         ptp_utils.register_attention_control(ldm, controller)
-#         # sdxl_monkey_patch.register_attention_control(ldm, controller)
-
-#         _, _ = ptp_utils.diffusion_step(
-#             ldm,
-#             controller,
-#             noisy_image,
-#             context,
-#             ldm.scheduler.timesteps[noise_level],
-#             cfg=False,
-#         )
-
-#         attention_maps = collect_maps(
-#             controller,
-#             from_where=from_where,
-#             upsample_res=upsample_res,
-#             layers=layers,
-#             number_of_maps=num_tokens,
-#         )
-
-#         # take the mean over the first 2 dimensions
-#         attention_maps = torch.mean(attention_maps, dim=(0, 1))
-
-#         import torch.distributions as dist
-
-#         # Normalize the activation maps to represent probability distributions
-#         attention_maps_softmax = torch.softmax(
-#             attention_maps.view(num_tokens, -1), dim=-1
-#         )
-
-#         # Compute the entropy of each token
-#         entropy = dist.Categorical(
-#             probs=attention_maps_softmax.view(num_tokens, -1)
-#         ).entropy()
-
-#         # Select the top_k tokens with the lowest entropy
-#         _, top_embedding_indices = torch.topk(entropy, top_k, largest=False)
-
-#         # Apply a gaussian loss to these embeddings
-#         # otherwise there is no motivation to be sharp
-#         best_embeddings = attention_maps[top_embedding_indices]
-#         _gaussian_loss = gaussian_loss(best_embeddings)
-
-#         this_context = context[:, top_embedding_indices]
-
-#         # add tokens to be able to capture everything else not captured by the top_k tokens
-#         this_context = torch.cat([this_context, image_context], dim=1)
-
-#         # simply to avoid mismatch shape errors
-#         controller = ptp_utils.AttentionStore()
-#         ptp_utils.register_attention_control(ldm, controller)
-
-#         noise_pred = ldm.unet(
-#             noisy_image,
-#             ldm.scheduler.timesteps[noise_level],
-#             encoder_hidden_states=this_context,
-#         )["sample"]
-
-#         ddpm_loss = nn.MSELoss()(noise_pred, noise)
-
-#         loss = _gaussian_loss * 1e3 + ddpm_loss
-
-#         loss.backward()
-#         optimizer.step()
-#         optimizer.zero_grad()
-
-#         if wandb_log:
-#             wandb.log(
-#                 {
-#                     "loss": loss.item(),
-#                     "gaussian_loss": _gaussian_loss.item(),
-#                     "ddpm_loss": ddpm_loss.item(),
-#                 }
-#             )
-#         else:
-#             print(f"loss: {loss.item()}")
-
-#     return context
