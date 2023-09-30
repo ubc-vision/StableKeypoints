@@ -103,15 +103,8 @@ parser.add_argument(
 parser.add_argument(
     "--min_dist",
     type=float,
-    default=0.05,
+    default=0.1,
     help="minimum distance between the keypoints, as a fraction of the image size",
-)
-
-parser.add_argument(
-    "--ddpm_loss_weight",
-    type=float,
-    default=0.0,
-    help="Weight of the DDPM loss",
 )
 parser.add_argument(
     "--sharpening_loss_weight",
@@ -124,13 +117,6 @@ parser.add_argument(
     type=float,
     default=100.0,
     help="Weight of the old equivariance loss",
-)
-parser.add_argument(
-    "--spreading_loss_weight",
-    type=float,
-    default=0,
-    # default=0.0001,
-    help="Weight of the loss that encourages spreading of the keypoints",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[0, 1, 2, 3])
 parser.add_argument(
@@ -153,7 +139,7 @@ parser.add_argument(
     type=float,
     # 2 arguments
     nargs="+",
-    default=[0.9, 1.1],
+    default=[0.8, 1.0],
     help="scale factor for augmentation",
 )
 parser.add_argument(
@@ -218,8 +204,6 @@ if args.start_from_stage == "optimize":
         sharpening_loss_weight=args.sharpening_loss_weight,
         equivariance_loss_weight=args.equivariance_loss_weight,
         batch_size=args.batch_size,
-        spreading_loss_weight=args.spreading_loss_weight,
-        ddpm_loss_weight = args.ddpm_loss_weight,
         dataset_name = args.dataset_name,
         max_len=args.max_len,
         min_dist=args.min_dist,

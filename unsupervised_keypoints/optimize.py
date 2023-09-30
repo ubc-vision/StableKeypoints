@@ -396,8 +396,6 @@ def optimize_embedding(
     sigma=1.0,
     sharpening_loss_weight=100,
     equivariance_loss_weight=100,
-    spreading_loss_weight=0.01,
-    ddpm_loss_weight = 0.01,
     batch_size=4,
     dataset_name = "celeba_aligned",
     max_len=-1,
@@ -434,8 +432,6 @@ def optimize_embedding(
 
     running_equivariance_loss = 0
     running_sharpening_loss = 0
-    running_spreading_loss = 0
-    running_ddpm_loss = 0
     running_total_loss = 0
     
 
@@ -487,23 +483,23 @@ def optimize_embedding(
             best_embeddings, best_embeddings_transformed, invertible_transform
         )
         
-        _ddpm_loss = ddpm_loss(ldm, image, context[:, top_embedding_indices])
+        # _ddpm_loss = ddpm_loss(ldm, image, context[:, top_embedding_indices])
 
-        _spreading_loss = spreading_loss(best_embeddings)
+        # _spreading_loss = spreading_loss(best_embeddings)
 
         # use the old loss for the first 1000 iterations
         # new loss is unstable for early iterations
         loss = (
             _loss_equivariance * equivariance_loss_weight
-            + _spreading_loss * spreading_loss_weight
+            # + _spreading_loss * spreading_loss_weight
             + _sharpening_loss * sharpening_loss_weight
-            + _ddpm_loss * ddpm_loss_weight
+            # + _ddpm_loss * ddpm_loss_weight
         )
 
         running_equivariance_loss += _loss_equivariance / batch_size
         running_sharpening_loss += _sharpening_loss / batch_size
-        running_spreading_loss += _spreading_loss / batch_size
-        running_ddpm_loss += _ddpm_loss / batch_size
+        # running_spreading_loss += _spreading_loss / batch_size
+        # running_ddpm_loss += _ddpm_loss / batch_size
         running_total_loss += loss / batch_size
 
         loss = loss / batch_size
@@ -519,18 +515,16 @@ def optimize_embedding(
                         "loss": running_total_loss.item(),
                         "running_equivariance_loss": running_equivariance_loss.item(),
                         "running_sharpening_loss": running_sharpening_loss.item(),
-                        "running_spreading_loss": running_spreading_loss.item(),
-                        "running_ddpm_loss": running_ddpm_loss.item(),
+                        # "running_spreading_loss": running_spreading_loss.item(),
+                        # "running_ddpm_loss": running_ddpm_loss.item(),
                     }
                 )
             else:
                 print(
-                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}, _spreading_loss: {running_spreading_loss.item()}, running_total_loss: {running_total_loss.item()}, running_ddpm_loss: {running_ddpm_loss.item()}"
+                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}, running_total_loss: {running_total_loss.item()}"
                 )
             running_equivariance_loss = 0
             running_sharpening_loss = 0
-            running_spreading_loss = 0
-            running_ddpm_loss = 0
             running_total_loss = 0
 
     print(f"optimization took {time.time() - start} seconds")

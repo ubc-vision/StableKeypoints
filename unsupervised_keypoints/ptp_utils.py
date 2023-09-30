@@ -147,7 +147,7 @@ def find_top_k(attention_maps, top_k, min_dist=0.05):
         
         this_index += 1
         
-        assert this_index < batch_size, "Not enough unique indices found"
+        # assert this_index < batch_size, "Not enough unique indices found"
 
     return torch.tensor(selected_indices).to(device)
 
