@@ -32,6 +32,12 @@ parser.add_argument(
 )
 # Dataset details
 parser.add_argument(
+    "--cub_loc",
+    type=str,
+    default="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
+    help="Path to celeba dataset",
+)
+parser.add_argument(
     "--celeba_loc",
     type=str,
     default="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
@@ -200,6 +206,7 @@ if args.start_from_stage == "optimize":
         augment_shear=args.augment_shear,
         mafl_loc=args.mafl_loc,
         celeba_loc=args.celeba_loc,
+        cub_loc=args.cub_loc,
         sigma=args.sigma,
         sharpening_loss_weight=args.sharpening_loss_weight,
         equivariance_loss_weight=args.equivariance_loss_weight,
@@ -229,6 +236,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         augment_shear=args.augment_shear,
         mafl_loc=args.mafl_loc,
         celeba_loc=args.celeba_loc,
+        cub_loc=args.cub_loc,
         dataset_name = args.dataset_name,
         min_dist=args.min_dist,
     )
@@ -249,6 +257,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         augmentation_iterations=args.augmentation_iterations,
         mafl_loc=args.mafl_loc,
         celeba_loc=args.celeba_loc,
+        cub_loc=args.cub_loc,
         save_folder=args.save_folder,
         visualize=args.visualize,
         device=args.device,
@@ -275,6 +284,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         augmentation_iterations=args.augmentation_iterations,
         mafl_loc=args.mafl_loc,
         celeba_loc=args.celeba_loc,
+        cub_loc=args.cub_loc,
         visualize=args.visualize,
         dataset_name = args.dataset_name,
     )
@@ -315,6 +325,7 @@ visualize_attn_maps(
     augment_shear=args.augment_shear,
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
+    cub_loc=args.cub_loc,
     save_folder=args.save_folder,
     device=args.device,
     dataset_name = args.dataset_name,
@@ -335,6 +346,7 @@ evaluate(
     augmentation_iterations=args.augmentation_iterations,
     mafl_loc=args.mafl_loc,
     celeba_loc=args.celeba_loc,
+    cub_loc=args.cub_loc,
     save_folder=args.save_folder,
     device=args.device,
     wandb_log=args.wandb,
