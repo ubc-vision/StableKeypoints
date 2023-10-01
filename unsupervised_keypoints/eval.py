@@ -7,6 +7,7 @@ from queue import PriorityQueue
 import torch.nn.functional as F
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
+from unsupervised_keypoints.cub import TestSet
 from unsupervised_keypoints.invertable_transform import (
     RandomAffineWithInverse,
     return_theta,
@@ -587,6 +588,7 @@ def evaluate(
     augmentation_iterations=20,
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     save_folder="outputs",
     wandb_log=False,
     visualize=False,
@@ -596,6 +598,10 @@ def evaluate(
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
     elif dataset_name == "celeba_wild":
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+    elif dataset_name == "cub":
+        dataset = TestSet(data_root=cub_loc, image_size=512)
+    else:
+        raise NotImplementedError
 
     distances = []
 

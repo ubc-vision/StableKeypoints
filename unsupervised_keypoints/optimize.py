@@ -8,6 +8,7 @@ from unsupervised_keypoints import eval
 import torch.nn.functional as F
 import torch.distributions as dist
 from unsupervised_keypoints.celeba import CelebA
+from unsupervised_keypoints.cub import TrainSet
 from unsupervised_keypoints import optimize_token
 import torch.nn as nn
 
@@ -393,6 +394,7 @@ def optimize_embedding(
     sdxl=False,
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     sigma=1.0,
     sharpening_loss_weight=100,
     equivariance_loss_weight=100,
@@ -406,6 +408,10 @@ def optimize_embedding(
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, max_len=max_len)
     elif dataset_name == "celeba_wild":
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False, max_len=max_len)
+    elif dataset_name == "cub":
+        dataset = TrainSet(data_root=cub_loc, image_size=512)
+    else:
+        raise NotImplementedError
 
 
     invertible_transform = RandomAffineWithInverse(

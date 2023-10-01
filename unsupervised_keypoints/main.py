@@ -58,7 +58,7 @@ parser.add_argument(
 parser.add_argument(
     "--dataset_name",
     # set the choices to be "mafl" and "celeba_aligned"
-    choices=["celeba_aligned", "celeba_wild"],
+    choices=["celeba_aligned", "celeba_wild", "cub"],
     type=str,
     default="celeba_aligned",
     help="name of the dataset to use",

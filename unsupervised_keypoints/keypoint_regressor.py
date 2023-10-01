@@ -6,6 +6,7 @@ import torch.distributions as dist
 from torch.optim.lr_scheduler import StepLR
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
+from unsupervised_keypoints.cub import TrainSet, TrainRegSet
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 from unsupervised_keypoints.optimize import collect_maps
 from unsupervised_keypoints.eval import (
@@ -52,6 +53,7 @@ def find_best_indices(
     augment_shear=(0.0, 0.0),
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     dataset_name = "celeba_aligned",
     min_dist = 0.05,
 ):
@@ -59,6 +61,10 @@ def find_best_indices(
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
     elif dataset_name == "celeba_wild":
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+    elif dataset_name == "cub":
+        dataset = TrainSet(data_root=cub_loc, image_size=512)
+    else:
+        raise NotImplementedError
 
     invertible_transform = RandomAffineWithInverse(
         degrees=augment_degrees,
@@ -335,6 +341,7 @@ def precompute_all_keypoints(
     augmentation_iterations=20,
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     visualize=False,
     dataset_name = "celeba_aligned",
 ):
@@ -342,6 +349,10 @@ def precompute_all_keypoints(
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
     elif dataset_name == "celeba_wild":
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+    elif dataset_name == "cub":
+        dataset = TrainRegSet(data_root=cub_loc, image_size=512)
+    else:
+        raise NotImplementedError
 
     source_keypoints = []
     target_keypoints = []

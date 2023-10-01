@@ -6,6 +6,7 @@ from tqdm import tqdm
 from unsupervised_keypoints import ptp_utils
 import torch.nn.functional as F
 from unsupervised_keypoints.celeba import CelebA
+from unsupervised_keypoints.cub import TestSet
 from unsupervised_keypoints.eval import run_image_with_tokens_augmented
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 
@@ -122,6 +123,7 @@ def visualize_attn_maps(
     augmentation_iterations=20,
     mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
     celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     save_folder="outputs",
     visualize=False,
     dataset_name = "celeba_aligned",
@@ -130,6 +132,10 @@ def visualize_attn_maps(
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
     elif dataset_name == "celeba_wild":
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+    elif dataset_name == "cub":
+        dataset = TestSet(data_root=cub_loc, image_size=512)
+    else:
+        raise NotImplementedError
 
     imgs = []
     maps = []
