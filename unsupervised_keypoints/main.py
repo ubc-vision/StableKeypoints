@@ -13,6 +13,7 @@ from unsupervised_keypoints.keypoint_regressor import (
     find_best_indices,
     precompute_all_keypoints,
     return_regressor,
+    return_regressor_visible,
 )
 
 from unsupervised_keypoints.eval import evaluate
@@ -278,7 +279,7 @@ else:
 
 if args.start_from_stage == "precompute" or args.start_from_stage == "find_indices" or args.start_from_stage == "optimize":
 
-    source_kpts, target_kpts = precompute_all_keypoints(
+    source_kpts, target_kpts, visible = precompute_all_keypoints(
         ldm,
         embedding,
         indices,
@@ -296,10 +297,14 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         dataset_name = args.dataset_name,
     )
 
+    
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
     torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
+    torch.save(visible, os.path.join(args.save_folder, "visible.pt"))
 else:
+    
+    
     
     source_kpts = torch.load(os.path.join(args.save_folder, "source_keypoints.pt")).to(
         args.device
@@ -307,11 +312,25 @@ else:
     target_kpts = torch.load(os.path.join(args.save_folder, "target_keypoints.pt")).to(
         args.device
     )
+    visible = torch.load(os.path.join(args.save_folder, "visible.pt")).to(
+        args.device
+    )
 
-regressor = return_regressor( 
-    source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
-    target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
-)
+if args.evaluation_method == "visible":
+    visible_reshaped = visible.unsqueeze(-1).repeat(1, 1, 2).reshape(visible.shape[0], visible.shape[1] * 2)
+
+    regressor = return_regressor_visible( 
+        source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
+        target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
+        visible_reshaped.cpu().numpy().astype(np.float64),
+    )
+    
+else:
+    
+    regressor = return_regressor( 
+        source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
+        target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
+    )
 regressor = torch.tensor(regressor).to(torch.float32)
 torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
 

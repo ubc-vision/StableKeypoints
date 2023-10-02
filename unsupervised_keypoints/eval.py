@@ -658,8 +658,9 @@ def evaluate(
             l2_mean = torch.mean(l2)
             
         if evaluation_method == "visible":
+            visible = batch['visibility'].to(device)
             
-            l2_mean = l2.sum()/batch['visibility'].sum()
+            l2_mean = (l2*visible).sum()/visible.sum()
 
 
         

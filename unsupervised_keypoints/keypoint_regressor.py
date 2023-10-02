@@ -356,12 +356,15 @@ def precompute_all_keypoints(
 
     source_keypoints = []
     target_keypoints = []
+    visibility = []
 
     for iteration in tqdm(range(len(dataset))):
         mini_batch = dataset[iteration]
 
         image = mini_batch["img"]
         kpts = mini_batch["kpts"]
+        if "visibility" in mini_batch:
+            visibility.append(mini_batch["visibility"])
 
         # if image is a torch.tensor, convert to numpy
         if type(image) == torch.Tensor:
@@ -388,7 +391,35 @@ def precompute_all_keypoints(
         source_keypoints.append(highest_indices)
         target_keypoints.append(kpts)
 
-    return torch.stack(source_keypoints), torch.stack(target_keypoints)
+    return torch.stack(source_keypoints), torch.stack(target_keypoints), torch.stack(visibility) if len(visibility) > 0 else None
+
+
+def return_regressor_visible(X, Y, visible):
+    import numpy as np
+    
+    # find mean of X
+    X = X - 0.5
+    Y = Y - 0.5
+
+    # Initialize W to have the same number of columns as keypoints
+    W = np.zeros((X.shape[1], Y.shape[1]))
+
+    # Iterate through each keypoint
+    for j in range(Y.shape[1]):
+        # Indices where this keypoint is visible
+        visible_indices = np.where(visible[:, j] == 1)[0]
+        
+        # Filter X and Y matrices based on visibility of this keypoint
+        X_filtered = X[visible_indices, :]
+        Y_filtered = Y[visible_indices, j]
+
+        # Solve for the weights related to this keypoint
+        W_j = np.linalg.pinv(X_filtered.T @ X_filtered) @ X_filtered.T @ Y_filtered
+        
+        # Store these weights in the W matrix
+        W[:, j] = W_j
+
+    return W
 
 
 def return_regressor(X, Y):
