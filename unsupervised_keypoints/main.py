@@ -107,6 +107,13 @@ parser.add_argument(
     help="strategy for choosing top k tokens",
 )
 parser.add_argument(
+    "--evaluation_method",
+    type=str,
+    default="inter_eye_distance",
+    choices=["inter_eye_distance", "visible"],
+    help="strategy for evaluation",
+)
+parser.add_argument(
     "--min_dist",
     type=float,
     default=0.1,
@@ -121,7 +128,7 @@ parser.add_argument(
 parser.add_argument(
     "--equivariance_loss_weight",
     type=float,
-    default=100.0,
+    default=1000.0,
     help="Weight of the old equivariance loss",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[0, 1, 2, 3])
@@ -352,4 +359,5 @@ evaluate(
     wandb_log=args.wandb,
     visualize=args.visualize,
     dataset_name = args.dataset_name,
+    evaluation_method=args.evaluation_method,
 )

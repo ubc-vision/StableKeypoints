@@ -593,6 +593,7 @@ def evaluate(
     wandb_log=False,
     visualize=False,
     dataset_name = "celeba_aligned",
+    evaluation_method="inter_eye_distance",
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -605,7 +606,7 @@ def evaluate(
 
     distances = []
 
-    eye_dists = []
+    # eye_dists = []
 
     worst_l2 = PriorityQueue()
 
@@ -644,14 +645,24 @@ def evaluate(
 
         gt_kpts = batch["kpts"].cuda()
 
+
         # get l2 distance between estimated and gt kpts
-        l2 = torch.sqrt(torch.sum((estimated_kpts - gt_kpts) ** 2, dim=-1))
+        l2 = (estimated_kpts - gt_kpts).norm(dim=-1)
+        
+        if evaluation_method == "inter_eye_distance":
 
-        eye_dist = torch.sqrt(torch.sum((gt_kpts[0] - gt_kpts[1]) ** 2, dim=-1))
+            eye_dist = torch.sqrt(torch.sum((gt_kpts[0] - gt_kpts[1]) ** 2, dim=-1))
 
-        l2 = l2 / eye_dist
+            l2 = l2 / eye_dist
+            
+            l2_mean = torch.mean(l2)
+            
+        if evaluation_method == "visible":
+            
+            l2_mean = l2.sum()/batch['visibility'].sum()
 
-        l2_mean = torch.mean(l2)
+
+        
 
         all_values.append(l2_mean.item())
 
@@ -670,10 +681,10 @@ def evaluate(
                 worst_l2.put((smallest_worst, smallest_worst_index))
 
         distances.append(l2_mean.cpu())
-        eye_dists.append(eye_dist.cpu())
+        # eye_dists.append(eye_dist.cpu())
 
         print(
-            f"{(i/len(dataset)):06f}: {i} mean distance: {torch.mean(torch.stack(distances))}, per keypoint: {torch.mean(torch.stack(distances), dim=0)}, eye_dist: {torch.mean(torch.stack(eye_dists))}",
+            f"{(i/len(dataset)):06f}: {i} mean distance: {torch.mean(torch.stack(distances))}, per keypoint: {torch.mean(torch.stack(distances), dim=0)}",
             end="\r",
         )
 

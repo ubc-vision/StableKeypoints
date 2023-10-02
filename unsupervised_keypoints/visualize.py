@@ -188,7 +188,7 @@ def visualize_attn_maps(
 
         plot_point_correspondences(
             imgs,
-            est_points.view(num_images, 5, 2).cpu(),
+            est_points.view(num_images, -1, 2).cpu(),
             os.path.join(save_folder, "estimated_keypoints.png"),
         )
 
