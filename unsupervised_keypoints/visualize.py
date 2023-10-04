@@ -14,21 +14,6 @@ from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
 
 import matplotlib.pyplot as plt
 
-# from scipy.ndimage import zoom
-
-# # now import weights and biases
-# import wandb
-
-
-# from unsupervised_keypoints.optimize_token import (
-#     init_random_noise,
-#     image2latent,
-#     AttentionStore,
-# )
-
-# from unsupervised_keypoints.optimize import collect_maps
-# from unsupervised_keypoints.eval import get_attn_map
-
 
 def save_img(map, img, name):
     # save with matplotlib
@@ -127,6 +112,7 @@ def visualize_attn_maps(
     save_folder="outputs",
     visualize=False,
     dataset_name = "celeba_aligned",
+    controller=None,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -165,6 +151,7 @@ def visualize_attn_maps(
             augment_shear=augment_shear,
             augmentation_iterations=augmentation_iterations,
             visualize=visualize,
+            controller=controller,
         )
 
         maps.append(map)

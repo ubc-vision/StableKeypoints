@@ -39,53 +39,6 @@ def save_img(map, img, point, name):
     plt.close()
 
 
-# def get_attn_map(
-#     ldm,
-#     image,
-#     context,
-#     device="cuda",
-#     from_where=["down_cross", "mid_cross", "up_cross"],
-#     upsample_res=32,
-#     layers=[0, 1, 2, 3, 4, 5],
-#     noise_level=-1,
-#     num_tokens=77,
-# ):
-#     # if image is a torch.tensor, convert to numpy
-#     if type(image) == torch.Tensor:
-#         image = image.permute(1, 2, 0).detach().cpu().numpy()
-
-#     with torch.no_grad():
-#         latent = ptp_utils.image2latent(ldm, image, device)
-
-#     noisy_image = ldm.scheduler.add_noise(
-#         latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level]
-#     )
-
-#     controller = ptp_utils.AttentionStore()
-
-#     ptp_utils.register_attention_control(ldm, controller)
-
-#     _ = ptp_utils.diffusion_step(
-#         ldm,
-#         controller,
-#         noisy_image,
-#         context,
-#         ldm.scheduler.timesteps[noise_level],
-#         cfg=False,
-#     )
-
-#     attention_maps = optimize.collect_maps(
-#         controller,
-#         from_where=from_where,
-#         upsample_res=upsample_res,
-#         layers=layers,
-#     )
-
-#     attention_maps = torch.mean(attention_maps, dim=(0, 1))
-
-#     return attention_maps
-
-
 def find_max_pixel(map):
     """
     finds the pixel of the map with the highest value
@@ -405,6 +358,7 @@ def run_image_with_tokens_augmented(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     visualize=False,
+    controller=None,
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -447,10 +401,6 @@ def run_image_with_tokens_augmented(
 
         latents = ptp_utils.image2latent(ldm, augmented_img, device)
 
-        controller = ptp_utils.AttentionStore()
-
-        ptp_utils.register_attention_control(ldm, controller)
-
         latents = ldm.scheduler.add_noise(
             latents, torch.rand_like(latents), ldm.scheduler.timesteps[noise_level]
         )
@@ -464,15 +414,13 @@ def run_image_with_tokens_augmented(
             cfg=False,
         )
 
-        _attention_maps = optimize.collect_maps(
+        _attention_maps, _ = optimize.collect_maps(
             controller,
             from_where=from_where,
             upsample_res=512,
             layers=layers,
             indices=indices,
         )
-
-        _attention_maps = _attention_maps.mean((0, 1))
 
         num_samples += invertible_transform.inverse(torch.ones_like(num_samples))
         sum_samples += invertible_transform.inverse(_attention_maps)
@@ -594,6 +542,7 @@ def evaluate(
     visualize=False,
     dataset_name = "celeba_aligned",
     evaluation_method="inter_eye_distance",
+    controller=None,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -633,6 +582,7 @@ def evaluate(
             augment_scale=augment_scale,
             augment_translate=augment_translate,
             augment_shear=augment_shear,
+            controller=controller,
             # visualize=True,
         )
         highest_indices = find_max_pixel(attention_maps)

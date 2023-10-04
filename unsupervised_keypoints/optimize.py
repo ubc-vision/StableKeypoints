@@ -25,53 +25,60 @@ def collect_maps(
     controller,
     from_where=["up_cross"],
     upsample_res=512,
-    layers=[0, 1, 2, 3, 4, 5],
+    layers=[0, 1, 2, 3],
     indices=None,
 ):
     """
     returns the bilinearly upsampled attention map of size upsample_res x upsample_res for the first word in the prompt
     """
 
-    attention_maps = controller.step_store
+    attention_maps = controller.step_store['attn']
+    features = controller.step_store['features']
 
-    imgs = []
+    attention_maps_list = []
+    features_list = []
 
-    layer_overall = -1
+    for target_list, data_source in [(attention_maps_list, attention_maps), (features_list, features)]:
+        layer_overall = -1
 
-    for key in from_where:
-        for layer in range(len(attention_maps[key])):
+        for layer in range(len(data_source)):
             layer_overall += 1
 
             if layer_overall not in layers:
                 continue
 
-            img = attention_maps[key][layer]
+            data = data_source[layer]
 
-            img = img.reshape(
-                4, int(img.shape[1] ** 0.5), int(img.shape[1] ** 0.5), img.shape[2]
+            data = data.reshape(
+                data.shape[0], int(data.shape[1] ** 0.5), int(data.shape[1] ** 0.5), data.shape[2]
             )
 
             if indices is not None:
-                img = img[:, :, :, indices]
+                data = data[:, :, :, indices]
 
-            img = img.permute(0, 3, 1, 2)
+            data = data.permute(0, 3, 1, 2)
 
-            if upsample_res != -1 and img.shape[1] ** 0.5 != upsample_res:
-                # bilinearly upsample the image to img_sizeximg_size
-                img = F.interpolate(
-                    img,
+            if upsample_res != -1 and data.shape[1] ** 0.5 != upsample_res:
+                # bilinearly upsample the image to attn_sizexattn_size
+                data = F.interpolate(
+                    data,
                     size=(upsample_res, upsample_res),
-                    mode="bicubic",
+                    mode="bilinear",
                     align_corners=False,
                 )
 
-            imgs.append(img)
+            target_list.append(data)
 
-    imgs = torch.stack(imgs, dim=0)
+
+    attention_maps_list = torch.stack(attention_maps_list, dim=0).mean(dim=(0, 1))
+    
+    # to save memory
+    features_list = [x[:, :100] for x in features_list]
+    features_list = torch.cat(features_list, dim=1)[0]
 
     controller.reset()
 
-    return imgs
+    return attention_maps_list, features_list
 
 
 def create_gaussian_kernel(size: int, sigma: float):
@@ -397,11 +404,13 @@ def optimize_embedding(
     cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     sigma=1.0,
     sharpening_loss_weight=100,
-    equivariance_loss_weight=100,
+    equivariance_features_loss_weight=100,
+    equivariance_attn_loss_weight=100,
     batch_size=4,
     dataset_name = "celeba_aligned",
     max_len=-1,
     min_dist=0.05,
+    controller=None,
 ):
     
     if dataset_name == "celeba_aligned":
@@ -436,7 +445,8 @@ def optimize_embedding(
 
     start = time.time()
 
-    running_equivariance_loss = 0
+    running_equivariance_features_loss = 0
+    running_equivariance_attn_loss = 0
     running_sharpening_loss = 0
     running_total_loss = 0
     
@@ -447,7 +457,7 @@ def optimize_embedding(
 
         image = mini_batch["img"]
 
-        attn_maps = ptp_utils.run_and_find_attn(
+        attn_maps, feature_maps = ptp_utils.run_and_find_attn(
             ldm,
             image,
             context,
@@ -456,11 +466,12 @@ def optimize_embedding(
             from_where=from_where,
             upsample_res=upsample_res,
             device=device,
+            controller=controller,
         )
 
         transformed_img = invertible_transform(image)
 
-        attention_maps_transformed = ptp_utils.run_and_find_attn(
+        attention_maps_transformed, feature_maps_transformed = ptp_utils.run_and_find_attn(
             ldm,
             transformed_img,
             context,
@@ -469,6 +480,7 @@ def optimize_embedding(
             from_where=from_where,
             upsample_res=upsample_res,
             device=device,
+            controller=controller,
         )
 
         if top_k_strategy == "entropy":
@@ -478,15 +490,13 @@ def optimize_embedding(
         elif top_k_strategy == "consistent":
             top_embedding_indices = torch.arange(top_k)
 
-        # never had transformation applied
-        best_embeddings = attn_maps[top_embedding_indices]
-        # transformed image, then found attn maps
-        best_embeddings_transformed = attention_maps_transformed[top_embedding_indices]
+        _sharpening_loss = sharpening_loss(attn_maps[top_embedding_indices], device=device, sigma=sigma)
 
-        _sharpening_loss = sharpening_loss(best_embeddings, device=device, sigma=sigma)
-
-        _loss_equivariance = equivariance_loss(
-            best_embeddings, best_embeddings_transformed, invertible_transform
+        _loss_equivariance_features = equivariance_loss(
+            feature_maps, feature_maps_transformed, invertible_transform
+        )
+        _loss_equivariance_attn = equivariance_loss(
+            attn_maps[top_embedding_indices], attention_maps_transformed[top_embedding_indices], invertible_transform
         )
         
         # _ddpm_loss = ddpm_loss(ldm, image, context[:, top_embedding_indices])
@@ -496,13 +506,15 @@ def optimize_embedding(
         # use the old loss for the first 1000 iterations
         # new loss is unstable for early iterations
         loss = (
-            _loss_equivariance * equivariance_loss_weight
+            _loss_equivariance_features * equivariance_features_loss_weight
+            + _loss_equivariance_attn * equivariance_attn_loss_weight
             # + _spreading_loss * spreading_loss_weight
             + _sharpening_loss * sharpening_loss_weight
             # + _ddpm_loss * ddpm_loss_weight
         )
 
-        running_equivariance_loss += _loss_equivariance / batch_size
+        running_equivariance_features_loss += _loss_equivariance_features / batch_size
+        running_equivariance_attn_loss += _loss_equivariance_attn / batch_size
         running_sharpening_loss += _sharpening_loss / batch_size
         # running_spreading_loss += _spreading_loss / batch_size
         # running_ddpm_loss += _ddpm_loss / batch_size
@@ -519,7 +531,8 @@ def optimize_embedding(
                 wandb.log(
                     {
                         "loss": running_total_loss.item(),
-                        "running_equivariance_loss": running_equivariance_loss.item(),
+                        "running_equivariance_features_loss": running_equivariance_features_loss.item(),
+                        "running_equivariance_attn_loss": running_equivariance_attn_loss.item(),
                         "running_sharpening_loss": running_sharpening_loss.item(),
                         # "running_spreading_loss": running_spreading_loss.item(),
                         # "running_ddpm_loss": running_ddpm_loss.item(),
@@ -527,9 +540,14 @@ def optimize_embedding(
                 )
             else:
                 print(
-                    f"loss: {loss.item()}, _loss_equivariance: {running_equivariance_loss.item()}, sharpening_loss: {running_equivariance_loss.item()}, running_total_loss: {running_total_loss.item()}"
+                    f"loss: {loss.item()}, \
+                    _loss_equivariance_features: {running_equivariance_features_loss.item()}, \
+                    _loss_equivariance_attn: {running_equivariance_attn_loss.item()} \
+                    sharpening_loss: {running_sharpening_loss.item()},  \
+                    running_total_loss: {running_total_loss.item()}"
                 )
-            running_equivariance_loss = 0
+            running_equivariance_features_loss = 0
+            running_equivariance_attn_loss = 0
             running_sharpening_loss = 0
             running_total_loss = 0
 

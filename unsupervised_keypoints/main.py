@@ -9,7 +9,6 @@ from unsupervised_keypoints.keypoint_regressor import LinearProjection
 from unsupervised_keypoints.optimize import optimize_embedding
 
 from unsupervised_keypoints.keypoint_regressor import (
-    supervise_regressor,
     find_best_indices,
     precompute_all_keypoints,
     return_regressor,
@@ -123,13 +122,19 @@ parser.add_argument(
 parser.add_argument(
     "--sharpening_loss_weight",
     type=float,
-    default=100,
+    default=1000,
     help="Weight of the sharpening loss",
 )
 parser.add_argument(
-    "--equivariance_loss_weight",
+    "--equivariance_features_loss_weight",
     type=float,
-    default=1000.0,
+    default=1.0,
+    help="Weight of the old equivariance loss",
+)
+parser.add_argument(
+    "--equivariance_attn_loss_weight",
+    type=float,
+    default=10000.0,
     help="Weight of the old equivariance loss",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[0, 1, 2, 3])
@@ -185,7 +190,7 @@ parser.add_argument("--top_k", type=int, default=10, help="number of points to c
 
 args = parser.parse_args()
 
-ldm = load_ldm(args.device, args.model_type)
+ldm, controller = load_ldm(args.device, args.model_type)
 
 # if args.save_folder doesnt exist create it
 if not os.path.exists(args.save_folder):
@@ -217,11 +222,13 @@ if args.start_from_stage == "optimize":
         cub_loc=args.cub_loc,
         sigma=args.sigma,
         sharpening_loss_weight=args.sharpening_loss_weight,
-        equivariance_loss_weight=args.equivariance_loss_weight,
+        equivariance_features_loss_weight=args.equivariance_features_loss_weight,
+        equivariance_attn_loss_weight=args.equivariance_attn_loss_weight,
         batch_size=args.batch_size,
         dataset_name = args.dataset_name,
         max_len=args.max_len,
         min_dist=args.min_dist,
+        controller=controller,
     )
     torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 else:
@@ -247,6 +254,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         cub_loc=args.cub_loc,
         dataset_name = args.dataset_name,
         min_dist=args.min_dist,
+        controller=controller,
     )
     torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
     
@@ -270,6 +278,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         visualize=args.visualize,
         device=args.device,
         dataset_name = args.dataset_name,
+        controller=controller,
     )
 else:
     indices = (
@@ -295,9 +304,8 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         cub_loc=args.cub_loc,
         visualize=args.visualize,
         dataset_name = args.dataset_name,
+        controller=controller,
     )
-
-    
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
     torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
@@ -355,6 +363,7 @@ visualize_attn_maps(
     save_folder=args.save_folder,
     device=args.device,
     dataset_name = args.dataset_name,
+    controller=controller,
 )
 
 evaluate(
@@ -379,4 +388,5 @@ evaluate(
     visualize=args.visualize,
     dataset_name = args.dataset_name,
     evaluation_method=args.evaluation_method,
+    controller=controller,
 )

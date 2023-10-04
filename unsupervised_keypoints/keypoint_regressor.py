@@ -56,6 +56,7 @@ def find_best_indices(
     cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     dataset_name = "celeba_aligned",
     min_dist = 0.05,
+    controller=None,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -84,7 +85,7 @@ def find_best_indices(
         if augment:
             image = invertible_transform(image)
 
-        attention_maps = ptp_utils.run_and_find_attn(
+        attention_maps, _ = ptp_utils.run_and_find_attn(
             ldm,
             image,
             context,
@@ -92,6 +93,7 @@ def find_best_indices(
             noise_level=noise_level,
             from_where=from_where,
             upsample_res=upsample_res,
+            controller=controller,
         )
         
         _indices = ptp_utils.find_top_k(attention_maps, top_k, min_dist=min_dist)
@@ -216,114 +218,6 @@ def create_batch_of_augmentations(initial_keypoints, final_keypoints, device="cu
     return transformed_initial_keypoints_batch, transformed_final_keypoints_batch
 
 
-def supervise_regressor(
-    ldm,
-    context,
-    top_indices,
-    wandb_log=True,
-    lr=1e-3,
-    num_steps=1e4,
-    device="cuda",
-    noise_level=-1,
-    upsample_res=32,
-    layers=[0, 1, 2, 3, 4, 5],
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    num_tokens=1000,
-    top_k=30,
-    augment_degrees=30,
-    augment_scale=(0.9, 1.1),
-    augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
-    augmentation_iterations=20,
-):
-    if wandb_log:
-        # start a wandb session
-        wandb.init(project="regressor")
-
-    dataset = CelebA()
-
-    regressor = LinearProjection(
-        input_dim=top_k * 2, output_dim=dataset.num_kps * 2
-    ).cuda()
-
-    # supervise the regressor parameters
-    optimizer = torch.optim.Adam(regressor.parameters(), lr=lr)
-
-    indices = torch.load(
-        "/ubc/cs/home/i/iamerich/scratch/keypoint_correspondences_ldm/argsort.pt"
-    ).argsort()
-
-    for iteration in range(int(num_steps)):
-        # mini_batch = dataset[np.random.randint(len(dataset))]
-        # select a random index from indices[:10000]
-        mini_batch = dataset[indices[np.random.randint(10000)]]
-
-        image = mini_batch["img"]
-
-        # label = mini_batch['label']
-
-        # if image is a torch.tensor, convert to numpy
-        if type(image) == torch.Tensor:
-            image = image.permute(1, 2, 0).detach().cpu().numpy()
-
-        with torch.no_grad():
-            attention_maps = run_image_with_tokens_augmented(
-                ldm,
-                image,
-                context,
-                top_indices,
-                device=device,
-                from_where=from_where,
-                layers=layers,
-                noise_level=noise_level,
-                augmentation_iterations=augmentation_iterations,
-                augment_degrees=augment_degrees,
-                augment_scale=augment_scale,
-                augment_translate=augment_translate,
-                augment_shear=augment_shear,
-            )
-
-            # get the argmax of each of the best_embeddings
-            highest_indices = find_max_pixel(attention_maps)
-
-            highest_indices = highest_indices / 512.0
-
-        batch_initial_keypoints, batch_gt_keypoints = create_batch_of_augmentations(
-            highest_indices, mini_batch["kpts"].cuda()
-        )
-
-        batch_initial_keypoints = batch_initial_keypoints.reshape(
-            batch_initial_keypoints.shape[0], batch_initial_keypoints.shape[1] * 2
-        )
-        batch_gt_keypoints = batch_gt_keypoints.reshape(
-            batch_gt_keypoints.shape[0], batch_gt_keypoints.shape[1] * 2
-        )
-
-        # regressor_input = torch.cat(
-        #     [
-        #         batch_initial_keypoints,
-        #         values[None].repeat(batch_initial_keypoints.shape[0], 1),
-        #     ],
-        #     dim=1,
-        # )
-
-        estimated_kpts = regressor(batch_initial_keypoints)
-
-        estimated_kpts = estimated_kpts.reshape(*batch_gt_keypoints.shape)
-
-        loss = torch.nn.functional.mse_loss(estimated_kpts, batch_gt_keypoints)
-
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-
-        if wandb_log:
-            wandb.log({"loss": loss.item()})
-        else:
-            print(f"loss: {loss.item()}")
-
-    return regressor
-
 
 @torch.no_grad()
 def precompute_all_keypoints(
@@ -344,6 +238,7 @@ def precompute_all_keypoints(
     cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     visualize=False,
     dataset_name = "celeba_aligned",
+    controller=None,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -384,6 +279,7 @@ def precompute_all_keypoints(
             augment_scale=augment_scale,
             augment_translate=augment_translate,
             augment_shear=augment_shear,
+            controller=controller,
         )
         highest_indices = find_max_pixel(attention_maps)
         highest_indices = highest_indices / 512.0

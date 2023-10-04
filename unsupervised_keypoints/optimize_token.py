@@ -50,6 +50,11 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     ldm = StableDiffusionPipeline.from_pretrained(
         type, use_auth_token=MY_TOKEN, scheduler=scheduler
     ).to(device)
+    
+    controller = ptp_utils.AttentionStore()
+
+    ptp_utils.register_attention_control(ldm, controller)
+    
 
     for param in ldm.vae.parameters():
         param.requires_grad = False
@@ -58,7 +63,7 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     for param in ldm.unet.parameters():
         param.requires_grad = False
 
-    return ldm
+    return ldm, controller
 
 
 def load_512(image_path, left=0, right=0, top=0, bottom=0):

@@ -38,19 +38,14 @@ class AttentionControl(abc.ABC):
         return 0
 
     @abc.abstractmethod
-    def forward(self, attn, is_cross: bool, place_in_unet: str):
+    def forward(self, dict, is_cross: bool, place_in_unet: str):
         raise NotImplementedError
 
-    def __call__(self, attn, is_cross: bool, place_in_unet: str):
-        if self.cur_att_layer >= self.num_uncond_att_layers:
-            h = attn.shape[0]
-            attn[h // 2 :] = self.forward(attn[h // 2 :], is_cross, place_in_unet)
-        self.cur_att_layer += 1
-        if self.cur_att_layer == self.num_att_layers + self.num_uncond_att_layers:
-            self.cur_att_layer = 0
-            self.cur_step += 1
-            self.between_steps()
-        return attn
+    def __call__(self, dict, is_cross: bool, place_in_unet: str):
+        
+        dict = self.forward(dict, is_cross, place_in_unet)
+        
+        return dict['attn']
 
     def reset(self):
         self.cur_step = 0
@@ -66,45 +61,25 @@ class AttentionStore(AttentionControl):
     @staticmethod
     def get_empty_store():
         return {
-            "down_cross": [],
-            "mid_cross": [],
-            "up_cross": [],
-            "down_self": [],
-            "mid_self": [],
-            "up_self": [],
+            "attn": [],
+            "features": [],
         }
 
-    def forward(self, attn, is_cross: bool, place_in_unet: str):
+    def forward(self, dict, is_cross: bool, place_in_unet: str):
         key = f"{place_in_unet}_{'cross' if is_cross else 'self'}"
         # if attn.shape[1] <= 32**2:  # avoid memory overhead
-        self.step_store[key].append(attn)
-        return attn
-
-    def between_steps(self):
-        if len(self.attention_store) == 0:
-            self.attention_store = self.step_store
-        else:
-            for key in self.attention_store:
-                for i in range(len(self.attention_store[key])):
-                    self.attention_store[key][i] += self.step_store[key][i]
-        self.step_store = self.get_empty_store()
-
-    def get_average_attention(self):
-        average_attention = {
-            key: [item / self.cur_step for item in self.attention_store[key]]
-            for key in self.attention_store
-        }
-        return average_attention
+        self.step_store["attn"].append(dict['attn']) 
+        self.step_store["features"].append(dict['features'])
+        
+        return dict
 
     def reset(self):
         super(AttentionStore, self).reset()
         self.step_store = self.get_empty_store()
-        self.attention_store = {}
 
     def __init__(self):
         super(AttentionStore, self).__init__()
         self.step_store = self.get_empty_store()
-        self.attention_store = {}
 
 
 def find_top_k(attention_maps, top_k, min_dist=0.05):
@@ -178,6 +153,7 @@ def run_and_find_attn(
     layers=[0, 1, 2, 3, 4, 5],
     upsample_res=32,
     indices=None,
+    controller=None,
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -190,10 +166,6 @@ def run_and_find_attn(
         latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level]
     )
 
-    controller = AttentionStore()
-
-    register_attention_control(ldm, controller)
-
     _ = diffusion_step(
         ldm,
         controller,
@@ -203,7 +175,7 @@ def run_and_find_attn(
         cfg=False,
     )
 
-    attention_maps = collect_maps(
+    attention_maps, feature_maps = collect_maps(
         controller,
         from_where=from_where,
         upsample_res=upsample_res,
@@ -211,17 +183,9 @@ def run_and_find_attn(
         indices=indices,
     )
 
-    # take the mean over the first 2 dimensions
-    attention_maps = torch.mean(attention_maps, dim=(0, 1))
-
     controller.reset()
 
-    # attention_maps[:, :, :3] = 0
-    # attention_maps[:, :, -3:] = 0
-    # attention_maps[:, :3, :] = 0
-    # attention_maps[:, -3:, :] = 0
-
-    return attention_maps
+    return attention_maps, feature_maps
 
 
 def image2latent(model, image, device):
@@ -405,18 +369,13 @@ def register_attention_control(model, controller):
             # attention, what we cannot get enough of
             attn = torch.nn.Softmax(dim=-1)(sim)
             attn = attn.clone()
-            # if (
-            #     is_cross
-            #     and sequence_length <= 32**2
-            #     and len(controller.step_store["up_cross"]) < 4
-            # ):
-            #     attn = controller(attn, is_cross, place_in_unet)
+            
             out = torch.matmul(attn, v)
 
             if (
                 is_cross
                 and sequence_length <= 32**2
-                and len(controller.step_store["up_cross"]) < 4
+                and len(controller.step_store["attn"]) < 4
             ):
                 x_reshaped = x.reshape(
                     batch_size,
@@ -442,8 +401,10 @@ def register_attention_control(model, controller):
                 sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
                 attn = torch.nn.Softmax(dim=-1)(sim)
                 attn = attn.clone()
+                
+                
 
-                attn = controller(attn, is_cross, place_in_unet)
+                attn = controller({"attn": attn, "features": x_reshaped}, is_cross, place_in_unet)
 
             out = self.reshape_batch_dim_to_heads(out)
             return to_out(out)
@@ -474,12 +435,8 @@ def register_attention_control(model, controller):
     cross_att_count = 0
     sub_nets = model.unet.named_children()
     for net in sub_nets:
-        # if "down" in net[0]:
-        #     cross_att_count += register_recr(net[1], 0, "down")
         if "up" in net[0]:
             cross_att_count += register_recr(net[1], 0, "up")
-        # elif "mid" in net[0]:
-        #     cross_att_count += register_recr(net[1], 0, "mid")
 
     controller.num_att_layers = cross_att_count
 
