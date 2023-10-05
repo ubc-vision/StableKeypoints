@@ -190,7 +190,7 @@ parser.add_argument("--top_k", type=int, default=10, help="number of points to c
 
 args = parser.parse_args()
 
-ldm, controllers = load_ldm(args.device, args.model_type)
+ldm, controllers, num_gpus = load_ldm(args.device, args.model_type)
 
 # if args.save_folder doesnt exist create it
 if not os.path.exists(args.save_folder):
@@ -198,7 +198,6 @@ if not os.path.exists(args.save_folder):
     
 # print number of gpus
 print("Number of GPUs: ", torch.cuda.device_count())
-num_gpus = torch.cuda.device_count()
 
 if args.wandb:
     # start a wandb session

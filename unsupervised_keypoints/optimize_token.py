@@ -56,13 +56,21 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     
     controllers = {}
     for device_id in ldm.unet.device_ids:
-        controller = ptp_utils.AttentionStore()  # Create controller and move to the right device
-        controllers[device_id] = controller
-        
-        # Assuming you can determine the current replica's device, move it to that device
-        # Then register the attention control for that specific replica using its device-specific controller
-        replica = ldm.unet.module.to(device_id)  # Move the base model to the current device
-        ptp_utils.register_attention_control(replica, controller)  # Use the controller for this device
+        device = torch.device("cuda", device_id)
+        controller = ptp_utils.AttentionStore()
+        controllers[device] = controller
+
+    patched_devices = set()
+
+    def hook_fn(module, input):
+        device = input[0].device
+        if device not in patched_devices:
+            ptp_utils.register_attention_control(module, controllers[device])
+            patched_devices.add(device)
+
+    ldm.unet.module.register_forward_pre_hook(hook_fn)
+    
+    num_gpus = torch.cuda.device_count()
 
     for param in ldm.vae.parameters():
         param.requires_grad = False
@@ -71,7 +79,7 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     for param in ldm.unet.parameters():
         param.requires_grad = False
 
-    return ldm, controllers
+    return ldm, controllers, num_gpus
 
 
 def load_512(image_path, left=0, right=0, top=0, bottom=0):
