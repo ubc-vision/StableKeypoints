@@ -153,11 +153,11 @@ def run_and_find_attn(
     layers=[0, 1, 2, 3, 4, 5],
     upsample_res=32,
     indices=None,
-    controller=None,
+    controllers=None,
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
-        image = image.permute(1, 2, 0).detach().cpu().numpy()
+        image = image.permute(0, 2, 3, 1).detach().cpu().numpy()
 
     with torch.no_grad():
         latent = image2latent(ldm, image, device)
@@ -168,22 +168,29 @@ def run_and_find_attn(
 
     _ = diffusion_step(
         ldm,
-        controller,
+        controllers,
         noisy_image,
         context,
         ldm.scheduler.timesteps[noise_level],
         cfg=False,
     )
+    
+    attention_maps=[]
+    feature_maps=[]
+    
+    for controller in controllers:
 
-    attention_maps, feature_maps = collect_maps(
-        controller,
-        from_where=from_where,
-        upsample_res=upsample_res,
-        layers=layers,
-        indices=indices,
-    )
+        _attention_maps, _feature_maps = collect_maps(
+            controllers[controller],
+            from_where=from_where,
+            upsample_res=upsample_res,
+            layers=layers,
+            indices=indices,
+        )
+        attention_maps.append(_attention_maps)
+        feature_maps.append(_feature_maps)
 
-    controller.reset()
+        controllers[controller].reset()
 
     return attention_maps, feature_maps
 
@@ -197,8 +204,8 @@ def image2latent(model, image, device):
         else:
             # print the max and min values of the image
             image = torch.from_numpy(image).float() * 2 - 1
-            image = image.permute(2, 0, 1).unsqueeze(0).to(device)
-            latents = model.vae.encode(image)["latent_dist"].mean
+            image = image.permute(0, 3, 1, 2).to(device)
+            latents = model.vae.module.encode(image)["latent_dist"].mean
             latents = latents * 0.18215
     return latents
 
@@ -216,10 +223,10 @@ def diffusion_step(
             noise_prediction_text - noise_pred_uncond
         )
     else:
-        noise_pred = model.unet(latents, t, encoder_hidden_states=context)["sample"]
+        noise_pred = model.unet(latents, t.repeat(latents.shape[0]), encoder_hidden_states=context)["sample"]
 
     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
-    latents = controller.step_callback(latents)
+    # latents = controller.step_callback(latents)
     return latents, noise_pred
 
 
@@ -426,6 +433,7 @@ def register_attention_control(model, controller):
     def register_recr(net_, count, place_in_unet):
         if net_.__class__.__name__ == "CrossAttention":
             net_.forward = ca_forward(net_, place_in_unet)
+            print(count)
             return count + 1
         elif hasattr(net_, "children"):
             for net__ in net_.children():
@@ -433,7 +441,7 @@ def register_attention_control(model, controller):
         return count
 
     cross_att_count = 0
-    sub_nets = model.unet.named_children()
+    sub_nets = model.named_children()
     for net in sub_nets:
         if "up" in net[0]:
             cross_att_count += register_recr(net[1], 0, "up")

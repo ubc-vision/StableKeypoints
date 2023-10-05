@@ -51,10 +51,18 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
         type, use_auth_token=MY_TOKEN, scheduler=scheduler
     ).to(device)
     
-    controller = ptp_utils.AttentionStore()
-
-    ptp_utils.register_attention_control(ldm, controller)
+    ldm.unet = nn.DataParallel(ldm.unet)
+    ldm.vae = nn.DataParallel(ldm.vae)
     
+    controllers = {}
+    for device_id in ldm.unet.device_ids:
+        controller = ptp_utils.AttentionStore()  # Create controller and move to the right device
+        controllers[device_id] = controller
+        
+        # Assuming you can determine the current replica's device, move it to that device
+        # Then register the attention control for that specific replica using its device-specific controller
+        replica = ldm.unet.module.to(device_id)  # Move the base model to the current device
+        ptp_utils.register_attention_control(replica, controller)  # Use the controller for this device
 
     for param in ldm.vae.parameters():
         param.requires_grad = False
@@ -63,7 +71,7 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     for param in ldm.unet.parameters():
         param.requires_grad = False
 
-    return ldm, controller
+    return ldm, controllers
 
 
 def load_512(image_path, left=0, right=0, top=0, bottom=0):

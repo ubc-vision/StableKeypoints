@@ -190,11 +190,15 @@ parser.add_argument("--top_k", type=int, default=10, help="number of points to c
 
 args = parser.parse_args()
 
-ldm, controller = load_ldm(args.device, args.model_type)
+ldm, controllers = load_ldm(args.device, args.model_type)
 
 # if args.save_folder doesnt exist create it
 if not os.path.exists(args.save_folder):
     os.makedirs(args.save_folder)
+    
+# print number of gpus
+print("Number of GPUs: ", torch.cuda.device_count())
+num_gpus = torch.cuda.device_count()
 
 if args.wandb:
     # start a wandb session
@@ -225,10 +229,11 @@ if args.start_from_stage == "optimize":
         equivariance_features_loss_weight=args.equivariance_features_loss_weight,
         equivariance_attn_loss_weight=args.equivariance_attn_loss_weight,
         batch_size=args.batch_size,
+        num_gpus=num_gpus,
         dataset_name = args.dataset_name,
         max_len=args.max_len,
         min_dist=args.min_dist,
-        controller=controller,
+        controllers=controllers,
     )
     torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 else:
@@ -254,7 +259,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         cub_loc=args.cub_loc,
         dataset_name = args.dataset_name,
         min_dist=args.min_dist,
-        controller=controller,
+        controllers=controllers,
     )
     torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
     
@@ -278,7 +283,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         visualize=args.visualize,
         device=args.device,
         dataset_name = args.dataset_name,
-        controller=controller,
+        controllers=controllers,
     )
 else:
     indices = (
@@ -304,7 +309,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         cub_loc=args.cub_loc,
         visualize=args.visualize,
         dataset_name = args.dataset_name,
-        controller=controller,
+        controllers=controllers,
     )
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
@@ -363,7 +368,7 @@ visualize_attn_maps(
     save_folder=args.save_folder,
     device=args.device,
     dataset_name = args.dataset_name,
-    controller=controller,
+    controllers=controllers,
 )
 
 evaluate(
@@ -388,5 +393,5 @@ evaluate(
     visualize=args.visualize,
     dataset_name = args.dataset_name,
     evaluation_method=args.evaluation_method,
-    controller=controller,
+    controllers=controllers,
 )

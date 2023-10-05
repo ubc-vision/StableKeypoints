@@ -407,10 +407,11 @@ def optimize_embedding(
     equivariance_features_loss_weight=100,
     equivariance_attn_loss_weight=100,
     batch_size=4,
+    num_gpus=1,
     dataset_name = "celeba_aligned",
     max_len=-1,
     min_dist=0.05,
-    controller=None,
+    controllers=None,
 ):
     
     if dataset_name == "celeba_aligned":
@@ -450,10 +451,16 @@ def optimize_embedding(
     running_sharpening_loss = 0
     running_total_loss = 0
     
+    # create dataloader for the dataset
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True)
+    
 
     for iteration in tqdm(range(num_steps)):
-        index = np.random.randint(len(dataset))
-        mini_batch = dataset[index]
+        try:
+            mini_batch = next(dataloader_iter)
+        except:
+            dataloader_iter = iter(dataloader)
+            mini_batch = next(dataloader_iter)
 
         image = mini_batch["img"]
 
@@ -466,7 +473,7 @@ def optimize_embedding(
             from_where=from_where,
             upsample_res=upsample_res,
             device=device,
-            controller=controller,
+            controllers=controllers,
         )
 
         transformed_img = invertible_transform(image)
@@ -480,28 +487,33 @@ def optimize_embedding(
             from_where=from_where,
             upsample_res=upsample_res,
             device=device,
-            controller=controller,
-        )
-
-        if top_k_strategy == "entropy":
-            top_embedding_indices = ptp_utils.find_top_k(
-                attn_maps, top_k, min_dist = min_dist,
-            )
-        elif top_k_strategy == "consistent":
-            top_embedding_indices = torch.arange(top_k)
-
-        _sharpening_loss = sharpening_loss(attn_maps[top_embedding_indices], device=device, sigma=sigma)
-
-        _loss_equivariance_features = equivariance_loss(
-            feature_maps, feature_maps_transformed, invertible_transform
-        )
-        _loss_equivariance_attn = equivariance_loss(
-            attn_maps[top_embedding_indices], attention_maps_transformed[top_embedding_indices], invertible_transform
+            controllers=controllers,
         )
         
-        # _ddpm_loss = ddpm_loss(ldm, image, context[:, top_embedding_indices])
+        _sharpening_loss = 0
+        _loss_equivariance_features = 0
+        _loss_equivariance_attn = 0
+        
+        for attn_map, feature_map, attention_map_transformed, feature_map_transformed in zip(attn_maps, feature_maps, attention_maps_transformed, feature_maps_transformed):
 
-        # _spreading_loss = spreading_loss(best_embeddings)
+            if top_k_strategy == "entropy":
+                top_embedding_indices = ptp_utils.find_top_k(
+                    attn_map, top_k, min_dist = min_dist,
+                )
+            elif top_k_strategy == "consistent":
+                top_embedding_indices = torch.arange(top_k)
+
+            _sharpening_loss = _sharpening_loss + sharpening_loss(attn_map[top_embedding_indices], device=device, sigma=sigma)
+
+            _loss_equivariance_features = _loss_equivariance_features + equivariance_loss(
+                feature_map[None], feature_map_transformed[None], invertible_transform
+            )
+            _loss_equivariance_attn = _loss_equivariance_attn + equivariance_loss(
+                attn_map[top_embedding_indices][None], attention_map_transformed[top_embedding_indices][None], invertible_transform
+            )
+        _sharpening_loss = _sharpening_loss/batch_size
+        _loss_equivariance_features = _loss_equivariance_features/batch_size
+        _loss_equivariance_attn = _loss_equivariance_attn/batch_size
 
         # use the old loss for the first 1000 iterations
         # new loss is unstable for early iterations

@@ -292,7 +292,6 @@ class RandomAffineWithInverse:
         return theta
 
     def __call__(self, img_tensor, theta=None):
-        img_tensor = img_tensor[None]
 
         if theta is None:
             # Calculate random parameters
@@ -325,10 +324,9 @@ class RandomAffineWithInverse:
         )
         transformed_img = F.grid_sample(img_tensor, grid, align_corners=False)
 
-        return transformed_img[0]
+        return transformed_img
 
     def inverse(self, img_tensor):
-        img_tensor = img_tensor[None]
 
         # Retrieve stored parameters
         theta = self.last_params["theta"]
@@ -348,7 +346,7 @@ class RandomAffineWithInverse:
         )
         untransformed_img = F.grid_sample(img_tensor, grid_inv, align_corners=False)
 
-        return untransformed_img[0]
+        return untransformed_img
 
     def transform_keypoints(self, keypoints):
         keypoints = keypoints * 2 - 1
