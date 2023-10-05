@@ -223,9 +223,9 @@ def diffusion_step(
             noise_prediction_text - noise_pred_uncond
         )
     else:
-        noise_pred = model.unet(latents, t.repeat(latents.shape[0]), encoder_hidden_states=context)["sample"]
+        noise_pred = model.unet(latents, t.repeat(latents.shape[0]), context)["sample"]
 
-    latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
+    # latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     # latents = controller.step_callback(latents)
     return latents, noise_pred
 
@@ -251,88 +251,88 @@ def init_latent(latent, model, height, width, generator, batch_size):
     return latent, latents
 
 
-@torch.no_grad()
-def text2image_ldm(
-    model,
-    prompt: List[str],
-    controller,
-    num_inference_steps: int = 50,
-    guidance_scale: Optional[float] = 7.0,
-    generator: Optional[torch.Generator] = None,
-    latent: Optional[torch.FloatTensor] = None,
-):
-    register_attention_control(model, controller)
-    height = width = 256
-    batch_size = len(prompt)
+# @torch.no_grad()
+# def text2image_ldm(
+#     model,
+#     prompt: List[str],
+#     controller,
+#     num_inference_steps: int = 50,
+#     guidance_scale: Optional[float] = 7.0,
+#     generator: Optional[torch.Generator] = None,
+#     latent: Optional[torch.FloatTensor] = None,
+# ):
+#     register_attention_control(model, controller)
+#     height = width = 256
+#     batch_size = len(prompt)
 
-    uncond_input = model.tokenizer(
-        [""] * batch_size, padding="max_length", max_length=77, return_tensors="pt"
-    )
-    uncond_embeddings = model.bert(uncond_input.input_ids.to(model.device))[0]
+#     uncond_input = model.tokenizer(
+#         [""] * batch_size, padding="max_length", max_length=77, return_tensors="pt"
+#     )
+#     uncond_embeddings = model.bert(uncond_input.input_ids.to(model.device))[0]
 
-    text_input = model.tokenizer(
-        prompt, padding="max_length", max_length=77, return_tensors="pt"
-    )
-    text_embeddings = model.bert(text_input.input_ids.to(model.device))[0]
-    latent, latents = init_latent(latent, model, height, width, generator, batch_size)
-    context = torch.cat([uncond_embeddings, text_embeddings])
+#     text_input = model.tokenizer(
+#         prompt, padding="max_length", max_length=77, return_tensors="pt"
+#     )
+#     text_embeddings = model.bert(text_input.input_ids.to(model.device))[0]
+#     latent, latents = init_latent(latent, model, height, width, generator, batch_size)
+#     context = torch.cat([uncond_embeddings, text_embeddings])
 
-    model.scheduler.set_timesteps(num_inference_steps)
-    for t in tqdm(model.scheduler.timesteps):
-        latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
+#     model.scheduler.set_timesteps(num_inference_steps)
+#     for t in tqdm(model.scheduler.timesteps):
+#         latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
 
-    image = latent2image(model.vqvae, latents)
+#     image = latent2image(model.vqvae, latents)
 
-    return image, latent
+#     return image, latent
 
 
-@torch.no_grad()
-def text2image_ldm_stable(
-    model,
-    prompt: List[str],
-    controller,
-    num_inference_steps: int = 50,
-    guidance_scale: float = 7.5,
-    generator: Optional[torch.Generator] = None,
-    latent: Optional[torch.FloatTensor] = None,
-    low_resource: bool = False,
-):
-    register_attention_control(model, controller)
-    height = width = 512
-    batch_size = len(prompt)
+# @torch.no_grad()
+# def text2image_ldm_stable(
+#     model,
+#     prompt: List[str],
+#     controller,
+#     num_inference_steps: int = 50,
+#     guidance_scale: float = 7.5,
+#     generator: Optional[torch.Generator] = None,
+#     latent: Optional[torch.FloatTensor] = None,
+#     low_resource: bool = False,
+# ):
+#     register_attention_control(model, controller)
+#     height = width = 512
+#     batch_size = len(prompt)
 
-    text_input = model.tokenizer(
-        prompt,
-        padding="max_length",
-        max_length=model.tokenizer.model_max_length,
-        truncation=True,
-        return_tensors="pt",
-    )
-    text_embeddings = model.text_encoder(text_input.input_ids.to(model.device))[0]
-    max_length = text_input.input_ids.shape[-1]
-    uncond_input = model.tokenizer(
-        [""] * batch_size,
-        padding="max_length",
-        max_length=max_length,
-        return_tensors="pt",
-    )
-    uncond_embeddings = model.text_encoder(uncond_input.input_ids.to(model.device))[0]
+#     text_input = model.tokenizer(
+#         prompt,
+#         padding="max_length",
+#         max_length=model.tokenizer.model_max_length,
+#         truncation=True,
+#         return_tensors="pt",
+#     )
+#     text_embeddings = model.text_encoder(text_input.input_ids.to(model.device))[0]
+#     max_length = text_input.input_ids.shape[-1]
+#     uncond_input = model.tokenizer(
+#         [""] * batch_size,
+#         padding="max_length",
+#         max_length=max_length,
+#         return_tensors="pt",
+#     )
+#     uncond_embeddings = model.text_encoder(uncond_input.input_ids.to(model.device))[0]
 
-    context = [uncond_embeddings, text_embeddings]
-    if not low_resource:
-        context = torch.cat(context)
-    latent, latents = init_latent(latent, model, height, width, generator, batch_size)
+#     context = [uncond_embeddings, text_embeddings]
+#     if not low_resource:
+#         context = torch.cat(context)
+#     latent, latents = init_latent(latent, model, height, width, generator, batch_size)
 
-    # set timesteps
-    # extra_set_kwargs = {"offset": 1}
-    extra_set_kwargs = {}
-    model.scheduler.set_timesteps(num_inference_steps, **extra_set_kwargs)
-    for t in tqdm(model.scheduler.timesteps):
-        latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
+#     # set timesteps
+#     # extra_set_kwargs = {"offset": 1}
+#     extra_set_kwargs = {}
+#     model.scheduler.set_timesteps(num_inference_steps, **extra_set_kwargs)
+#     for t in tqdm(model.scheduler.timesteps):
+#         latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
 
-    image = latent2image(model.vae, latents)
+#     image = latent2image(model.vae, latents)
 
-    return image, latent
+#     return image, latent
 
 
 def softmax_torch(x):  # Assuming x has atleast 2 dimensions
@@ -343,7 +343,7 @@ def softmax_torch(x):  # Assuming x has atleast 2 dimensions
     return probs
 
 
-def register_attention_control(model, controller):
+def register_attention_control(model, controller, feature_upsample_res=256):
     def ca_forward(self, place_in_unet):
         to_out = self.to_out
         if type(to_out) is torch.nn.modules.container.ModuleList:
@@ -390,11 +390,11 @@ def register_attention_control(model, controller):
                     int(sequence_length**0.5),
                     dim,
                 ).permute(0, 3, 1, 2)
-                # upsample to 256x256
+                # upsample to feature_upsample_res**2
                 x_reshaped = (
                     F.interpolate(
                         x_reshaped,
-                        size=(256, 256),
+                        size=(feature_upsample_res, feature_upsample_res),
                         mode="bicubic",
                         align_corners=False,
                     )

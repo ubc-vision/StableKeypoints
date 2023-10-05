@@ -97,6 +97,9 @@ parser.add_argument(
     "--num_tokens", type=int, default=100, help="number of tokens to optimize"
 )
 parser.add_argument(
+    "--feature_upsample_res", type=int, default=256, help="number of tokens to optimize"
+)
+parser.add_argument(
     "--batch_size", type=int, default=1, help="size of the batch for optimization"
 )
 parser.add_argument(
@@ -190,7 +193,7 @@ parser.add_argument("--top_k", type=int, default=10, help="number of points to c
 
 args = parser.parse_args()
 
-ldm, controllers, num_gpus = load_ldm(args.device, args.model_type)
+ldm, controllers, num_gpus = load_ldm(args.device, args.model_type, feature_upsample_res=args.feature_upsample_res)
 
 # if args.save_folder doesnt exist create it
 if not os.path.exists(args.save_folder):

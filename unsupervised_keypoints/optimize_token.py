@@ -34,7 +34,7 @@ def get_memory_free_MiB(gpu_index):
     return mem_info.free // 1024**2
 
 
-def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
+def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=256):
     scheduler = DDIMScheduler(
         beta_start=0.00085,
         beta_end=0.012,
@@ -65,7 +65,7 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4"):
     def hook_fn(module, input):
         device = input[0].device
         if device not in patched_devices:
-            ptp_utils.register_attention_control(module, controllers[device])
+            ptp_utils.register_attention_control(module, controllers[device], feature_upsample_res=feature_upsample_res)
             patched_devices.add(device)
 
     ldm.unet.module.register_forward_pre_hook(hook_fn)
