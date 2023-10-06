@@ -7,7 +7,7 @@ from unsupervised_keypoints import ptp_utils
 import torch.nn.functional as F
 from unsupervised_keypoints.celeba import CelebA
 from unsupervised_keypoints.cub import TestSet
-from unsupervised_keypoints.eval import run_image_with_tokens_augmented
+from unsupervised_keypoints.eval import run_image_with_context_augmented
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 
 from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
@@ -112,7 +112,8 @@ def visualize_attn_maps(
     save_folder="outputs",
     visualize=False,
     dataset_name = "celeba_aligned",
-    controller=None,
+    controllers=None,
+    num_gpus=1,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -136,11 +137,11 @@ def visualize_attn_maps(
         gt_kpts.append(_gt_kpts)
         imgs.append(img.cpu())
 
-        map = run_image_with_tokens_augmented(
+        map = run_image_with_context_augmented(
             ldm,
             img,
             context,
-            indices,
+            indices.cpu(),
             device=device,
             from_where=from_where,
             layers=layers,
@@ -150,8 +151,10 @@ def visualize_attn_maps(
             augment_translate=augment_translate,
             augment_shear=augment_shear,
             augmentation_iterations=augmentation_iterations,
-            visualize=visualize,
-            controller=controller,
+            visualize=(i==0),
+            controllers=controllers,
+            num_gpus=num_gpus,
+            save_folder=save_folder,
         )
 
         maps.append(map)

@@ -60,13 +60,13 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=
         controller = ptp_utils.AttentionStore()
         controllers[device] = controller
 
-    patched_devices = set()
+    # patched_devices = set()
 
     def hook_fn(module, input):
         device = input[0].device
-        if device not in patched_devices:
-            ptp_utils.register_attention_control(module, controllers[device], feature_upsample_res=feature_upsample_res)
-            patched_devices.add(device)
+        # if device not in patched_devices:
+        ptp_utils.register_attention_control(module, controllers[device], feature_upsample_res=feature_upsample_res)
+        # patched_devices.add(device)
 
     ldm.unet.module.register_forward_pre_hook(hook_fn)
     

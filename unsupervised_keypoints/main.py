@@ -231,11 +231,11 @@ if args.start_from_stage == "optimize":
         equivariance_features_loss_weight=args.equivariance_features_loss_weight,
         equivariance_attn_loss_weight=args.equivariance_attn_loss_weight,
         batch_size=args.batch_size,
-        num_gpus=num_gpus,
         dataset_name = args.dataset_name,
         max_len=args.max_len,
         min_dist=args.min_dist,
         controllers=controllers,
+        num_gpus=num_gpus,
     )
     torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 else:
@@ -262,6 +262,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         dataset_name = args.dataset_name,
         min_dist=args.min_dist,
         controllers=controllers,
+        num_gpus=num_gpus,
     )
     torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
     
@@ -286,6 +287,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         device=args.device,
         dataset_name = args.dataset_name,
         controllers=controllers,
+        num_gpus=num_gpus,
     )
 else:
     indices = (
@@ -312,6 +314,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         visualize=args.visualize,
         dataset_name = args.dataset_name,
         controllers=controllers,
+        num_gpus=num_gpus,
     )
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
@@ -371,6 +374,7 @@ visualize_attn_maps(
     device=args.device,
     dataset_name = args.dataset_name,
     controllers=controllers,
+    num_gpus=num_gpus,
 )
 
 evaluate(
@@ -396,4 +400,5 @@ evaluate(
     dataset_name = args.dataset_name,
     evaluation_method=args.evaluation_method,
     controllers=controllers,
+    num_gpus=num_gpus,
 )

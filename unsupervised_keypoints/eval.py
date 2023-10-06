@@ -343,10 +343,10 @@ def find_corresponding_points(maps, num_points=10):
 
 
 @torch.no_grad()
-def run_image_with_tokens_augmented(
+def run_image_with_context_augmented(
     ldm,
     image,
-    tokens,
+    context,
     indices,
     device="cuda",
     from_where=["down_cross", "mid_cross", "up_cross"],
@@ -358,7 +358,9 @@ def run_image_with_tokens_augmented(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     visualize=False,
-    controller=None,
+    controllers=None,
+    num_gpus=1,
+    save_folder="outputs",
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -383,12 +385,32 @@ def run_image_with_tokens_augmented(
 
     images = []
 
-    for i in range(augmentation_iterations):
+    for i in range(augmentation_iterations//num_gpus):
+        
+        
+        
         augmented_img = (
-            invertible_transform(torch.tensor(image).permute(2, 0, 1))
-            .permute(1, 2, 0)
+            invertible_transform(torch.tensor(image)[None].repeat(num_gpus, 1, 1, 1).permute(0, 3, 1, 2))
+            .permute(0, 2, 3, 1)
             .numpy()
         )
+        
+        attn_maps, _ = ptp_utils.run_and_find_attn(
+            ldm,
+            augmented_img,
+            context,
+            layers=layers,
+            noise_level=noise_level,
+            from_where=from_where,
+            upsample_res=512,
+            device=device,
+            controllers=controllers,
+            indices=indices.cpu(),
+        )
+        
+        # import ipdb; ipdb.set_trace()
+        
+        attn_maps = torch.stack([map.to("cuda:0") for map in attn_maps])
 
         # if i != 0:
         #     augmented_img = (
@@ -399,92 +421,92 @@ def run_image_with_tokens_augmented(
         # else:
         #     augmented_img = image
 
-        latents = ptp_utils.image2latent(ldm, augmented_img, device)
+        # latents = ptp_utils.image2latent(ldm, augmented_img, device)
 
-        latents = ldm.scheduler.add_noise(
-            latents, torch.rand_like(latents), ldm.scheduler.timesteps[noise_level]
-        )
+        # latents = ldm.scheduler.add_noise(
+        #     latents, torch.rand_like(latents), ldm.scheduler.timesteps[noise_level]
+        # )
 
-        latents = ptp_utils.diffusion_step(
-            ldm,
-            controller,
-            latents,
-            tokens,
-            ldm.scheduler.timesteps[noise_level],
-            cfg=False,
-        )
+        # latents = ptp_utils.diffusion_step(
+        #     ldm,
+        #     controller,
+        #     latents,
+        #     context,
+        #     ldm.scheduler.timesteps[noise_level],
+        #     cfg=False,
+        # )
 
-        _attention_maps, _ = optimize.collect_maps(
-            controller,
-            from_where=from_where,
-            upsample_res=512,
-            layers=layers,
-            indices=indices,
-        )
+        # _attention_maps, _ = optimize.collect_maps(
+        #     controller,
+        #     from_where=from_where,
+        #     upsample_res=512,
+        #     layers=layers,
+        #     indices=indices,
+        # )
+        
+        _num_samples = invertible_transform.inverse(torch.ones_like(attn_maps))
+        _sum_samples = invertible_transform.inverse(attn_maps)
 
-        num_samples += invertible_transform.inverse(torch.ones_like(num_samples))
-        sum_samples += invertible_transform.inverse(_attention_maps)
+        num_samples += _num_samples.sum(dim=0)
+        sum_samples += _sum_samples.sum(dim=0)
 
         if visualize:
-            axs[i, 0].imshow(augmented_img)
-            axs[i, 1].imshow(
-                invertible_transform.inverse(torch.ones_like(num_samples))[
-                    visualize_index, :, :
-                ].cpu()
-            )
-            axs[i, 2].imshow(_attention_maps[visualize_index, :, :].cpu())
-            axs[i, 3].imshow(
-                invertible_transform.inverse(_attention_maps)[
-                    visualize_index, :, :
-                ].cpu()
-            )
-            axs[i, 4].imshow(
-                (
-                    _attention_maps[visualize_index, :, :, None]
-                    / _attention_maps[visualize_index, :, :, None].max()
-                ).cpu()
-                * 0.8
-                + augmented_img * 0.2
-            )
-            diff = torch.abs(
-                torch.mean(
-                    invertible_transform.inverse(
-                        torch.tensor(augmented_img).permute(2, 0, 1)
+            inverse_img = invertible_transform.inverse(
+                torch.tensor(augmented_img).permute(0, 3, 1, 2)
+            ).permute(0, 2, 3, 1)
+            for j in range(num_gpus):
+                index = i*num_gpus+j
+                axs[index, 0].imshow(augmented_img[j])
+                axs[index, 1].imshow(
+                    _num_samples[
+                        j, visualize_index, :, :
+                    ].cpu()
+                )
+                axs[index, 2].imshow(attn_maps[j, visualize_index, :, :].cpu())
+                axs[index, 3].imshow(
+                    _sum_samples[
+                        j, visualize_index, :, :
+                    ].cpu()
+                )
+                axs[index, 4].imshow(
+                    (
+                        attn_maps[j, visualize_index, :, :, None]
+                        / attn_maps[j, visualize_index, :, :, None].max()
+                    ).cpu()
+                    * 0.8
+                    + augmented_img[j] * 0.2
+                )
+                diff = torch.abs(
+                    torch.mean(
+                        inverse_img[j]
+                        .to(device)
+                        - torch.tensor(image).to(device),
+                        dim=-1,
                     )
-                    .permute(1, 2, 0)
+                )
+                mask = _num_samples[
+                    j, 0, None, None
+                ].to(device)
+                kernel = (
+                    torch.tensor([[1, 1, 1], [1, 1, 1], [1, 1, 1]], dtype=torch.float32)
+                    .reshape(1, 1, 3, 3)
                     .to(device)
-                    - torch.tensor(image).to(device),
-                    dim=-1,
                 )
-            )
-            mask = invertible_transform.inverse(torch.ones_like(num_samples))[
-                0, None, None
-            ].to(device)
-            kernel = (
-                torch.tensor([[1, 1, 1], [1, 1, 1], [1, 1, 1]], dtype=torch.float32)
-                .reshape(1, 1, 3, 3)
-                .to(device)
-            )
-            mask = F.conv2d(mask, kernel, padding=1)
-            mask = (mask == 9).float()
+                mask = F.conv2d(mask, kernel, padding=1)
+                mask = (mask == 9).float()
 
-            diff *= mask[0, 0]
-            diff = diff / diff.max()
-            axs[i, 5].imshow((diff)[:, :, None].cpu())
-            axs[i, 6].imshow(
-                invertible_transform.inverse(
-                    torch.tensor(augmented_img).permute(2, 0, 1)
+                diff *= mask[0, 0]
+                diff = diff / diff.max()
+                axs[index, 5].imshow((diff)[:, :, None].cpu())
+                axs[index, 6].imshow(
+                    inverse_img[j]
+                    .cpu()
                 )
-                .permute(1, 2, 0)
-                .cpu()
-            )
-            axs[i, 7].imshow(torch.tensor(image).cpu())
+                axs[index, 7].imshow(torch.tensor(image).cpu())
 
-            images.append(
-                invertible_transform.inverse(
-                    torch.tensor(augmented_img).permute(2, 0, 1)
+                images.append(
+                    inverse_img[j]
                 )
-            )
 
     # visualize sum_samples/num_samples
     attention_maps = sum_samples / num_samples
@@ -493,14 +515,15 @@ def run_image_with_tokens_augmented(
     attention_maps[attention_maps != attention_maps] = 0
 
     if visualize:
+        # import ipdb; ipdb.set_trace()
         re_overlayed_image = torch.sum(torch.stack(images), dim=0).to(device)
-        re_overlayed_image /= num_samples[0, None]
+        re_overlayed_image /= num_samples[0, :, :, None]
         re_overlayed_image[re_overlayed_image != re_overlayed_image] = 0
 
         axs[-1, 0].imshow(image)
         axs[-1, 1].imshow(sum_samples[visualize_index].cpu())
         axs[-1, 2].imshow(attention_maps[visualize_index].cpu())
-        axs[-1, 3].imshow(re_overlayed_image.cpu().permute(1, 2, 0))
+        axs[-1, 3].imshow(re_overlayed_image.cpu())
         axs[-1, 4].imshow(
             (
                 attention_maps[visualize_index, :, :, None]
@@ -512,7 +535,7 @@ def run_image_with_tokens_augmented(
 
         # set the resolution of the plot to 512x512
         fig.set_size_inches(4096 / 100, 4096 / 100)
-        plt.savefig("augmentation.png")
+        plt.savefig(os.path.join(save_folder, "augmentation.png"))
 
     return attention_maps
 
@@ -542,7 +565,8 @@ def evaluate(
     visualize=False,
     dataset_name = "celeba_aligned",
     evaluation_method="inter_eye_distance",
-    controller=None,
+    controllers=None,
+    num_gpus=1,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -568,7 +592,7 @@ def evaluate(
 
         img = batch["img"]
 
-        attention_maps = run_image_with_tokens_augmented(
+        attention_maps = run_image_with_context_augmented(
             ldm,
             img,
             context,
@@ -582,7 +606,8 @@ def evaluate(
             augment_scale=augment_scale,
             augment_translate=augment_translate,
             augment_shear=augment_shear,
-            controller=controller,
+            controllers=controllers,
+            num_gpus=num_gpus,
             # visualize=True,
         )
         highest_indices = find_max_pixel(attention_maps)

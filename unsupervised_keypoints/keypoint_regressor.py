@@ -11,7 +11,7 @@ from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 from unsupervised_keypoints.optimize import collect_maps
 from unsupervised_keypoints.eval import (
     find_corresponding_points,
-    run_image_with_tokens_augmented,
+    run_image_with_context_augmented,
     # progressively_zoom_into_image,
 )
 
@@ -56,7 +56,8 @@ def find_best_indices(
     cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     dataset_name = "celeba_aligned",
     min_dist = 0.05,
-    controller=None,
+    controllers=None,
+    num_gpus=1,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -77,8 +78,16 @@ def find_best_indices(
     maps = []
     indices_list = []
 
-    for _ in tqdm(range(num_steps)):
-        mini_batch = dataset[np.random.randint(len(dataset))]
+    # create dataloader for the dataset
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True)
+
+    for _ in tqdm(range(num_steps//num_gpus)):
+
+        try:
+            mini_batch = next(dataloader_iter)
+        except:
+            dataloader_iter = iter(dataloader)
+            mini_batch = next(dataloader_iter)
 
         image = mini_batch["img"]
 
@@ -93,15 +102,17 @@ def find_best_indices(
             noise_level=noise_level,
             from_where=from_where,
             upsample_res=upsample_res,
-            controller=controller,
+            controllers=controllers,
         )
         
-        _indices = ptp_utils.find_top_k(attention_maps, top_k, min_dist=min_dist)
+        for attention_map in attention_maps:
         
-        indices_list.append(_indices)
-
+            _indices = ptp_utils.find_top_k(attention_map, top_k, min_dist=min_dist)
+        
+            indices_list.append(_indices)
+    
     # find the top_k most common indices
-    indices_list = torch.stack(indices_list)
+    indices_list = torch.stack([index.to('cuda:0') for index in indices_list])
     indices_list = indices_list.reshape(-1)
     indices, counts = torch.unique(indices_list, return_counts=True)
     indices = indices[counts.argsort(descending=True)]
@@ -238,7 +249,8 @@ def precompute_all_keypoints(
     cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
     visualize=False,
     dataset_name = "celeba_aligned",
-    controller=None,
+    controllers=None,
+    num_gpus=1,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
@@ -265,7 +277,7 @@ def precompute_all_keypoints(
         if type(image) == torch.Tensor:
             image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-        attention_maps = run_image_with_tokens_augmented(
+        attention_maps = run_image_with_context_augmented(
             ldm,
             image,
             context,
@@ -279,7 +291,8 @@ def precompute_all_keypoints(
             augment_scale=augment_scale,
             augment_translate=augment_translate,
             augment_shear=augment_shear,
-            controller=controller,
+            controllers=controllers,
+            num_gpus=num_gpus,
         )
         highest_indices = find_max_pixel(attention_maps)
         highest_indices = highest_indices / 512.0

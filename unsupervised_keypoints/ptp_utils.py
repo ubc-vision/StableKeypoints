@@ -168,11 +168,9 @@ def run_and_find_attn(
 
     _ = diffusion_step(
         ldm,
-        controllers,
         noisy_image,
         context,
         ldm.scheduler.timesteps[noise_level],
-        cfg=False,
     )
     
     attention_maps=[]
@@ -211,19 +209,9 @@ def image2latent(model, image, device):
 
 
 def diffusion_step(
-    model, controller, latents, context, t, guidance_scale=None, cfg=True
+    model, latents, context, t
 ):
-    if cfg:
-        latents_input = torch.cat([latents] * 2)
-        noise_pred = model.unet(latents_input, t, encoder_hidden_states=context)[
-            "sample"
-        ]
-        noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
-        noise_pred = noise_pred_uncond + guidance_scale * (
-            noise_prediction_text - noise_pred_uncond
-        )
-    else:
-        noise_pred = model.unet(latents, t.repeat(latents.shape[0]), context)["sample"]
+    noise_pred = model.unet(latents, t.repeat(latents.shape[0]), context.repeat(latents.shape[0], 1, 1))["sample"]
 
     # latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     # latents = controller.step_callback(latents)
@@ -433,7 +421,6 @@ def register_attention_control(model, controller, feature_upsample_res=256):
     def register_recr(net_, count, place_in_unet):
         if net_.__class__.__name__ == "CrossAttention":
             net_.forward = ca_forward(net_, place_in_unet)
-            print(count)
             return count + 1
         elif hasattr(net_, "children"):
             for net__ in net_.children():
