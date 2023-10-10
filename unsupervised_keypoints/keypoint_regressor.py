@@ -79,13 +79,15 @@ def find_best_indices(
     indices_list = []
 
     # create dataloader for the dataset
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True, drop_last=True)
+
+    dataloader_iter = iter(dataloader)
 
     for _ in tqdm(range(num_steps//num_gpus)):
 
         try:
             mini_batch = next(dataloader_iter)
-        except:
+        except StopIteration:  # Explicitly catch StopIteration
             dataloader_iter = iter(dataloader)
             mini_batch = next(dataloader_iter)
 
@@ -109,10 +111,10 @@ def find_best_indices(
         
             _indices = ptp_utils.find_top_k(attention_map, top_k, min_dist=min_dist)
         
-            indices_list.append(_indices)
+            indices_list.append(_indices.cpu())
     
     # find the top_k most common indices
-    indices_list = torch.stack([index.to('cuda:0') for index in indices_list])
+    indices_list = torch.stack([index for index in indices_list])
     indices_list = indices_list.reshape(-1)
     indices, counts = torch.unique(indices_list, return_counts=True)
     indices = indices[counts.argsort(descending=True)]
