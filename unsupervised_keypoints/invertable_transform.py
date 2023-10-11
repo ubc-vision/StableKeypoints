@@ -296,11 +296,11 @@ class RandomAffineWithInverse:
             theta = []
             for i in range(img_tensor.shape[0]):
                 # Calculate random parameters
-                angle = random.uniform(-self.degrees, self.degrees)
-                scale_factor = random.uniform(self.scale[0], self.scale[1])
+                angle = torch.rand(1).item() * (2 * self.degrees) - self.degrees
+                scale_factor = torch.rand(1).item() * (self.scale[1] - self.scale[0]) + self.scale[0]
                 translations_percent = (
-                    random.uniform(-self.translate[0], self.translate[0]),
-                    random.uniform(-self.translate[1], self.translate[1]),
+                    torch.rand(1).item() * (2 * self.translate[0]) - self.translate[0],
+                    torch.rand(1).item() * (2 * self.translate[1]) - self.translate[1],
                     # 1.0,
                     # 1.0,
                 )

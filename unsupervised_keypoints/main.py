@@ -32,22 +32,10 @@ parser.add_argument(
 )
 # Dataset details
 parser.add_argument(
-    "--cub_loc",
-    type=str,
-    default="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
-    help="Path to celeba dataset",
-)
-parser.add_argument(
-    "--celeba_loc",
+    "--dataset_loc",
     type=str,
     default="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     help="Path to celeba dataset",
-)
-parser.add_argument(
-    "--mafl_loc",
-    type=str,
-    default="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    help="Path to mafl train test split",
 )
 parser.add_argument(
     "--save_folder",
@@ -64,7 +52,7 @@ parser.add_argument(
 parser.add_argument(
     "--dataset_name",
     # set the choices to be "mafl" and "celeba_aligned"
-    choices=["celeba_aligned", "celeba_wild", "cub"],
+    choices=["celeba_aligned", "celeba_wild", "cub", "taichi"],
     type=str,
     default="celeba_aligned",
     help="name of the dataset to use",
@@ -94,10 +82,10 @@ parser.add_argument(
     "--num_steps", type=int, default=1e4, help="number of steps to optimize"
 )
 parser.add_argument(
-    "--num_tokens", type=int, default=100, help="number of tokens to optimize"
+    "--num_tokens", type=int, default=300, help="number of tokens to optimize"
 )
 parser.add_argument(
-    "--feature_upsample_res", type=int, default=256, help="number of tokens to optimize"
+    "--feature_upsample_res", type=int, default=128, help="number of tokens to optimize"
 )
 parser.add_argument(
     "--batch_size", type=int, default=1, help="size of the batch for optimization"
@@ -113,7 +101,7 @@ parser.add_argument(
     "--evaluation_method",
     type=str,
     default="inter_eye_distance",
-    choices=["inter_eye_distance", "visible"],
+    choices=["inter_eye_distance", "visible", "mean_average_error"],
     help="strategy for evaluation",
 )
 parser.add_argument(
@@ -125,19 +113,19 @@ parser.add_argument(
 parser.add_argument(
     "--sharpening_loss_weight",
     type=float,
-    default=1000,
+    default=100,
     help="Weight of the sharpening loss",
 )
 parser.add_argument(
     "--equivariance_features_loss_weight",
     type=float,
-    default=1.0,
+    default=0.0,
     help="Weight of the old equivariance loss",
 )
 parser.add_argument(
     "--equivariance_attn_loss_weight",
     type=float,
-    default=10000.0,
+    default=1000.0,
     help="Weight of the old equivariance loss",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[0, 1, 2, 3])
@@ -223,9 +211,7 @@ if args.start_from_stage == "optimize":
         augment_scale=args.augment_scale,
         augment_translate=args.augment_translate,
         augment_shear=args.augment_shear,
-        mafl_loc=args.mafl_loc,
-        celeba_loc=args.celeba_loc,
-        cub_loc=args.cub_loc,
+        dataset_loc=args.dataset_loc,
         sigma=args.sigma,
         sharpening_loss_weight=args.sharpening_loss_weight,
         equivariance_features_loss_weight=args.equivariance_features_loss_weight,
@@ -256,9 +242,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         augment_scale=args.augment_scale,
         augment_translate=args.augment_translate,
         augment_shear=args.augment_shear,
-        mafl_loc=args.mafl_loc,
-        celeba_loc=args.celeba_loc,
-        cub_loc=args.cub_loc,
+        dataset_loc=args.dataset_loc,
         dataset_name = args.dataset_name,
         min_dist=args.min_dist,
         controllers=controllers,
@@ -279,9 +263,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         augment_translate=args.augment_translate,
         augment_shear=args.augment_shear,
         augmentation_iterations=args.augmentation_iterations,
-        mafl_loc=args.mafl_loc,
-        celeba_loc=args.celeba_loc,
-        cub_loc=args.cub_loc,
+        dataset_loc=args.dataset_loc,
         save_folder=args.save_folder,
         visualize=args.visualize,
         device=args.device,
@@ -308,9 +290,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         augment_translate=args.augment_translate,
         augment_shear=args.augment_shear,
         augmentation_iterations=args.augmentation_iterations,
-        mafl_loc=args.mafl_loc,
-        celeba_loc=args.celeba_loc,
-        cub_loc=args.cub_loc,
+        dataset_loc=args.dataset_loc,
         visualize=args.visualize,
         dataset_name = args.dataset_name,
         controllers=controllers,
@@ -367,9 +347,7 @@ visualize_attn_maps(
     augment_scale=args.augment_scale,
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
-    mafl_loc=args.mafl_loc,
-    celeba_loc=args.celeba_loc,
-    cub_loc=args.cub_loc,
+    dataset_loc=args.dataset_loc,
     save_folder=args.save_folder,
     device=args.device,
     dataset_name = args.dataset_name,
@@ -390,9 +368,7 @@ evaluate(
     augment_translate=args.augment_translate,
     augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
-    mafl_loc=args.mafl_loc,
-    celeba_loc=args.celeba_loc,
-    cub_loc=args.cub_loc,
+    dataset_loc=args.dataset_loc,
     save_folder=args.save_folder,
     device=args.device,
     wandb_log=args.wandb,

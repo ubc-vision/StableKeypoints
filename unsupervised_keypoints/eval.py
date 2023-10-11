@@ -7,7 +7,8 @@ from queue import PriorityQueue
 import torch.nn.functional as F
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
-from unsupervised_keypoints.cub import TestSet
+from unsupervised_keypoints import cub
+from unsupervised_keypoints import taichi
 from unsupervised_keypoints.invertable_transform import (
     RandomAffineWithInverse,
     return_theta,
@@ -557,9 +558,7 @@ def evaluate(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
-    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
-    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
+    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     save_folder="outputs",
     wandb_log=False,
     visualize=False,
@@ -569,11 +568,13 @@ def evaluate(
     num_gpus=1,
 ):
     if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+        dataset = CelebA(split="test", dataset_loc=dataset_loc)
     elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+        dataset = CelebA(split="test", dataset_loc=dataset_loc, align = False)
     elif dataset_name == "cub":
-        dataset = TestSet(data_root=cub_loc, image_size=512)
+        dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "taichi":
+        dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -619,7 +620,10 @@ def evaluate(
         estimated_kpts = estimated_kpts.view(-1, 2)
 
         gt_kpts = batch["kpts"].cuda()
-
+        
+        if evaluation_method == "mean_average_error":
+            estimated_kpts *= 256
+            gt_kpts *= 256
 
         # get l2 distance between estimated and gt kpts
         l2 = (estimated_kpts - gt_kpts).norm(dim=-1)
@@ -632,10 +636,13 @@ def evaluate(
             
             l2_mean = torch.mean(l2)
             
-        if evaluation_method == "visible":
+        if evaluation_method == "visible" or evaluation_method == "mean_average_error":
             visible = batch['visibility'].to(device)
             
-            l2_mean = (l2*visible).sum()/visible.sum()
+            l2_mean = (l2*visible).sum()
+            
+        if evaluation_method == "visible":
+            l2_mean /= visible.sum()
 
 
         

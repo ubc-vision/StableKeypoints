@@ -1,15 +1,10 @@
 import os
 import torch
-import random
 import numpy as np
-import pandas as pd
-from glob import glob
 from PIL import Image
 
 # from unsupervised_keypoints.custom_transform import CustomTransform
-import torchvision.transforms as transforms
-from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import functional as F
+from torch.utils.data import Dataset
 
 
 class CelebA(Dataset):
@@ -22,22 +17,21 @@ class CelebA(Dataset):
         max_len=-1,
         split="train",
         align=True,
-        mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-        celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+        dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
         iou_threshold= 0.3,
     ):
-        self.celeba_loc = celeba_loc
-        self.mafl_loc = mafl_loc
+        self.dataset_loc = dataset_loc
+        self.mafl_loc = os.path.join(dataset_loc, "MAFL")
         
         self.max_len = max_len
 
         if align:
             landmark_loc = os.path.join(
-                self.celeba_loc, "Anno", "list_landmarks_align_celeba.txt"
+                self.dataset_loc, "Anno", "list_landmarks_align_celeba.txt"
             )
         else:
             landmark_loc = os.path.join(
-                self.celeba_loc, "Anno", "list_landmarks_celeba.txt"
+                self.dataset_loc, "Anno", "list_landmarks_celeba.txt"
             )
 
         # load the .txt file
@@ -59,7 +53,7 @@ class CelebA(Dataset):
         # filter file_names to only include images where the bounding box covers a certain threshold of the image
         if not align:
             
-            bboxes= open(os.path.join(self.celeba_loc, "Anno", "list_bbox_celeba.txt"), "r")
+            bboxes= open(os.path.join(self.dataset_loc, "Anno", "list_bbox_celeba.txt"), "r")
             bboxes = bboxes.readlines()[2:]
             
             indices_to_remove = []
@@ -80,16 +74,6 @@ class CelebA(Dataset):
                 self.file_names.pop(i)
                     
 
-
-        self.transform = transforms.Compose(
-            [
-                transforms.RandomAffine(
-                    degrees=30,  # Random rotation between -30 and 30 degrees
-                    scale=(1.0, 1.1),  # Random scaling between 1.0 and 1.2
-                    translate=(0.1, 0.1),  # Random translation by 10% of the image size
-                ),
-            ]
-        )
 
     def __len__(self):
         if self.max_len != -1:
@@ -161,10 +145,10 @@ class CelebA(Dataset):
 
         if self.align:
             return os.path.join(
-                self.celeba_loc, "Img", "img_align_celeba_png", img_name
+                self.dataset_loc, "Img", "img_align_celeba_png", img_name
             )
         else:
-            return os.path.join(self.celeba_loc, "Img", "img_celeba", img_name)
+            return os.path.join(self.dataset_loc, "Img", "img_celeba", img_name)
 
 
 if __name__ == "__main__":
