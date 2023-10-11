@@ -28,6 +28,7 @@ def collect_maps(
     upsample_res=512,
     layers=[0, 1, 2, 3],
     indices=None,
+    num_features_per_layer=10,
 ):
     """
     returns the bilinearly upsampled attention map of size upsample_res x upsample_res for the first word in the prompt
@@ -76,7 +77,7 @@ def collect_maps(
     attention_maps_list = torch.stack(attention_maps_list, dim=0).mean(dim=(0, 1))
     
     # to save memory
-    features_list = [x[:, :100] for x in features_list]
+    features_list = [x[:, :num_features_per_layer] for x in features_list]
     features_list = torch.cat(features_list, dim=1)[0]
 
     controller.reset()
@@ -159,9 +160,9 @@ def find_pos_from_index(attn_map):
     return pos
 
 
-def equivariance_loss(embeddings_initial, embeddings_transformed, transform):
+def equivariance_loss(embeddings_initial, embeddings_transformed, transform, index):
     # untransform the embeddings_transformed
-    embeddings_initial_prime = transform.inverse(embeddings_transformed)
+    embeddings_initial_prime = transform.inverse(embeddings_transformed)[index]
 
     loss = F.mse_loss(embeddings_initial, embeddings_initial_prime)
 
@@ -456,16 +457,15 @@ def optimize_embedding(
     running_total_loss = 0
     
     # create dataloader for the dataset
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True)
-    
-    
-    
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True, drop_last=True)
 
-    for iteration in tqdm(range(int(num_steps/num_gpus))):
+    dataloader_iter = iter(dataloader)
+    
+    for iteration in tqdm(range(int(num_steps*(batch_size//num_gpus)))):
         
         try:
             mini_batch = next(dataloader_iter)
-        except:
+        except StopIteration:  # Explicitly catch StopIteration
             dataloader_iter = iter(dataloader)
             mini_batch = next(dataloader_iter)
 
@@ -478,7 +478,7 @@ def optimize_embedding(
             layers=layers,
             noise_level=noise_level,
             from_where=from_where,
-            upsample_res=upsample_res,
+            upsample_res=-1,
             device=device,
             controllers=controllers,
         )
@@ -492,7 +492,7 @@ def optimize_embedding(
             layers=layers,
             noise_level=noise_level,
             from_where=from_where,
-            upsample_res=upsample_res,
+            upsample_res=-1,
             device=device,
             controllers=controllers,
         )
@@ -501,7 +501,7 @@ def optimize_embedding(
         _loss_equivariance_features = []
         _loss_equivariance_attn = []
         
-        for attn_map, feature_map, attention_map_transformed, feature_map_transformed in zip(attn_maps, feature_maps, attention_maps_transformed, feature_maps_transformed):
+        for index, attn_map, feature_map, attention_map_transformed, feature_map_transformed in zip(torch.arange(num_gpus), attn_maps, feature_maps, attention_maps_transformed, feature_maps_transformed):
 
             if top_k_strategy == "entropy":
                 top_embedding_indices = ptp_utils.find_top_k(
@@ -514,10 +514,10 @@ def optimize_embedding(
             _sharpening_loss.append(sharpening_loss(attn_map[top_embedding_indices], device=device, sigma=sigma))
 
             _loss_equivariance_features.append(equivariance_loss(
-                feature_map[None], feature_map_transformed[None], invertible_transform
+                feature_map, feature_map_transformed[None].repeat(num_gpus, 1, 1, 1), invertible_transform, index
             ))
             _loss_equivariance_attn.append(equivariance_loss(
-                attn_map[top_embedding_indices][None], attention_map_transformed[top_embedding_indices][None], invertible_transform
+                attn_map[top_embedding_indices], attention_map_transformed[top_embedding_indices][None].repeat(num_gpus, 1, 1, 1), invertible_transform, index
             ))
         
         _sharpening_loss = torch.stack([loss.to('cuda:0') for loss in _sharpening_loss]).mean()
@@ -535,17 +535,17 @@ def optimize_embedding(
             # + _ddpm_loss * ddpm_loss_weight
         )
 
-        running_equivariance_features_loss += _loss_equivariance_features / int(batch_size/num_gpus)
-        running_equivariance_attn_loss += _loss_equivariance_attn / int(batch_size/num_gpus)
-        running_sharpening_loss += _sharpening_loss / int(batch_size/num_gpus)
-        # running_spreading_loss += _spreading_loss / int(batch_size/num_gpus)
-        # running_ddpm_loss += _ddpm_loss / int(batch_size/num_gpus)
-        running_total_loss += loss / int(batch_size/num_gpus)
+        running_equivariance_features_loss += _loss_equivariance_features / (batch_size//num_gpus)
+        running_equivariance_attn_loss += _loss_equivariance_attn / (batch_size//num_gpus)
+        running_sharpening_loss += _sharpening_loss / (batch_size//num_gpus)
+        # running_spreading_loss += _spreading_loss / (batch_size//num_gpus)
+        # running_ddpm_loss += _ddpm_loss / (batch_size//num_gpus)
+        running_total_loss += loss / (batch_size//num_gpus)
 
-        loss = loss / int(batch_size/num_gpus)
+        loss = loss / (batch_size//num_gpus)
 
         loss.backward()
-        if (iteration + 1) % int(batch_size/num_gpus) == 0:
+        if (iteration + 1) % (batch_size//num_gpus) == 0:
             optimizer.step()
             optimizer.zero_grad()
 
@@ -579,5 +579,5 @@ def optimize_embedding(
 
     print(f"optimization took {time.time() - start} seconds")
 
-    return context
+    return context.detach()
 
