@@ -93,8 +93,8 @@ parser.add_argument(
 parser.add_argument(
     "--top_k_strategy",
     type=str,
-    default="entropy",
-    choices=["entropy", "consistent"],
+    default="gaussian",
+    choices=["entropy", "gaussian", "consistent"],
     help="strategy for choosing top k tokens",
 )
 parser.add_argument(
@@ -254,6 +254,8 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         min_dist=args.min_dist,
         controllers=controllers,
         num_gpus=num_gpus,
+        top_k_strategy=args.top_k_strategy,
+        sigma = args.sigma,
     )
     torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
     

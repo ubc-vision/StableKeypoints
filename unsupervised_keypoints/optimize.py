@@ -510,6 +510,10 @@ def optimize_embedding(
                 top_embedding_indices = ptp_utils.find_top_k(
                     attn_map, top_k, min_dist = min_dist,
                 )
+            elif top_k_strategy == "gaussian":
+                top_embedding_indices = ptp_utils.find_top_k_gaussian(
+                    attn_map, top_k, min_dist = min_dist, sigma=sigma,
+                )
             elif top_k_strategy == "consistent":
                 top_embedding_indices = torch.arange(top_k)
 

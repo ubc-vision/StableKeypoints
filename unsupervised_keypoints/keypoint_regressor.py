@@ -57,6 +57,8 @@ def find_best_indices(
     min_dist = 0.05,
     controllers=None,
     num_gpus=1,
+    top_k_strategy = "entropy",
+    sigma = 3,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
@@ -111,9 +113,18 @@ def find_best_indices(
         
         for attention_map in attention_maps:
         
-            _indices = ptp_utils.find_top_k(attention_map, top_k, min_dist=min_dist)
+            if top_k_strategy == "entropy":
+                top_embedding_indices = ptp_utils.find_top_k(
+                    attention_map, top_k, min_dist = min_dist,
+                )
+            elif top_k_strategy == "gaussian":
+                top_embedding_indices = ptp_utils.find_top_k_gaussian(
+                    attention_map, top_k, min_dist = min_dist, sigma=sigma,
+                )
+            elif top_k_strategy == "consistent":
+                top_embedding_indices = torch.arange(top_k)
         
-            indices_list.append(_indices.cpu())
+            indices_list.append(top_embedding_indices.cpu())
     
     # find the top_k most common indices
     indices_list = torch.stack([index for index in indices_list])

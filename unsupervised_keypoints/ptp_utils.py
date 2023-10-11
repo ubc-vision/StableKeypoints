@@ -20,6 +20,7 @@ from tqdm.notebook import tqdm
 import torch.nn.functional as F
 import abc
 from unsupervised_keypoints.eval import find_max_pixel
+from unsupervised_keypoints import optimize_token
 
 from PIL import Image
 
@@ -81,6 +82,59 @@ class AttentionStore(AttentionControl):
         super(AttentionStore, self).__init__()
         self.step_store = self.get_empty_store()
 
+
+def find_top_k_gaussian(attention_maps, top_k, min_dist=0.05, sigma = 3, epsilon = 1e-5):
+    """
+    attention_maps is of shape [batch_size, image_h, image_w]
+    
+    min_dist set to 0 becomes a simple top_k
+    """
+    
+    
+    
+    device = attention_maps.device
+
+    batch_size, image_h, image_w = attention_maps.shape
+
+    max_pixel_locations = find_max_pixel(attention_maps)/image_h
+
+    # Normalize the activation maps to represent probability distributions
+    attention_maps_softmax = torch.softmax(attention_maps.view(batch_size, image_h * image_w)+epsilon, dim=-1)
+
+    target = optimize_token.gaussian_circle(
+        max_pixel_locations, size=image_h, sigma=sigma, device=attention_maps.device
+    )  # Assuming H and W are the same
+    
+    target = target.reshape(batch_size, image_h * image_w)+epsilon
+    target/=target.sum(dim=-1, keepdim=True)
+
+    # sort the kl distances between attention_maps_softmax and target
+    kl_distances = torch.sum(target * (torch.log(target) - torch.log(attention_maps_softmax)), dim=-1)
+    # get the argsort for kl_distances
+    kl_distances_argsort = torch.argsort(kl_distances, dim=-1, descending=False)
+    
+    
+    selected_indices = [kl_distances_argsort[0]]
+    
+    this_index = 1
+    
+    while len(selected_indices) < top_k:
+            
+        # get the current index
+        this_entropy_index = kl_distances_argsort[this_index]
+        
+        # get the location of the current index
+        this_entropy_index_location = max_pixel_locations[this_entropy_index]
+        
+        # check if the location is far enough away from the other selected indices
+        if torch.all(torch.sqrt(torch.sum((this_entropy_index_location - torch.index_select(max_pixel_locations, 0, torch.tensor(selected_indices).to(device)))**2, dim=-1)) > min_dist):
+            selected_indices.append(this_entropy_index.item())
+        
+        this_index += 1
+        
+        # assert this_index < batch_size, "Not enough unique indices found"
+
+    return torch.tensor(selected_indices).to(device)
 
 def find_top_k(attention_maps, top_k, min_dist=0.05):
     """
