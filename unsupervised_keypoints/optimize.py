@@ -27,7 +27,7 @@ def collect_maps(
     upsample_res=512,
     layers=[0, 1, 2, 3],
     indices=None,
-    num_features_per_layer=10,
+    num_features_per_layer=100,
 ):
     """
     returns the bilinearly upsampled attention map of size upsample_res x upsample_res for the first word in the prompt
