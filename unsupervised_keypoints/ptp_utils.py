@@ -154,6 +154,7 @@ def run_and_find_attn(
     upsample_res=32,
     indices=None,
     controllers=None,
+    num_features_per_layer=100,
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -184,6 +185,7 @@ def run_and_find_attn(
             upsample_res=upsample_res,
             layers=layers,
             indices=indices,
+            num_features_per_layer=num_features_per_layer,
         )
         attention_maps.append(_attention_maps)
         feature_maps.append(_feature_maps)

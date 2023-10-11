@@ -414,6 +414,7 @@ def optimize_embedding(
     max_len=-1,
     min_dist=0.05,
     controllers=None,
+    num_features_per_layer=100,
 ):
     
     if dataset_name == "celeba_aligned":
@@ -481,6 +482,7 @@ def optimize_embedding(
             upsample_res=-1,
             device=device,
             controllers=controllers,
+            num_features_per_layer=num_features_per_layer,
         )
 
         transformed_img = invertible_transform(image)
@@ -495,6 +497,7 @@ def optimize_embedding(
             upsample_res=-1,
             device=device,
             controllers=controllers,
+            num_features_per_layer=num_features_per_layer,
         )
         
         _sharpening_loss = []

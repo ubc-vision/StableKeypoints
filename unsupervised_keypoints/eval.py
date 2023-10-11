@@ -407,6 +407,7 @@ def run_image_with_context_augmented(
             device=device,
             controllers=controllers,
             indices=indices.cpu(),
+            num_features_per_layer=0,
         )
         
         # import ipdb; ipdb.set_trace()

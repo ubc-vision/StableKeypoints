@@ -153,6 +153,12 @@ parser.add_argument(
     help="scale factor for augmentation",
 )
 parser.add_argument(
+    "--num_features_per_layer",
+    type=int,
+    default=100,
+    help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
+)
+parser.add_argument(
     "--augment_translate",
     type=float,
     nargs="+",
@@ -222,6 +228,7 @@ if args.start_from_stage == "optimize":
         min_dist=args.min_dist,
         controllers=controllers,
         num_gpus=num_gpus,
+        num_features_per_layer=args.num_features_per_layer,
     )
     torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 else:
@@ -314,7 +321,7 @@ else:
         args.device
     )
 
-if args.evaluation_method == "visible":
+if args.evaluation_method == "visible" or args.evaluation_method == "mean_average_error":
     visible_reshaped = visible.unsqueeze(-1).repeat(1, 1, 2).reshape(visible.shape[0], visible.shape[1] * 2)
 
     regressor = return_regressor_visible( 

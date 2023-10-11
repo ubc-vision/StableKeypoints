@@ -106,6 +106,7 @@ def find_best_indices(
             from_where=from_where,
             upsample_res=upsample_res,
             controllers=controllers,
+            num_features_per_layer=0,
         )
         
         for attention_map in attention_maps:
