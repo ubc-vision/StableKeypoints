@@ -6,7 +6,8 @@ from tqdm import tqdm
 from unsupervised_keypoints import ptp_utils
 import torch.nn.functional as F
 from unsupervised_keypoints.celeba import CelebA
-from unsupervised_keypoints.cub import TestSet
+from unsupervised_keypoints import cub
+from unsupervised_keypoints import taichi
 from unsupervised_keypoints.eval import run_image_with_context_augmented
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 
@@ -106,9 +107,7 @@ def visualize_attn_maps(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
-    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
-    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
+    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     save_folder="outputs",
     visualize=False,
     dataset_name = "celeba_aligned",
@@ -116,11 +115,13 @@ def visualize_attn_maps(
     num_gpus=1,
 ):
     if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+        dataset = CelebA(split="test", dataset_loc=dataset_loc)
     elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="test", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+        dataset = CelebA(split="test", dataset_loc=dataset_loc, align = False)
     elif dataset_name == "cub":
-        dataset = TestSet(data_root=cub_loc, image_size=512)
+        dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "taichi":
+        dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 

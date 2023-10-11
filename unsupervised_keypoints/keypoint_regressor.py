@@ -6,7 +6,8 @@ import torch.distributions as dist
 from torch.optim.lr_scheduler import StepLR
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
-from unsupervised_keypoints.cub import TrainSet, TrainRegSet
+from unsupervised_keypoints import cub
+from unsupervised_keypoints import taichi
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 from unsupervised_keypoints.optimize import collect_maps
 from unsupervised_keypoints.eval import (
@@ -51,20 +52,20 @@ def find_best_indices(
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
-    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
-    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
+    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     dataset_name = "celeba_aligned",
     min_dist = 0.05,
     controllers=None,
     num_gpus=1,
 ):
     if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+        dataset = CelebA(split="train", dataset_loc=dataset_loc)
     elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+        dataset = CelebA(split="train", dataset_loc=dataset_loc, align = False)
     elif dataset_name == "cub":
-        dataset = TrainSet(data_root=cub_loc, image_size=512)
+        dataset = cub.TrainSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "taichi":
+        dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -246,20 +247,20 @@ def precompute_all_keypoints(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
-    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
-    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
+    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     visualize=False,
     dataset_name = "celeba_aligned",
     controllers=None,
     num_gpus=1,
 ):
     if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc)
+        dataset = CelebA(split="train", dataset_loc=dataset_loc)
     elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False)
+        dataset = CelebA(split="train", dataset_loc=dataset_loc, align = False)
     elif dataset_name == "cub":
-        dataset = TrainRegSet(data_root=cub_loc, image_size=512)
+        dataset = cub.TrainRegSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "taichi":
+        dataset = taichi.TrainRegSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 

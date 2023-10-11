@@ -8,7 +8,8 @@ from unsupervised_keypoints import eval
 import torch.nn.functional as F
 import torch.distributions as dist
 from unsupervised_keypoints.celeba import CelebA
-from unsupervised_keypoints.cub import TrainSet
+from unsupervised_keypoints import cub
+from unsupervised_keypoints import taichi
 from unsupervised_keypoints import optimize_token
 import torch.nn as nn
 
@@ -402,9 +403,7 @@ def optimize_embedding(
     augment_translate=(0.1, 0.1),
     augment_shear=(0.0, 0.0),
     sdxl=False,
-    mafl_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/TCDCN-face-alignment/MAFL/",
-    celeba_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
-    cub_loc="/ubc/cs/home/i/iamerich/scratch/datasets/cub/cub",
+    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     sigma=1.0,
     sharpening_loss_weight=100,
     equivariance_features_loss_weight=100,
@@ -418,11 +417,13 @@ def optimize_embedding(
 ):
     
     if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, max_len=max_len)
+        dataset = CelebA(split="train", dataset_loc=dataset_loc, max_len=max_len)
     elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="train", mafl_loc=mafl_loc, celeba_loc=celeba_loc, align = False, max_len=max_len)
+        dataset = CelebA(split="train", dataset_loc=dataset_loc, align = False, max_len=max_len)
     elif dataset_name == "cub":
-        dataset = TrainSet(data_root=cub_loc, image_size=512)
+        dataset = cub.TrainSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "taichi":
+        dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
