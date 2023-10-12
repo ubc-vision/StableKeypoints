@@ -9,6 +9,7 @@ from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
 from unsupervised_keypoints import cub
 from unsupervised_keypoints import taichi
+from unsupervised_keypoints import human36m
 from unsupervised_keypoints.invertable_transform import (
     RandomAffineWithInverse,
     return_theta,
@@ -575,6 +576,8 @@ def evaluate(
         dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "taichi":
         dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "human3.6m":
+        dataset = human36m.TestSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 

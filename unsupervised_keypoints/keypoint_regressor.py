@@ -8,6 +8,7 @@ from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
 from unsupervised_keypoints import cub
 from unsupervised_keypoints import taichi
+from unsupervised_keypoints import human36m
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 from unsupervised_keypoints.optimize import collect_maps
 from unsupervised_keypoints.eval import (
@@ -68,6 +69,8 @@ def find_best_indices(
         dataset = cub.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "taichi":
         dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "human3.6m":
+        dataset = human36m.TrainSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -272,6 +275,8 @@ def precompute_all_keypoints(
         dataset = cub.TrainRegSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "taichi":
         dataset = taichi.TrainRegSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "human3.6m":
+        dataset = human36m.TrainRegSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -279,13 +284,20 @@ def precompute_all_keypoints(
     target_keypoints = []
     visibility = []
 
-    for iteration in tqdm(range(len(dataset))):
-        mini_batch = dataset[iteration]
+    # create dataloader for the dataset
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, drop_last=True)
 
-        image = mini_batch["img"]
-        kpts = mini_batch["kpts"]
+    dataloader_iter = iter(dataloader)
+
+    for iteration in tqdm(range(min(len(dataset), 20000))):
+
+        mini_batch = next(dataloader_iter)
+
+
+        image = mini_batch["img"][0]
+        kpts = mini_batch["kpts"][0]
         if "visibility" in mini_batch:
-            visibility.append(mini_batch["visibility"])
+            visibility.append(mini_batch["visibility"][0])
 
         # if image is a torch.tensor, convert to numpy
         if type(image) == torch.Tensor:
