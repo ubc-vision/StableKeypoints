@@ -7,6 +7,7 @@ from torch.optim.lr_scheduler import StepLR
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
 from unsupervised_keypoints import cub
+from unsupervised_keypoints import cub_parts
 from unsupervised_keypoints import taichi
 from unsupervised_keypoints import human36m
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
@@ -65,8 +66,16 @@ def find_best_indices(
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
     elif dataset_name == "celeba_wild":
         dataset = CelebA(split="train", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub":
+    elif dataset_name == "cub_aligned":
         dataset = cub.TrainSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "cub_001":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=1)
+    elif dataset_name == "cub_002":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=2)
+    elif dataset_name == "cub_003":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=3)
+    elif dataset_name == "cub_all":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train")
     elif dataset_name == "taichi":
         dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
@@ -272,8 +281,16 @@ def precompute_all_keypoints(
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
     elif dataset_name == "celeba_wild":
         dataset = CelebA(split="train", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub":
+    elif dataset_name == "cub_aligned":
         dataset = cub.TrainRegSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "cub_001":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=1)
+    elif dataset_name == "cub_002":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=2)
+    elif dataset_name == "cub_003":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=3)
+    elif dataset_name == "cub_all":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train")
     elif dataset_name == "taichi":
         dataset = taichi.TrainRegSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
@@ -297,6 +314,9 @@ def precompute_all_keypoints(
 
         image = mini_batch["img"][0]
         kpts = mini_batch["kpts"][0]
+        target_keypoints.append(kpts)
+        
+    
         if "visibility" in mini_batch:
             visibility.append(mini_batch["visibility"][0])
 
@@ -325,7 +345,6 @@ def precompute_all_keypoints(
         highest_indices = highest_indices / 512.0
 
         source_keypoints.append(highest_indices)
-        target_keypoints.append(kpts)
 
     return torch.stack(source_keypoints), torch.stack(target_keypoints), torch.stack(visibility) if len(visibility) > 0 else None
 

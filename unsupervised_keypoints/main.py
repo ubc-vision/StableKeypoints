@@ -52,7 +52,7 @@ parser.add_argument(
 parser.add_argument(
     "--dataset_name",
     # set the choices to be "mafl" and "celeba_aligned"
-    choices=["celeba_aligned", "celeba_wild", "cub", "taichi", "human3.6m"],
+    choices=["celeba_aligned", "celeba_wild", "cub_aligned", "cub_001", "cub_002", "cub_003", "cub_all", "taichi", "human3.6m"],
     type=str,
     default="celeba_aligned",
     help="name of the dataset to use",
@@ -82,7 +82,7 @@ parser.add_argument(
     "--num_steps", type=int, default=1e4, help="number of steps to optimize"
 )
 parser.add_argument(
-    "--num_tokens", type=int, default=300, help="number of tokens to optimize"
+    "--num_tokens", type=int, default=500, help="number of tokens to optimize"
 )
 parser.add_argument(
     "--feature_upsample_res", type=int, default=128, help="number of tokens to optimize"
@@ -136,7 +136,7 @@ parser.add_argument(
     help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
 )
 parser.add_argument(
-    "--sigma", type=float, default=3.0, help="sigma for the gaussian kernel"
+    "--sigma", type=float, default=2.0, help="sigma for the gaussian kernel"
 )
 parser.add_argument(
     "--augment_degrees",
