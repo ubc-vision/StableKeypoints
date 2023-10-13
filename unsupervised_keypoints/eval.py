@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
 from unsupervised_keypoints import cub
+from unsupervised_keypoints import cub_parts
 from unsupervised_keypoints import taichi
 from unsupervised_keypoints import human36m
 from unsupervised_keypoints.invertable_transform import (
@@ -572,8 +573,16 @@ def evaluate(
         dataset = CelebA(split="test", dataset_loc=dataset_loc)
     elif dataset_name == "celeba_wild":
         dataset = CelebA(split="test", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub":
+    elif dataset_name == "cub_aligned":
         dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "cub_001":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=1)
+    elif dataset_name == "cub_002":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=2)
+    elif dataset_name == "cub_003":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=3)
+    elif dataset_name == "cub_all":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test")
     elif dataset_name == "taichi":
         dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
