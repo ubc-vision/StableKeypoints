@@ -52,7 +52,7 @@ parser.add_argument(
 parser.add_argument(
     "--dataset_name",
     # set the choices to be "mafl" and "celeba_aligned"
-    choices=["celeba_aligned", "celeba_wild", "cub_aligned", "cub_001", "cub_002", "cub_003", "cub_all", "taichi", "human3.6m"],
+    choices=["celeba_aligned", "celeba_wild", "cub_aligned", "cub_001", "cub_002", "cub_003", "cub_all", "deepfashion", "taichi", "human3.6m"],
     type=str,
     default="celeba_aligned",
     help="name of the dataset to use",
@@ -101,7 +101,7 @@ parser.add_argument(
     "--evaluation_method",
     type=str,
     default="inter_eye_distance",
-    choices=["inter_eye_distance", "visible", "mean_average_error"],
+    choices=["inter_eye_distance", "visible", "mean_average_error", "pck"],
     help="strategy for evaluation",
 )
 parser.add_argument(
@@ -134,6 +134,12 @@ parser.add_argument(
     type=int,
     default=-8,
     help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
+)
+parser.add_argument(
+    "--max_num_points",
+    type=int,
+    default=50_000,
+    help="number of samples to precompute",
 )
 parser.add_argument(
     "--sigma", type=float, default=2.0, help="sigma for the gaussian kernel"
@@ -304,6 +310,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         dataset_name = args.dataset_name,
         controllers=controllers,
         num_gpus=num_gpus,
+        max_num_points=args.max_num_points,
     )
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
@@ -319,9 +326,10 @@ else:
     target_kpts = torch.load(os.path.join(args.save_folder, "target_keypoints.pt")).to(
         args.device
     )
-    visible = torch.load(os.path.join(args.save_folder, "visible.pt")).to(
-        args.device
-    )
+
+    visible = torch.load(os.path.join(args.save_folder, "visible.pt"))
+    if visible is not None:
+        visible = visible.to(args.device)
 
 if args.evaluation_method == "visible" or args.evaluation_method == "mean_average_error":
     visible_reshaped = visible.unsqueeze(-1).repeat(1, 1, 2).reshape(visible.shape[0], visible.shape[1] * 2)

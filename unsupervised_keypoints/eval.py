@@ -11,6 +11,7 @@ from unsupervised_keypoints import cub
 from unsupervised_keypoints import cub_parts
 from unsupervised_keypoints import taichi
 from unsupervised_keypoints import human36m
+from unsupervised_keypoints import deepfashion
 from unsupervised_keypoints.invertable_transform import (
     RandomAffineWithInverse,
     return_theta,
@@ -588,6 +589,8 @@ def evaluate(
         dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
         dataset = human36m.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "deepfashion":
+        dataset = deepfashion.TestSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -634,7 +637,7 @@ def evaluate(
 
         gt_kpts = batch["kpts"].cuda()
         
-        if evaluation_method == "mean_average_error":
+        if evaluation_method == "mean_average_error" or evaluation_method == "pck":
             estimated_kpts *= 256
             gt_kpts *= 256
 
@@ -656,6 +659,9 @@ def evaluate(
             
         if evaluation_method == "visible":
             l2_mean /= visible.sum()
+            
+        if evaluation_method == "pck":
+            l2_mean = (l2 < 6).float().mean()
 
 
         

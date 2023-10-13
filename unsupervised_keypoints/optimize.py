@@ -12,6 +12,7 @@ from unsupervised_keypoints import cub
 from unsupervised_keypoints import cub_parts
 from unsupervised_keypoints import taichi
 from unsupervised_keypoints import human36m
+from unsupervised_keypoints import deepfashion
 from unsupervised_keypoints import optimize_token
 import torch.nn as nn
 
@@ -437,6 +438,8 @@ def optimize_embedding(
         dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
         dataset = human36m.TrainSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "deepfashion":
+        dataset = deepfashion.TrainSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
