@@ -290,7 +290,7 @@ def precompute_all_keypoints(
 
     dataloader_iter = iter(dataloader)
 
-    for iteration in tqdm(range(min(len(dataset), 20000))):
+    for _ in tqdm(range(min(len(dataset), 50000))):
 
         mini_batch = next(dataloader_iter)
 
