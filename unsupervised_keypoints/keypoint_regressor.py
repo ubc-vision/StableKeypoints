@@ -10,6 +10,7 @@ from unsupervised_keypoints import cub
 from unsupervised_keypoints import cub_parts
 from unsupervised_keypoints import taichi
 from unsupervised_keypoints import human36m
+from unsupervised_keypoints import deepfashion
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
 from unsupervised_keypoints.optimize import collect_maps
 from unsupervised_keypoints.eval import (
@@ -80,6 +81,8 @@ def find_best_indices(
         dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
         dataset = human36m.TrainSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "deepfashion":
+        dataset = deepfashion.TrainSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -275,6 +278,7 @@ def precompute_all_keypoints(
     dataset_name = "celeba_aligned",
     controllers=None,
     num_gpus=1,
+    max_num_points = 50_000,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
@@ -294,6 +298,8 @@ def precompute_all_keypoints(
         dataset = taichi.TrainRegSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
         dataset = human36m.TrainRegSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "deepfashion":
+        dataset = deepfashion.TrainRegSet(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -306,7 +312,7 @@ def precompute_all_keypoints(
 
     dataloader_iter = iter(dataloader)
 
-    for _ in tqdm(range(min(len(dataset), 50000))):
+    for _ in tqdm(range(min(len(dataset), max_num_points))):
 
         mini_batch = next(dataloader_iter)
 
