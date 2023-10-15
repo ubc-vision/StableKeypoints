@@ -63,14 +63,12 @@ class AttentionStore(AttentionControl):
     def get_empty_store():
         return {
             "attn": [],
-            "features": [],
         }
 
     def forward(self, dict, is_cross: bool, place_in_unet: str):
         key = f"{place_in_unet}_{'cross' if is_cross else 'self'}"
         # if attn.shape[1] <= 32**2:  # avoid memory overhead
         self.step_store["attn"].append(dict['attn']) 
-        self.step_store["features"].append(dict['features'])
         
         return dict
 
@@ -196,6 +194,35 @@ def random_range(size, min_val, max_val, dtype=torch.float32):
     """
     return torch.rand(size, dtype=dtype) * (max_val - min_val) + min_val
 
+def find_pred_noise(
+    ldm,
+    image,
+    context,
+    noise_level=-1,
+    device="cuda",
+):
+    # if image is a torch.tensor, convert to numpy
+    if type(image) == torch.Tensor:
+        image = image.permute(0, 2, 3, 1).detach().cpu().numpy()
+
+    with torch.no_grad():
+        latent = image2latent(ldm, image, device)
+        
+    noise = torch.rand_like(latent)
+
+    noisy_image = ldm.scheduler.add_noise(
+        latent, noise, ldm.scheduler.timesteps[noise_level]
+    )
+
+    pred_noise = diffusion_step(
+        ldm,
+        noisy_image,
+        context,
+        ldm.scheduler.timesteps[noise_level],
+    )
+    
+    return noise, pred_noise
+    
 
 def run_and_find_attn(
     ldm,
@@ -208,32 +235,20 @@ def run_and_find_attn(
     upsample_res=32,
     indices=None,
     controllers=None,
-    num_features_per_layer=100,
 ):
-    # if image is a torch.tensor, convert to numpy
-    if type(image) == torch.Tensor:
-        image = image.permute(0, 2, 3, 1).detach().cpu().numpy()
-
-    with torch.no_grad():
-        latent = image2latent(ldm, image, device)
-
-    noisy_image = ldm.scheduler.add_noise(
-        latent, torch.rand_like(latent), ldm.scheduler.timesteps[noise_level]
-    )
-
-    _ = diffusion_step(
+    _, _ = find_pred_noise(
         ldm,
-        noisy_image,
+        image,
         context,
-        ldm.scheduler.timesteps[noise_level],
+        noise_level=noise_level,
+        device=device,
     )
     
     attention_maps=[]
-    feature_maps=[]
     
     for controller in controllers:
 
-        _attention_maps, _feature_maps = collect_maps(
+        _attention_maps = collect_maps(
             controllers[controller],
             from_where=from_where,
             upsample_res=upsample_res,
@@ -242,11 +257,10 @@ def run_and_find_attn(
             num_features_per_layer=num_features_per_layer,
         )
         attention_maps.append(_attention_maps)
-        feature_maps.append(_feature_maps)
 
         controllers[controller].reset()
 
-    return attention_maps, feature_maps
+    return attention_maps
 
 
 def image2latent(model, image, device):
@@ -271,7 +285,7 @@ def diffusion_step(
 
     # latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     # latents = controller.step_callback(latents)
-    return latents, noise_pred
+    return noise_pred
 
 
 def latent2image(vae, latents):
@@ -283,14 +297,14 @@ def latent2image(vae, latents):
     return image
 
 
-def init_latent(latent, model, height, width, generator, batch_size):
+def init_latent(latent, model, height, width, generator):
     if latent is None:
         latent = torch.randn(
             (1, model.unet.in_channels, height // 8, width // 8),
             generator=generator,
         )
     latents = latent.expand(
-        batch_size, model.unet.in_channels, height // 8, width // 8
+        1, model.unet.in_channels, height // 8, width // 8
     ).to(model.device)
     return latent, latents
 
@@ -329,54 +343,83 @@ def init_latent(latent, model, height, width, generator, batch_size):
 
 #     return image, latent
 
+def latent_step(model, controller, latents, context, t, guidance_scale, low_resource=False):
 
-# @torch.no_grad()
-# def text2image_ldm_stable(
-#     model,
-#     prompt: List[str],
-#     controller,
-#     num_inference_steps: int = 50,
-#     guidance_scale: float = 7.5,
-#     generator: Optional[torch.Generator] = None,
-#     latent: Optional[torch.FloatTensor] = None,
-#     low_resource: bool = False,
-# ):
-#     register_attention_control(model, controller)
-#     height = width = 512
-#     batch_size = len(prompt)
+    noise_pred = model.unet(latents, t, encoder_hidden_states=context)["sample"]
+    latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
+    latents = controller.step_callback(latents)
+    return latents
 
-#     text_input = model.tokenizer(
-#         prompt,
-#         padding="max_length",
-#         max_length=model.tokenizer.model_max_length,
-#         truncation=True,
-#         return_tensors="pt",
-#     )
-#     text_embeddings = model.text_encoder(text_input.input_ids.to(model.device))[0]
-#     max_length = text_input.input_ids.shape[-1]
-#     uncond_input = model.tokenizer(
-#         [""] * batch_size,
-#         padding="max_length",
-#         max_length=max_length,
-#         return_tensors="pt",
-#     )
-#     uncond_embeddings = model.text_encoder(uncond_input.input_ids.to(model.device))[0]
+def register_attention_control_generation(model, controller):
+    def ca_forward(self, place_in_unet):
+        to_out = self.to_out
+        if type(to_out) is torch.nn.modules.container.ModuleList:
+            to_out = self.to_out[0]
+        else:
+            to_out = self.to_out
 
-#     context = [uncond_embeddings, text_embeddings]
-#     if not low_resource:
-#         context = torch.cat(context)
-#     latent, latents = init_latent(latent, model, height, width, generator, batch_size)
+        def forward(x, context=None, mask=None):
+            batch_size, sequence_length, dim = x.shape
+            h = self.heads
+            q = self.to_q(x)
+            is_cross = context is not None
+            context = context if is_cross else x
+            k = self.to_k(context)
+            v = self.to_v(context)
+            q = self.reshape_heads_to_batch_dim(q)
+            k = self.reshape_heads_to_batch_dim(k)
+            v = self.reshape_heads_to_batch_dim(v)
 
-#     # set timesteps
-#     # extra_set_kwargs = {"offset": 1}
-#     extra_set_kwargs = {}
-#     model.scheduler.set_timesteps(num_inference_steps, **extra_set_kwargs)
-#     for t in tqdm(model.scheduler.timesteps):
-#         latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
+            sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
 
-#     image = latent2image(model.vae, latents)
+            if mask is not None:
+                mask = mask.reshape(batch_size, -1)
+                max_neg_value = -torch.finfo(sim.dtype).max
+                mask = mask[:, None, :].repeat(h, 1, 1)
+                sim.masked_fill_(~mask, max_neg_value)
 
-#     return image, latent
+            # attention, what we cannot get enough of
+            attn = sim.softmax(dim=-1)
+            attn = controller(attn, is_cross, place_in_unet)
+            out = torch.einsum("b i j, b j d -> b i d", attn, v)
+            out = self.reshape_batch_dim_to_heads(out)
+            return to_out(out)
+
+        return forward
+
+
+
+@torch.no_grad()
+def text2image_ldm_stable(
+    model,
+    embedding,
+    controller,
+    num_inference_steps: int = 50,
+    guidance_scale: float = 7.5,
+    generator: Optional[torch.Generator] = None,
+    latent: Optional[torch.FloatTensor] = None,
+    low_resource: bool = False,
+):
+    register_attention_control_generation(model, controller)
+    height = width = 512
+
+    # latent, latents = init_latent(latent, model, height, width, generator)
+    
+    latents = torch.randn(
+        (1, model.unet.in_channels, height // 8, width // 8),
+        generator=generator,
+    ).to(model.device)
+
+    # set timesteps
+    # extra_set_kwargs = {"offset": 1}
+    extra_set_kwargs = {}
+    model.scheduler.set_timesteps(num_inference_steps, **extra_set_kwargs)
+    for t in tqdm(model.scheduler.timesteps):
+        latents = latent_step(model, controller, latents, embedding, t, guidance_scale)
+
+    image = latent2image(model.vae, latents)
+
+    return image, latent
 
 
 def softmax_torch(x):  # Assuming x has atleast 2 dimensions
@@ -452,10 +495,8 @@ def register_attention_control(model, controller, feature_upsample_res=256):
                 sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
                 attn = torch.nn.Softmax(dim=-1)(sim)
                 attn = attn.clone()
-                
-                
 
-                attn = controller({"attn": attn, "features": x_reshaped}, is_cross, place_in_unet)
+                attn = controller({"attn": attn}, is_cross, place_in_unet)
 
             out = self.reshape_batch_dim_to_heads(out)
             return to_out(out)

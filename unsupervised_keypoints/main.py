@@ -85,7 +85,7 @@ parser.add_argument(
     "--num_tokens", type=int, default=500, help="number of tokens to optimize"
 )
 parser.add_argument(
-    "--feature_upsample_res", type=int, default=128, help="number of tokens to optimize"
+    "--feature_upsample_res", type=int, default=128, help="upsampled resolution for latent features grabbed from the attn operation"
 )
 parser.add_argument(
     "--batch_size", type=int, default=1, help="size of the batch for optimization"
@@ -117,15 +117,15 @@ parser.add_argument(
     help="Weight of the sharpening loss",
 )
 parser.add_argument(
-    "--equivariance_features_loss_weight",
-    type=float,
-    default=0.0,
-    help="Weight of the old equivariance loss",
-)
-parser.add_argument(
     "--equivariance_attn_loss_weight",
     type=float,
     default=1000.0,
+    help="Weight of the old equivariance loss",
+)
+parser.add_argument(
+    "--ddpm_loss_weight",
+    type=float,
+    default=0.0,
     help="Weight of the old equivariance loss",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[0, 1, 2, 3])
@@ -226,8 +226,8 @@ if args.start_from_stage == "optimize":
         dataset_loc=args.dataset_loc,
         sigma=args.sigma,
         sharpening_loss_weight=args.sharpening_loss_weight,
-        equivariance_features_loss_weight=args.equivariance_features_loss_weight,
         equivariance_attn_loss_weight=args.equivariance_attn_loss_weight,
+        ddpm_loss_weight=args.ddpm_loss_weight,
         batch_size=args.batch_size,
         dataset_name = args.dataset_name,
         max_len=args.max_len,

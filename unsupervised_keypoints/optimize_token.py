@@ -47,6 +47,7 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=
     NUM_DDIM_STEPS = 50
     scheduler.set_timesteps(NUM_DDIM_STEPS)
 
+
     ldm = StableDiffusionPipeline.from_pretrained(
         type, use_auth_token=MY_TOKEN, scheduler=scheduler
     ).to(device)

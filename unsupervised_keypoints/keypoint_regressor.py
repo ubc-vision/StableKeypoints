@@ -114,7 +114,7 @@ def find_best_indices(
         if augment:
             image = invertible_transform(image)
 
-        attention_maps, _ = ptp_utils.run_and_find_attn(
+        attention_maps = ptp_utils.run_and_find_attn(
             ldm,
             image,
             context,
