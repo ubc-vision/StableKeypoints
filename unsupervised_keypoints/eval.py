@@ -399,7 +399,7 @@ def run_image_with_context_augmented(
             .numpy()
         )
         
-        attn_maps, _ = ptp_utils.run_and_find_attn(
+        attn_maps = ptp_utils.run_and_find_attn(
             ldm,
             augmented_img,
             context,
