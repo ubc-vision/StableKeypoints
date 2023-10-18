@@ -98,6 +98,13 @@ parser.add_argument(
     help="strategy for choosing top k tokens",
 )
 parser.add_argument(
+    "--max_loc_strategy",
+    type=str,
+    default="argmax",
+    choices=["argmax", "weighted_avg"],
+    help="strategy for choosing max location in the attention map",
+)
+parser.add_argument(
     "--evaluation_method",
     type=str,
     default="inter_eye_distance",
@@ -281,6 +288,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         dataset_name = args.dataset_name,
         controllers=controllers,
         num_gpus=num_gpus,
+        max_loc_strategy=args.max_loc_strategy,
     )
 else:
     indices = (
@@ -308,6 +316,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         controllers=controllers,
         num_gpus=num_gpus,
         max_num_points=args.max_num_points,
+        max_loc_strategy=args.max_loc_strategy,
     )
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
@@ -368,6 +377,7 @@ visualize_attn_maps(
     dataset_name = args.dataset_name,
     controllers=controllers,
     num_gpus=num_gpus,
+    max_loc_strategy=args.max_loc_strategy,
 )
 
 evaluate(
@@ -392,4 +402,5 @@ evaluate(
     evaluation_method=args.evaluation_method,
     controllers=controllers,
     num_gpus=num_gpus,
+    max_loc_strategy=args.max_loc_strategy,
 )

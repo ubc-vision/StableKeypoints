@@ -21,6 +21,8 @@ import torch.nn.functional as F
 import abc
 from unsupervised_keypoints.eval import find_max_pixel
 from unsupervised_keypoints import optimize_token
+from torch.nn.parallel.data_parallel import DataParallel
+from collections import OrderedDict
 
 from PIL import Image
 
@@ -213,6 +215,8 @@ def find_pred_noise(
     noisy_image = ldm.scheduler.add_noise(
         latent, noise, ldm.scheduler.timesteps[noise_level]
     )
+    
+    # import ipdb; ipdb.set_trace()
 
     pred_noise = ldm.unet(noisy_image, 
                           ldm.scheduler.timesteps[noise_level].repeat(noisy_image.shape[0]), 
@@ -274,10 +278,29 @@ def image2latent(model, image, device):
     return latents
 
 
+# class CustomDataParallel(DataParallel):
+#     def gather(self, outputs, output_device):
+#         # Assuming 'outputs' is a list of 'BaseOutput' from multiple GPUs
+#         gathered_output = BaseOutput()
+        
+#         for output in outputs:
+#             for k, v in output.items():
+#                 if k not in gathered_output:
+#                     gathered_output[k] = 0
+#                 gathered_output[k] += v  # Example operation
+                
+#         return gathered_output
+    
+    
+
 def diffusion_step(
     model, latents, context, t
 ):
+    
+    # import ipdb; ipdb.set_trace()  
     noise_pred = model.unet(latents, t.repeat(latents.shape[0]), context.repeat(latents.shape[0], 1, 1))["sample"]
+    
+    # import ipdb; ipdb.set_trace()  
 
     # latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     # latents = controller.step_callback(latents)

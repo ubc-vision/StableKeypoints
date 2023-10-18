@@ -116,6 +116,7 @@ def visualize_attn_maps(
     dataset_name = "celeba_aligned",
     controllers=None,
     num_gpus=1,
+    max_loc_strategy="argmax",
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", dataset_loc=dataset_loc)
@@ -179,7 +180,10 @@ def visualize_attn_maps(
     maps = torch.stack(maps)
     gt_kpts = torch.stack(gt_kpts)
 
-    points = find_max_pixel(maps.view(num_images * num_points, 512, 512)) / 512.0
+    if max_loc_strategy == "argmax":
+        points = find_max_pixel(maps.view(num_images * num_points, 512, 512)) / 512.0
+    else:
+        points = pixel_from_weighted_avg(maps.view(num_images * num_points, 512, 512)) / 512.0
     points = points.reshape(num_images, num_points, 2)
 
     plot_point_correspondences(

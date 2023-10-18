@@ -422,6 +422,8 @@ def optimize_embedding(
 
     dataloader_iter = iter(dataloader)
     
+    # import ipdb; ipdb.set_trace()  
+    
     for iteration in tqdm(range(int(num_steps*(batch_size//num_gpus)))):
         
         try:
@@ -461,6 +463,8 @@ def optimize_embedding(
         if ddpm_loss_weight != 0:
             rand_noise_level = torch.randint(0, 50, (1,)).item()
             
+            # import ipdb; ipdb.set_trace()
+            
             noise, pred_noise = ptp_utils.find_pred_noise(
                 ldm,
                 image,
@@ -468,6 +472,12 @@ def optimize_embedding(
                 noise_level=rand_noise_level,
                 device=device,
             )
+            
+            pred_noise = torch.tensor(list(pred_noise)).to('cuda:0')
+            
+            
+            print(noise.shape)
+            print(pred_noise.shape)
             
             for controller in controllers:
                 controllers[controller].reset()
@@ -496,7 +506,10 @@ def optimize_embedding(
             ))
         
 
-        _ddpm_loss = nn.MSELoss()(noise, pred_noise) if ddpm_loss_weight != 0 else 0
+        if ddpm_loss_weight != 0:
+            _ddpm_loss = nn.MSELoss()(noise, pred_noise)
+        else:
+            _ddpm_loss = torch.zeros(1).to('cuda:0')
         _sharpening_loss = torch.stack([loss.to('cuda:0') for loss in _sharpening_loss]).mean()
         _loss_equivariance_attn = torch.stack([loss.to('cuda:0') for loss in _loss_equivariance_attn]).mean()
         
