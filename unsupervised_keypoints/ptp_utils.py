@@ -208,18 +208,15 @@ def find_pred_noise(
     with torch.no_grad():
         latent = image2latent(ldm, image, device)
         
-    noise = torch.rand_like(latent)
+    noise = torch.randn_like(latent)
 
     noisy_image = ldm.scheduler.add_noise(
         latent, noise, ldm.scheduler.timesteps[noise_level]
     )
 
-    pred_noise = diffusion_step(
-        ldm,
-        noisy_image,
-        context,
-        ldm.scheduler.timesteps[noise_level],
-    )
+    pred_noise = ldm.unet(noisy_image, 
+                          ldm.scheduler.timesteps[noise_level].repeat(noisy_image.shape[0]), 
+                          context.repeat(noisy_image.shape[0], 1, 1))["sample"]
     
     return noise, pred_noise
     
@@ -342,14 +339,28 @@ def init_latent(latent, model, height, width, generator):
 
 #     return image, latent
 
-def latent_step(model, controller, latents, context, t, guidance_scale, low_resource=False):
+# def latent_step(model, controller, latents, context, t):
 
-    noise_pred = model.unet(latents, t, encoder_hidden_states=context)["sample"]
+#     noise_pred = model.unet(latents, t, encoder_hidden_states=context)["sample"]
+#     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
+#     latents = controller.step_callback(latents)
+#     return latents
+
+def latent_step(model, controller, latents, context, t, guidance_scale, low_resource=True):
+    if low_resource:
+        # noise_pred_uncond = model.unet(latents, t, encoder_hidden_states=context[0])["sample"]
+        noise_prediction_text = model.unet(latents, t, encoder_hidden_states=context[1])["sample"]
+    else:
+        latents_input = torch.cat([latents] * 2)
+        noise_pred = model.unet(latents_input, t, encoder_hidden_states=context)["sample"]
+        noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
+    # noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
+    noise_pred = noise_prediction_text
     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     latents = controller.step_callback(latents)
     return latents
 
-def register_attention_control_generation(model, controller):
+def register_attention_control_generation(model, controller, target_attn_maps, indices):
     def ca_forward(self, place_in_unet):
         to_out = self.to_out
         if type(to_out) is torch.nn.modules.container.ModuleList:
@@ -379,12 +390,70 @@ def register_attention_control_generation(model, controller):
 
             # attention, what we cannot get enough of
             attn = sim.softmax(dim=-1)
-            attn = controller(attn, is_cross, place_in_unet)
+            
+            if (
+                is_cross
+                and sequence_length <= 32**2
+                and len(controller.step_store["attn"]) < 4
+                and attn.shape[-1] != 77
+            ):
+                attn = controller({"attn": attn}, is_cross, place_in_unet)
+                target_res = int(attn.shape[1]**0.5)
+                
+                # downsample target_attn_maps to target_res
+                downsampled = F.interpolate(
+                    target_attn_maps[None],
+                    size=(target_res, target_res),
+                    mode="bilinear",
+                    align_corners=False,
+                )[0]
+                downsampled = downsampled.reshape(-1, target_res**2)
+                downsampled /= downsampled.max(dim=-1, keepdim=True)[0]
+                downsampled = downsampled.permute(1, 0)
+                downsampled = downsampled[None].repeat(attn.shape[0], 1, 1)
+            
+                attn[:, :, indices] += downsampled*2
+                
+                attn /= attn.sum(dim=-1, keepdim=True)
+            
+            
             out = torch.einsum("b i j, b j d -> b i d", attn, v)
             out = self.reshape_batch_dim_to_heads(out)
             return to_out(out)
 
         return forward
+    
+    class DummyController:
+        def __call__(self, *args):
+            return args[0]
+
+        def __init__(self):
+            self.num_att_layers = 0
+
+    if controller is None:
+        controller = DummyController()
+
+    # replacing forward function in /scratch/iamerich/miniconda3/envs/LDM_correspondences/lib/python3.10/site-packages/diffusers/models/attention.py
+    # line 518
+    def register_recr(net_, count, place_in_unet):
+        if net_.__class__.__name__ == "CrossAttention":
+            net_.forward = ca_forward(net_, place_in_unet)
+            return count + 1
+        elif hasattr(net_, "children"):
+            for net__ in net_.children():
+                count = register_recr(net__, count, place_in_unet)
+        return count
+
+    cross_att_count = 0
+    sub_nets = model.unet.named_children()
+    for net in sub_nets:
+        if "up" in net[0]:
+            cross_att_count += register_recr(net[1], 0, "up")
+            
+    print("cross_att_count")
+    print(cross_att_count)
+
+    controller.num_att_layers = cross_att_count
 
 
 
@@ -397,10 +466,17 @@ def text2image_ldm_stable(
     guidance_scale: float = 7.5,
     generator: Optional[torch.Generator] = None,
     latent: Optional[torch.FloatTensor] = None,
-    low_resource: bool = False,
 ):
-    register_attention_control_generation(model, controller)
+    target_attn_maps = torch.load("example_attn_maps_indices.pt")
+    indices = torch.load("outputs/indices.pt")
+    register_attention_control_generation(model, controller, target_attn_maps, indices)
     height = width = 512
+    
+    
+    uncond_input = model.tokenizer(
+        [""], padding="max_length", max_length=77, return_tensors="pt"
+    )
+    uncond_embeddings = model.text_encoder(uncond_input.input_ids.to(model.device))[0]
 
     # latent, latents = init_latent(latent, model, height, width, generator)
     
@@ -408,13 +484,17 @@ def text2image_ldm_stable(
         (1, model.unet.in_channels, height // 8, width // 8),
         generator=generator,
     ).to(model.device)
+    
+    context = [uncond_embeddings, embedding]
 
     # set timesteps
     # extra_set_kwargs = {"offset": 1}
     extra_set_kwargs = {}
     model.scheduler.set_timesteps(num_inference_steps, **extra_set_kwargs)
     for t in tqdm(model.scheduler.timesteps):
-        latents = latent_step(model, controller, latents, embedding, t, guidance_scale)
+        latents = latent_step(model, controller, latents, context, t, guidance_scale=guidance_scale, low_resource = True)
+        controller.reset()
+    latents = latent_step(model, controller, latents, context, t, guidance_scale=guidance_scale, low_resource = True)
 
     image = latent2image(model.vae, latents)
 

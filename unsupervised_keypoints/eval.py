@@ -612,7 +612,7 @@ def evaluate(
             ldm,
             img,
             context,
-            indices,
+            indices.cpu(),
             device=device,
             from_where=from_where,
             layers=layers,
@@ -624,7 +624,7 @@ def evaluate(
             augment_shear=augment_shear,
             controllers=controllers,
             num_gpus=num_gpus,
-            # visualize=True,
+            visualize=(i==0),
         )
         highest_indices = find_max_pixel(attention_maps)
         highest_indices = highest_indices / 512.0
