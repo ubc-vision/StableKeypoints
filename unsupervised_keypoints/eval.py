@@ -67,7 +67,7 @@ def find_max_pixel(map):
     return max_indices
 
 
-def pixel_from_weighted_avg(heatmaps):
+def pixel_from_weighted_avg(heatmaps, distance=5):
     """
     finds the pixel of the map with the highest value
     map shape [batch_size, h, w]
@@ -75,6 +75,23 @@ def pixel_from_weighted_avg(heatmaps):
 
     # Get the shape of the heatmaps
     batch_size, m, n = heatmaps.shape
+
+    # If distance is provided, zero out elements outside the distance from the max pixel
+    if distance != -1:
+        # Find max pixel using your existing function or similar logic
+        max_pixel_indices = find_max_pixel(heatmaps)
+        x_max, y_max = max_pixel_indices[:, 0].long(), max_pixel_indices[:, 1].long()
+        
+        # Create a meshgrid
+        x = torch.arange(0, m).float().view(1, m, 1).to(heatmaps.device).repeat(batch_size, 1, 1)
+        y = torch.arange(0, n).float().view(1, 1, n).to(heatmaps.device).repeat(batch_size, 1, 1)
+        
+        # Calculate the distance to the max_pixel
+        distance_to_max = torch.sqrt((x - x_max.view(batch_size, 1, 1)) ** 2 + 
+                                     (y - y_max.view(batch_size, 1, 1)) ** 2)
+        
+        # Zero out elements beyond the distance
+        heatmaps[distance_to_max > distance] = 0.0
 
     # Compute the total value of the heatmaps
     total_value = torch.sum(heatmaps, dim=[1, 2], keepdim=True)
@@ -93,6 +110,7 @@ def pixel_from_weighted_avg(heatmaps):
     y_sum = torch.sum(y * normalized_heatmaps, dim=[1, 2])
 
     return torch.stack([x_sum, y_sum], dim=-1) + 0.5
+
 
 
 def find_corresponding_points(maps, num_points=10):
@@ -410,7 +428,6 @@ def run_image_with_context_augmented(
             device=device,
             controllers=controllers,
             indices=indices.cpu(),
-            num_features_per_layer=0,
         )
         
         # import ipdb; ipdb.set_trace()
@@ -570,6 +587,7 @@ def evaluate(
     evaluation_method="inter_eye_distance",
     controllers=None,
     num_gpus=1,
+    max_loc_strategy = "argmax",
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", dataset_loc=dataset_loc)
@@ -627,8 +645,11 @@ def evaluate(
             num_gpus=num_gpus,
             # visualize=True,
         )
-        highest_indices = find_max_pixel(attention_maps)
-        highest_indices = highest_indices / 512.0
+        
+        if max_loc_strategy == "argmax":
+            highest_indices = find_max_pixel(attention_maps) / 512.0
+        else:
+            highest_indices = pixel_from_weighted_avg(attention_maps) / 512.0
 
         # estimated_kpts = regressor(highest_indices.view(-1))
         estimated_kpts = ((highest_indices.view(1, -1)-0.5) @ regressor)+0.5

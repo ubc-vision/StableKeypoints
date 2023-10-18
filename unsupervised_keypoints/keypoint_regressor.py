@@ -123,7 +123,6 @@ def find_best_indices(
             from_where=from_where,
             upsample_res=upsample_res,
             controllers=controllers,
-            num_features_per_layer=0,
         )
         
         for attention_map in attention_maps:
@@ -280,6 +279,7 @@ def precompute_all_keypoints(
     controllers=None,
     num_gpus=1,
     max_num_points = 50_000,
+    max_loc_strategy="argmax",
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
@@ -347,8 +347,10 @@ def precompute_all_keypoints(
             controllers=controllers,
             num_gpus=num_gpus,
         )
-        highest_indices = find_max_pixel(attention_maps)
-        highest_indices = highest_indices / 512.0
+        if max_loc_strategy == "argmax":
+            highest_indices = find_max_pixel(attention_maps) / 512.0
+        else:
+            highest_indices = pixel_from_weighted_avg(attention_maps) / 512.0
 
         source_keypoints.append(highest_indices)
 

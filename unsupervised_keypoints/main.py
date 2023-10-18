@@ -98,6 +98,13 @@ parser.add_argument(
     help="strategy for choosing top k tokens",
 )
 parser.add_argument(
+    "--max_loc_strategy",
+    type=str,
+    default="argmax",
+    choices=["argmax", "weighted_avg"],
+    help="strategy for choosing max location in the attention map",
+)
+parser.add_argument(
     "--evaluation_method",
     type=str,
     default="inter_eye_distance",
@@ -157,12 +164,6 @@ parser.add_argument(
     nargs="+",
     default=[0.8, 1.0],
     help="scale factor for augmentation",
-)
-parser.add_argument(
-    "--num_features_per_layer",
-    type=int,
-    default=100,
-    help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
 )
 parser.add_argument(
     "--augment_translate",
@@ -234,7 +235,6 @@ if args.start_from_stage == "optimize":
         min_dist=args.min_dist,
         controllers=controllers,
         num_gpus=num_gpus,
-        num_features_per_layer=args.num_features_per_layer,
     )
     torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 else:
@@ -285,6 +285,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         dataset_name = args.dataset_name,
         controllers=controllers,
         num_gpus=num_gpus,
+        max_loc_strategy=args.max_loc_strategy,
     )
 else:
     indices = (
@@ -311,6 +312,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         controllers=controllers,
         num_gpus=num_gpus,
         max_num_points=args.max_num_points,
+        max_loc_strategy=args.max_loc_strategy,
     )
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
@@ -370,6 +372,7 @@ visualize_attn_maps(
     dataset_name = args.dataset_name,
     controllers=controllers,
     num_gpus=num_gpus,
+    max_loc_strategy=args.max_loc_strategy,
 )
 
 evaluate(
@@ -394,4 +397,5 @@ evaluate(
     evaluation_method=args.evaluation_method,
     controllers=controllers,
     num_gpus=num_gpus,
+    max_loc_strategy=args.max_loc_strategy,
 )
