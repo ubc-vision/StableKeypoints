@@ -265,6 +265,7 @@ def precompute_all_keypoints(
     num_gpus=1,
     max_num_points = 50_000,
     max_loc_strategy="argmax",
+    save_folder="outputs",
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
@@ -330,6 +331,7 @@ def precompute_all_keypoints(
             augment_translate=augment_translate,
             augment_shear=augment_shear,
             controllers=controllers,
+            save_folder=save_folder,
             num_gpus=num_gpus,
         )
         if max_loc_strategy == "argmax":

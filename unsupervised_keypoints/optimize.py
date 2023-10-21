@@ -445,6 +445,8 @@ def optimize_embedding(
             device=device,
             controllers=controllers,
         )
+        
+        import ipdb; ipdb.set_trace()
 
         transformed_img = invertible_transform(image)
 
