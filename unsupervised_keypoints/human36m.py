@@ -4,6 +4,7 @@ import numpy as np
 import scipy.io
 import torch
 import torch.utils.data
+import torch.nn.functional as F
 from PIL import Image
 from torchvision import transforms
 from matplotlib import colors
@@ -29,12 +30,6 @@ def get_part_color(n_parts):
 class TrainSet(torch.utils.data.Dataset):
     def __init__(self, data_root, image_size):
         super().__init__()
-        self.transform = transforms.Compose([
-            transforms.Resize(image_size),
-            transforms.ToTensor(),
-        ])
-
-        self.to_tensor = transforms.ToTensor()
 
         self.data_root = data_root
 
@@ -53,22 +48,23 @@ class TrainSet(torch.utils.data.Dataset):
         img = Image.open(os.path.join(self.data_root, 'S{}'.format(subject_index), 'WithBackground',
                                       folder_names, '{}.jpg'.format(frame_index)))
         mask = Image.open(os.path.join(self.data_root, 'S{}'.format(subject_index), 'BackgroudMask',
-                                      folder_names, '{}.png'.format(frame_index)))
-        
-        img_array = np.array(img)
-        mask_array = np.array(mask)
-        
-        # Expand dimensions of mask_array to (128, 128, 3) by repeating it across the third dimension
-        expanded_mask_array = np.repeat(mask_array[:, :, np.newaxis], 3, axis=2)
+                                       folder_names, '{}.png'.format(frame_index)))
+
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        mask_array = torch.from_numpy(np.array(mask))
+
+        # Resize the mask to [1, 512, 512, 3]
+        resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+
+        if img_array.shape[-1] != 512:
+            print(img_array.shape)
+            print(subject_index, folder_names, frame_index)
+            raise ValueError
 
         # Element-wise multiplication
-        result_array = img_array * expanded_mask_array
+        result_img = img_array * resized_mask_array
 
-        # Convert the result back to an image
-        result_img = Image.fromarray(result_array.astype('uint8'))
-        
-
-        return {'img': self.transform(result_img)}
+        return {'img': result_img}
 
     def __len__(self):
         return len(self.samples)
@@ -77,12 +73,6 @@ class TrainSet(torch.utils.data.Dataset):
 class TrainRegSet(torch.utils.data.Dataset):
     def __init__(self, data_root, image_size):
         super().__init__()
-        self.transform = transforms.Compose([
-            transforms.Resize(image_size),
-            transforms.ToTensor(),
-        ])
-
-        self.to_tensor = transforms.ToTensor()
 
         self.data_root = data_root
 
@@ -103,30 +93,18 @@ class TrainRegSet(torch.utils.data.Dataset):
         mask = Image.open(os.path.join(self.data_root, 'S{}'.format(subject_index), 'BackgroudMask',
                                        folder_names, '{}.png'.format(frame_index)))
         keypoints = scipy.io.loadmat(os.path.join(self.data_root, 'S{}'.format(subject_index), 'Landmarks',
-                                      folder_names, '{}.mat'.format(frame_index)))['keypoints_2d'].astype(np.float32)
-        
-        
-        img_array = np.array(img)
-        mask_array = np.array(mask)
-        
-        # Expand dimensions of mask_array to (128, 128, 3) by repeating it across the third dimension
-        expanded_mask_array = np.repeat(mask_array[:, :, np.newaxis], 3, axis=2)
+                                                  folder_names, '{}.mat'.format(frame_index)))['keypoints_2d'].astype(np.float32)
+
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        mask_array = torch.from_numpy(np.array(mask))
+
+        # Resize the mask to [1, 512, 512, 3]
+        resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
-        result_array = img_array * expanded_mask_array
+        result_img = img_array * resized_mask_array
 
-        # Convert the result back to an image
-        result_img = Image.fromarray(result_array.astype('uint8'))
-        
-        # import matplotlib.pyplot as plt
-        # part_color = get_part_color(keypoints.shape[0])
-        # plt.imshow(result_img)
-        # for i in range(keypoints.shape[0]):
-        #     plt.scatter(keypoints[i, 1]*128, keypoints[i, 0]*128, c=part_color[i])
-        #     plt.annotate(str(i), (keypoints[i, 1]*128, keypoints[i, 0]*128))
-        # plt.savefig("outputs/taichi.png")
-
-        return {'img': self.transform(result_img), 'kpts': torch.tensor(keypoints), 'visibility': torch.ones(keypoints.shape[0])}
+        return {'img': result_img, 'kpts': torch.tensor(keypoints), 'visibility': torch.ones(keypoints.shape[0])}
 
     def __len__(self):
         return len(self.samples)
@@ -135,12 +113,6 @@ class TrainRegSet(torch.utils.data.Dataset):
 class TestSet(torch.utils.data.Dataset):
     def __init__(self, data_root, image_size):
         super().__init__()
-        self.transform = transforms.Compose([
-            transforms.Resize(image_size),
-            transforms.ToTensor(),
-        ])
-
-        self.to_tensor = transforms.ToTensor()
 
         self.data_root = data_root
 
@@ -162,20 +134,17 @@ class TestSet(torch.utils.data.Dataset):
                                        folder_names, '{}.png'.format(frame_index)))
         keypoints = scipy.io.loadmat(os.path.join(self.data_root, 'S{}'.format(subject_index), 'Landmarks',
                                                   folder_names, '{}.mat'.format(frame_index)))['keypoints_2d'].astype(np.float32)
-        
-        img_array = np.array(img)
-        mask_array = np.array(mask)
-        
-        # Expand dimensions of mask_array to (128, 128, 3) by repeating it across the third dimension
-        expanded_mask_array = np.repeat(mask_array[:, :, np.newaxis], 3, axis=2)
+
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        mask_array = torch.from_numpy(np.array(mask))
+
+        # Resize the mask to [1, 512, 512, 3]
+        resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
-        result_array = img_array * expanded_mask_array
+        result_img = img_array * resized_mask_array
 
-        # Convert the result back to an image
-        result_img = Image.fromarray(result_array.astype('uint8'))
-
-        return {'img': self.transform(result_img), 'kpts': torch.tensor(keypoints), 'visibility': torch.ones(keypoints.shape[0])}
+        return {'img': result_img, 'kpts': torch.tensor(keypoints), 'visibility': torch.ones(keypoints.shape[0])}
 
     def __len__(self):
         return len(self.samples)

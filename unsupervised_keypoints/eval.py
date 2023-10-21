@@ -643,6 +643,7 @@ def evaluate(
             augment_shear=augment_shear,
             controllers=controllers,
             num_gpus=num_gpus,
+            save_folder=save_folder,
             visualize=(i==0),
         )
         

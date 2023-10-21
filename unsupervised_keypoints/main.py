@@ -317,6 +317,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         num_gpus=num_gpus,
         max_num_points=args.max_num_points,
         max_loc_strategy=args.max_loc_strategy,
+        save_folder=args.save_folder,
     )
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
