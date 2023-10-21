@@ -57,9 +57,7 @@ class TrainSet(torch.utils.data.Dataset):
         resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         if img_array.shape[-1] != 512:
-            print(img_array.shape)
-            print(subject_index, folder_names, frame_index)
-            raise ValueError
+            img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
         result_img = img_array * resized_mask_array
@@ -100,6 +98,9 @@ class TrainRegSet(torch.utils.data.Dataset):
 
         # Resize the mask to [1, 512, 512, 3]
         resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+        
+        if img_array.shape[-1] != 512:
+            img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
         result_img = img_array * resized_mask_array
@@ -140,6 +141,9 @@ class TestSet(torch.utils.data.Dataset):
 
         # Resize the mask to [1, 512, 512, 3]
         resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+        
+        if img_array.shape[-1] != 512:
+            img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
         result_img = img_array * resized_mask_array

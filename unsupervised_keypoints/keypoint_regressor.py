@@ -384,25 +384,39 @@ def return_regressor(X, Y):
 
     return W
 
-    from sklearn.linear_model import RANSACRegressor
-    from sklearn.linear_model import LinearRegression
-    linear_model = LinearRegression(fit_intercept=False)
-    ransac = RANSACRegressor(
-        base_estimator=linear_model,
-        min_samples=int(0.1 * len(X)),  # 10% of the data
-        max_trials=10000,  # Very high number of trials
-        residual_threshold=None,  # Will set based on preliminary fit or other criteria
-        loss="squared_error",
-    )
 
-    ransac.fit(X, Y)
+def return_regressor_human36m(X, Y):
+    
+    from unsupervised_keypoints.eval import swap_points
+    
+    import numpy as np
+    
+    X = torch.tensor(X)-0.5
+    Y = torch.tensor(Y)-0.5
+    
+    XTXXT = (X.T @ X).inverse() @ X.T
+    
+    while True:
+        W = XTXXT @ Y
+        pred_y = X @ W
+        
+        pred_y = torch.tensor(pred_y)
 
-    linear_model_fitted = ransac.estimator_
+        dist = (pred_y - Y).reshape(X.shape[0], -1, 2).norm(dim=2).mean(dim=1)
 
-    # Get the coefficients and intercept
-    W = linear_model_fitted.coef_
+        swaped_y = swap_points(Y.reshape(Y.shape[0], -1, 2)).reshape(Y.shape[0], -1)
+        swaped_dist = (pred_y - swaped_y).reshape(X.shape[0], -1, 2).norm(dim=2).mean(dim=1)
 
-    return W.T
+        should_swap = dist > swaped_dist
+
+        if should_swap.sum() > 10:
+            print("should swap sum, ", should_swap.sum())
+            Y[should_swap] = swaped_y[should_swap]
+        else:
+            break
+    
+
+    return W.numpy()
 
 
 if __name__ == "__main__":

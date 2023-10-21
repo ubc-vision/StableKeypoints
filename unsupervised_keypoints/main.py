@@ -13,6 +13,7 @@ from unsupervised_keypoints.keypoint_regressor import (
     precompute_all_keypoints,
     return_regressor,
     return_regressor_visible,
+    return_regressor_human36m,
 )
 
 from unsupervised_keypoints.eval import evaluate
@@ -108,7 +109,7 @@ parser.add_argument(
     "--evaluation_method",
     type=str,
     default="inter_eye_distance",
-    choices=["inter_eye_distance", "visible", "mean_average_error", "pck"],
+    choices=["inter_eye_distance", "visible", "mean_average_error", "pck", "human3.6m"],
     help="strategy for evaluation",
 )
 parser.add_argument(
@@ -343,6 +344,11 @@ if args.evaluation_method == "visible" or args.evaluation_method == "mean_averag
         visible_reshaped.cpu().numpy().astype(np.float64),
     )
     
+elif args.evaluation_method == "human3.6m":
+    regressor = return_regressor_human36m( 
+        source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
+        target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
+    )
 else:
     
     regressor = return_regressor( 

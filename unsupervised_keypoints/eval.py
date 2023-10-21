@@ -562,6 +562,22 @@ def run_image_with_context_augmented(
     return attention_maps
 
 
+
+
+def swap_points(points):
+    """
+    Swap keypoints for the human3.6m dataset
+    points: B x N x D
+    """
+    correspondences = [(1, 6), (2, 7), (3, 8), (4, 9), (5, 10), (17, 25), (18, 26), (19, 27), (20, 28), (21, 28), (22, 30), (23, 31)]
+    permutation = list(range((points.shape[1])))
+    for a, b in correspondences:
+        permutation[a] = b
+        permutation[b] = a
+    new_points = points[:, permutation, :]
+    return new_points
+
+
 @torch.no_grad()
 def evaluate(
     ldm,
@@ -684,6 +700,17 @@ def evaluate(
             
         if evaluation_method == "pck":
             l2_mean = (l2 < 6).float().mean()
+            
+        if evaluation_method == "human3.6m":
+            l2_mean = l2.mean()
+            swapped_kpts = swap_points(estimated_kpts[None])[0]
+            
+            swapped_l2_mean = (swapped_kpts - gt_kpts).norm(dim=-1).mean()
+            
+            if swapped_l2_mean < l2_mean:
+                l2_mean = swapped_l2_mean
+                
+            l2_mean *= 128
 
 
         
