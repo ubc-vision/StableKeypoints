@@ -473,11 +473,6 @@ def optimize_embedding(
                 device=device,
             )
             
-            pred_noise = torch.tensor(list(pred_noise)).to('cuda:0')
-            
-            
-            print(noise.shape)
-            print(pred_noise.shape)
             
             for controller in controllers:
                 controllers[controller].reset()

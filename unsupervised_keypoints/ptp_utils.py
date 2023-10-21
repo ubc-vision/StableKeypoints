@@ -414,30 +414,30 @@ def register_attention_control_generation(model, controller, target_attn_maps, i
             # attention, what we cannot get enough of
             attn = sim.softmax(dim=-1)
             
-            if (
-                is_cross
-                and sequence_length <= 32**2
-                and len(controller.step_store["attn"]) < 4
-                and attn.shape[-1] != 77
-            ):
-                attn = controller({"attn": attn}, is_cross, place_in_unet)
-                target_res = int(attn.shape[1]**0.5)
+            # if (
+            #     is_cross
+            #     and sequence_length <= 32**2
+            #     and len(controller.step_store["attn"]) < 4
+            #     and attn.shape[-1] != 77
+            # ):
+            #     attn = controller({"attn": attn}, is_cross, place_in_unet)
+            #     target_res = int(attn.shape[1]**0.5)
                 
-                # downsample target_attn_maps to target_res
-                downsampled = F.interpolate(
-                    target_attn_maps[None],
-                    size=(target_res, target_res),
-                    mode="bilinear",
-                    align_corners=False,
-                )[0]
-                downsampled = downsampled.reshape(-1, target_res**2)
-                downsampled /= downsampled.max(dim=-1, keepdim=True)[0]
-                downsampled = downsampled.permute(1, 0)
-                downsampled = downsampled[None].repeat(attn.shape[0], 1, 1)
+            #     # downsample target_attn_maps to target_res
+            #     downsampled = F.interpolate(
+            #         target_attn_maps[None],
+            #         size=(target_res, target_res),
+            #         mode="bilinear",
+            #         align_corners=False,
+            #     )[0]
+            #     downsampled = downsampled.reshape(-1, target_res**2)
+            #     downsampled /= downsampled.max(dim=-1, keepdim=True)[0]
+            #     downsampled = downsampled.permute(1, 0)
+            #     downsampled = downsampled[None].repeat(attn.shape[0], 1, 1)
             
-                attn[:, :, indices] += downsampled*2
+            #     attn[:, :, indices] += downsampled*2
                 
-                attn /= attn.sum(dim=-1, keepdim=True)
+            #     attn /= attn.sum(dim=-1, keepdim=True)
             
             
             out = torch.einsum("b i j, b j d -> b i d", attn, v)
@@ -517,7 +517,7 @@ def text2image_ldm_stable(
     for t in tqdm(model.scheduler.timesteps):
         latents = latent_step(model, controller, latents, context, t, guidance_scale=guidance_scale, low_resource = True)
         controller.reset()
-    latents = latent_step(model, controller, latents, context, t, guidance_scale=guidance_scale, low_resource = True)
+    # latents = latent_step(model, controller, latents, context, t, guidance_scale=guidance_scale, low_resource = True)
 
     image = latent2image(model.vae, latents)
 

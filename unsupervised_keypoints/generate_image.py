@@ -2,7 +2,7 @@ import torch
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 from unsupervised_keypoints import ptp_utils
 
-device = "cpu"
+device = "cuda"
 
 scheduler = DDIMScheduler(
     beta_start=0.00085,
@@ -32,7 +32,6 @@ for i in range(100):
         embedding = embedding,
         controller = controller,
         num_inference_steps= 50,
-        guidance_scale=0
     )
 
     import matplotlib.pyplot as plt

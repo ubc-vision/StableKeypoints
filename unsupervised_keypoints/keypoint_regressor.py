@@ -50,11 +50,6 @@ def find_best_indices(
     from_where=["down_cross", "mid_cross", "up_cross"],
     num_tokens=1000,
     top_k=30,
-    augment=False,
-    augment_degrees=30,
-    augment_scale=(0.9, 1.1),
-    augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
     dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     dataset_name = "celeba_aligned",
     min_dist = 0.05,
@@ -86,13 +81,6 @@ def find_best_indices(
     else:
         raise NotImplementedError
 
-    invertible_transform = RandomAffineWithInverse(
-        degrees=augment_degrees,
-        scale=augment_scale,
-        translate=augment_translate,
-        shear=augment_shear,
-    )
-
     maps = []
     indices_list = []
 
@@ -110,9 +98,6 @@ def find_best_indices(
             mini_batch = next(dataloader_iter)
 
         image = mini_batch["img"]
-
-        if augment:
-            image = invertible_transform(image)
 
         attention_maps = ptp_utils.run_and_find_attn(
             ldm,
