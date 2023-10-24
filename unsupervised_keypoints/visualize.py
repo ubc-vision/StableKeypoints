@@ -146,9 +146,13 @@ def visualize_attn_maps(
     imgs = []
     maps = []
     gt_kpts = []
+    
+    # random permute the dataset
+    randperm = torch.randperm(len(dataset))
+    
     for i in tqdm(range(num_images)):
     # for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:
-        batch = dataset[i]
+        batch = dataset[randperm[i]]
 
         img = batch["img"]
 

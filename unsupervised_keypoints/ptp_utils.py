@@ -136,6 +136,69 @@ def find_top_k_gaussian(attention_maps, top_k, min_dist=0.05, sigma = 3, epsilon
 
     return torch.tensor(selected_indices).to(device)
 
+
+def furthest_point_sampling(attention_maps, top_k, initial_candidates=30, sigma = 3, epsilon = 1e-5):
+    """
+    attention_maps is of shape [batch_size, image_h, image_w]
+    
+    min_dist set to 0 becomes a simple top_k
+    """
+    
+    device = attention_maps.device
+
+    batch_size, image_h, image_w = attention_maps.shape
+
+    # Assuming you have a function find_max_pixel to get the pixel locations
+    max_pixel_locations = find_max_pixel(attention_maps)/image_h  # You'll need to define find_max_pixel
+
+    # Normalize the activation maps to represent probability distributions
+    attention_maps_softmax = torch.softmax(attention_maps.view(batch_size, image_h * image_w) + epsilon, dim=-1)
+
+    # Assuming you have a function gaussian_circle in the module optimize_token
+    target = optimize_token.gaussian_circle(
+        max_pixel_locations, size=image_h, sigma=sigma, device=attention_maps.device
+    )  # You'll need to define gaussian_circle
+    
+    target = target.reshape(batch_size, image_h * image_w) + epsilon
+    target /= target.sum(dim=-1, keepdim=True)
+
+    # sort the kl distances between attention_maps_softmax and target
+    kl_distances = torch.sum(target * (torch.log(target) - torch.log(attention_maps_softmax)), dim=-1)
+    
+    # get the argsort for kl_distances
+    kl_distances_argsort = torch.argsort(kl_distances, dim=-1, descending=False)
+    
+    # Take top 30 points based on the kl divergence
+    top_initial_candidates = kl_distances_argsort[:initial_candidates]
+    
+    # Locations of the initial top points
+    top_initial_locations = max_pixel_locations[top_initial_candidates]
+    
+    # Initialize the furthest point sampling
+    selected_indices = [top_initial_candidates[0].item()]
+    
+    for _ in range(top_k - 1):
+        max_min_dist = -1
+        furthest_point = None
+        
+        for i in top_initial_candidates:
+            if i.item() in selected_indices:
+                continue
+            
+            this_min_dist = torch.min(torch.sqrt(torch.sum((max_pixel_locations[i] - torch.index_select(max_pixel_locations, 0, torch.tensor(selected_indices).to(device)))**2, dim=-1)))
+            
+            if this_min_dist > max_min_dist:
+                max_min_dist = this_min_dist
+                furthest_point = i.item()
+        
+        if furthest_point is not None:
+            selected_indices.append(furthest_point)
+    
+    return torch.tensor(selected_indices).to(device)
+
+
+
+
 def find_top_k(attention_maps, top_k, min_dist=0.05):
     """
     attention_maps is of shape [batch_size, image_h, image_w]

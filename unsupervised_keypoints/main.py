@@ -95,7 +95,7 @@ parser.add_argument(
     "--top_k_strategy",
     type=str,
     default="gaussian",
-    choices=["entropy", "gaussian", "consistent"],
+    choices=["entropy", "gaussian", "consistent", "furthest_point"],
     help="strategy for choosing top k tokens",
 )
 parser.add_argument(
@@ -248,7 +248,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
     indices = find_best_indices(
         ldm,
         embedding,
-        num_steps=100,
+        num_steps=1000,
         noise_level=args.noise_level,
         num_tokens=args.num_tokens,
         device=args.device,

@@ -120,6 +120,10 @@ def find_best_indices(
                 top_embedding_indices = ptp_utils.find_top_k_gaussian(
                     attention_map, top_k, min_dist = min_dist, sigma=sigma,
                 )
+            elif top_k_strategy == "furthest_point":
+                top_embedding_indices = ptp_utils.furthest_point_sampling(
+                    attention_maps, top_k, initial_candidates=50, sigma = sigma,
+                )
             elif top_k_strategy == "consistent":
                 top_embedding_indices = torch.arange(top_k)
         
