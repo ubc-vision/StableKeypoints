@@ -362,6 +362,7 @@ def optimize_embedding(
     dataset_name = "celeba_aligned",
     max_len=-1,
     min_dist=0.05,
+    furthest_point_num_samples=50,
     controllers=None,
 ):
     
@@ -495,7 +496,7 @@ def optimize_embedding(
                 )
             elif top_k_strategy == "furthest_point":
                 top_embedding_indices = ptp_utils.furthest_point_sampling(
-                    attn_map, top_k, initial_candidates=50, sigma = sigma,
+                    attn_map, top_k, initial_candidates=furthest_point_num_samples, sigma = sigma,
                 )
             elif top_k_strategy == "consistent":
                 top_embedding_indices = torch.arange(top_k)

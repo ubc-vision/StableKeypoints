@@ -119,6 +119,12 @@ parser.add_argument(
     help="minimum distance between the keypoints, as a fraction of the image size",
 )
 parser.add_argument(
+    "--furthest_point_num_samples",
+    type=int,
+    default=50,
+    help="the number of samples to use if using the furthest point strategy",
+)
+parser.add_argument(
     "--sharpening_loss_weight",
     type=float,
     default=100,
@@ -234,6 +240,7 @@ if args.start_from_stage == "optimize":
         batch_size=args.batch_size,
         dataset_name = args.dataset_name,
         max_len=args.max_len,
+        furthest_point_num_samples=args.furthest_point_num_samples,
         min_dist=args.min_dist,
         controllers=controllers,
         num_gpus=num_gpus,
@@ -260,6 +267,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         controllers=controllers,
         num_gpus=num_gpus,
         top_k_strategy=args.top_k_strategy,
+        furthest_point_num_samples=args.furthest_point_num_samples,
         sigma = args.sigma,
     )
     torch.save(indices, os.path.join(args.save_folder, "indices.pt"))

@@ -53,6 +53,7 @@ def find_best_indices(
     dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     dataset_name = "celeba_aligned",
     min_dist = 0.05,
+    furthest_point_num_samples=50,
     controllers=None,
     num_gpus=1,
     top_k_strategy = "entropy",
@@ -122,7 +123,7 @@ def find_best_indices(
                 )
             elif top_k_strategy == "furthest_point":
                 top_embedding_indices = ptp_utils.furthest_point_sampling(
-                    attention_maps, top_k, initial_candidates=50, sigma = sigma,
+                    attention_map, top_k, initial_candidates=furthest_point_num_samples, sigma = sigma,
                 )
             elif top_k_strategy == "consistent":
                 top_embedding_indices = torch.arange(top_k)

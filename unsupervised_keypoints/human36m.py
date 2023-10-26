@@ -60,7 +60,8 @@ class TrainSet(torch.utils.data.Dataset):
             img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
-        result_img = img_array * resized_mask_array
+        # result_img = img_array * resized_mask_array
+        result_img = img_array
 
         return {'img': result_img}
 
@@ -103,7 +104,8 @@ class TrainRegSet(torch.utils.data.Dataset):
             img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
-        result_img = img_array * resized_mask_array
+        # result_img = img_array * resized_mask_array
+        result_img = img_array
 
         return {'img': result_img, 'kpts': torch.tensor(keypoints), 'visibility': torch.ones(keypoints.shape[0])}
 
@@ -146,7 +148,8 @@ class TestSet(torch.utils.data.Dataset):
             img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
-        result_img = img_array * resized_mask_array
+        # result_img = img_array * resized_mask_array
+        result_img = img_array
 
         return {'img': result_img, 'kpts': torch.tensor(keypoints), 'visibility': torch.ones(keypoints.shape[0])}
 
