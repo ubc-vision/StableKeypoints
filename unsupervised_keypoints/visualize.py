@@ -152,7 +152,7 @@ def visualize_attn_maps(
     
     for i in tqdm(range(num_images)):
     # for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:
-        batch = dataset[randperm[i]]
+        batch = dataset[randperm[i].item()]
 
         img = batch["img"]
 

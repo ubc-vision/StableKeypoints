@@ -383,6 +383,7 @@ def run_image_with_context_augmented(
     controllers=None,
     num_gpus=1,
     save_folder="outputs",
+    human36m = False,
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
@@ -428,6 +429,7 @@ def run_image_with_context_augmented(
             device=device,
             controllers=controllers,
             indices=indices.cpu(),
+            human36m=human36m,
         )
         
         # import ipdb; ipdb.set_trace()
@@ -661,6 +663,7 @@ def evaluate(
             num_gpus=num_gpus,
             save_folder=save_folder,
             visualize=(i==0),
+            human36m = dataset_name == "human3.6m",
         )
         
         if max_loc_strategy == "argmax":

@@ -445,6 +445,7 @@ def optimize_embedding(
             upsample_res=-1,
             device=device,
             controllers=controllers,
+            human36m=dataset_name == "human3.6m",
         )
         
         # import ipdb; ipdb.set_trace()
@@ -461,6 +462,7 @@ def optimize_embedding(
             upsample_res=-1,
             device=device,
             controllers=controllers,
+            human36m=dataset_name == "human3.6m",
         )
         
         if ddpm_loss_weight != 0:

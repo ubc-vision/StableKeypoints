@@ -94,7 +94,7 @@ parser.add_argument(
 parser.add_argument(
     "--top_k_strategy",
     type=str,
-    default="gaussian",
+    default="furthest_point",
     choices=["entropy", "gaussian", "consistent", "furthest_point"],
     help="strategy for choosing top k tokens",
 )
@@ -121,7 +121,7 @@ parser.add_argument(
 parser.add_argument(
     "--furthest_point_num_samples",
     type=int,
-    default=50,
+    default=25,
     help="the number of samples to use if using the furthest point strategy",
 )
 parser.add_argument(

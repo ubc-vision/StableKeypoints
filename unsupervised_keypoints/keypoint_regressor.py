@@ -109,6 +109,7 @@ def find_best_indices(
             from_where=from_where,
             upsample_res=upsample_res,
             controllers=controllers,
+            human36m = dataset_name == "human3.6m",
         )
         
         for attention_map in attention_maps:

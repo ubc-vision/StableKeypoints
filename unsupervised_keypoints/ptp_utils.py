@@ -299,6 +299,7 @@ def run_and_find_attn(
     upsample_res=32,
     indices=None,
     controllers=None,
+    human36m = False
 ):
     _, _ = find_pred_noise(
         ldm,
@@ -319,11 +320,27 @@ def run_and_find_attn(
             layers=layers,
             indices=indices,
         )
+        
+        if human36m:
+            _attention_maps = mask_attn(image, _attention_maps)
+        
         attention_maps.append(_attention_maps)
 
         controllers[controller].reset()
+        
+        
 
     return attention_maps
+
+
+def mask_attn(image, attn_map):
+    C, H, W = attn_map.shape
+    downsampled_img = F.interpolate(image, size=(H, W), mode="bilinear", align_corners=False)
+    downsampled_img = downsampled_img.mean(dim=1).to(attn_map.device)
+    # mask attn_maps where downsampled_img is 0
+    attn_map = attn_map*(downsampled_img!=0)
+        
+    return attn_map
 
 
 def image2latent(model, image, device):
