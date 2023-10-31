@@ -178,6 +178,7 @@ def visualize_attn_maps(
             controllers=controllers,
             num_gpus=num_gpus,
             save_folder=save_folder,
+            human36m=dataset_name == "human3.6m",
         )
 
         maps.append(map)

@@ -125,6 +125,12 @@ parser.add_argument(
     help="the number of samples to use if using the furthest point strategy",
 )
 parser.add_argument(
+    "--num_indices",
+    type=int,
+    default=1000,
+    help="the number of samples to use for finding the indices of the best tokens",
+)
+parser.add_argument(
     "--sharpening_loss_weight",
     type=float,
     default=100,
@@ -255,7 +261,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
     indices = find_best_indices(
         ldm,
         embedding,
-        num_steps=1000,
+        num_steps=args.num_indices,
         noise_level=args.noise_level,
         num_tokens=args.num_tokens,
         device=args.device,

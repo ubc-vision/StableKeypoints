@@ -171,8 +171,8 @@ def furthest_point_sampling(attention_maps, top_k, initial_candidates=30, sigma 
     # Take top 30 points based on the kl divergence
     top_initial_candidates = kl_distances_argsort[:initial_candidates]
     
-    # Locations of the initial top points
-    top_initial_locations = max_pixel_locations[top_initial_candidates]
+    if initial_candidates == top_k:
+        return top_initial_candidates
     
     # Initialize the furthest point sampling
     selected_indices = [top_initial_candidates[0].item()]
@@ -335,6 +335,10 @@ def run_and_find_attn(
 
 def mask_attn(image, attn_map):
     C, H, W = attn_map.shape
+    # if  image is numpy array, convert to torch tensor
+    if type(image) is np.ndarray:
+        image = torch.from_numpy(image).permute(0, 3, 1, 2).to(attn_map.device)
+
     downsampled_img = F.interpolate(image, size=(H, W), mode="bilinear", align_corners=False)
     downsampled_img = downsampled_img.mean(dim=1).to(attn_map.device)
     # mask attn_maps where downsampled_img is 0
