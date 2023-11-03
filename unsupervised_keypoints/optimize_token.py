@@ -52,24 +52,33 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=
         type, use_auth_token=MY_TOKEN, scheduler=scheduler
     ).to(device)
     
-    ldm.unet = nn.DataParallel(ldm.unet)
-    ldm.vae = nn.DataParallel(ldm.vae)
-    
-    controllers = {}
-    for device_id in ldm.unet.device_ids:
-        device = torch.device("cuda", device_id)
+    if device != "cpu":
+        ldm.unet = nn.DataParallel(ldm.unet)
+        ldm.vae = nn.DataParallel(ldm.vae)
+        
+        controllers = {}
+        for device_id in ldm.unet.device_ids:
+            device = torch.device("cuda", device_id)
+            controller = ptp_utils.AttentionStore()
+            controllers[device] = controller
+    else:
+        controllers = {}
+        _device = torch.device("cpu")
         controller = ptp_utils.AttentionStore()
-        controllers[device] = controller
+        controllers[_device] = controller
 
-    # patched_devices = set()
+        # patched_devices = set()
 
     def hook_fn(module, input):
-        device = input[0].device
+        _device = input[0].device
         # if device not in patched_devices:
-        ptp_utils.register_attention_control(module, controllers[device], feature_upsample_res=feature_upsample_res)
+        ptp_utils.register_attention_control(module, controllers[_device], feature_upsample_res=feature_upsample_res)
         # patched_devices.add(device)
 
-    ldm.unet.module.register_forward_pre_hook(hook_fn)
+    if device != "cpu":
+        ldm.unet.module.register_forward_pre_hook(hook_fn)
+    else:
+        ldm.unet.register_forward_pre_hook(hook_fn)
     
     num_gpus = torch.cuda.device_count()
 

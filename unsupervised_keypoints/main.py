@@ -53,7 +53,7 @@ parser.add_argument(
 parser.add_argument(
     "--dataset_name",
     # set the choices to be "mafl" and "celeba_aligned"
-    choices=["celeba_aligned", "celeba_wild", "cub_aligned", "cub_001", "cub_002", "cub_003", "cub_all", "deepfashion", "taichi", "human3.6m"],
+    choices=["celeba_aligned", "celeba_wild", "cub_aligned", "cub_001", "cub_002", "cub_003", "cub_all", "deepfashion", "taichi", "human3.6m", "unaligned_human3.6m"],
     type=str,
     default="celeba_aligned",
     help="name of the dataset to use",
@@ -152,7 +152,7 @@ parser.add_argument("--layers", type=int, nargs="+", default=[0, 1, 2, 3])
 parser.add_argument(
     "--noise_level",
     type=int,
-    default=-8,
+    default=-1,
     help="noise level for the test set between 0 and 49 where 0 is the highest noise level and 49 is the lowest noise level",
 )
 parser.add_argument(

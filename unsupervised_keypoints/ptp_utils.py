@@ -357,7 +357,10 @@ def image2latent(model, image, device):
             # print the max and min values of the image
             image = torch.from_numpy(image).float() * 2 - 1
             image = image.permute(0, 3, 1, 2).to(device)
-            latents = model.vae.module.encode(image)["latent_dist"].mean
+            if device != "cpu":
+                latents = model.vae.module.encode(image)["latent_dist"].mean
+            else:
+                latents = model.vae.encode(image)["latent_dist"].mean
             latents = latents * 0.18215
     return latents
 
