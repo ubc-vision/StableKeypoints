@@ -506,7 +506,8 @@ def optimize_embedding(
             elif top_k_strategy == "consistent":
                 top_embedding_indices = torch.arange(top_k)
             elif top_k_strategy == "consistent_furthest_point":
-                top_embedding_indices = ptp_utils.furthest_point_sampling_consistent(attn_map, top_k, initial_candidates=furthest_point_num_samples)
+                # top_embedding_indices = ptp_utils.furthest_point_sampling_consistent(attn_map, top_k, initial_candidates=furthest_point_num_samples)
+                top_embedding_indices = torch.arange(furthest_point_num_samples)
             else:
                 raise NotImplementedError
 
