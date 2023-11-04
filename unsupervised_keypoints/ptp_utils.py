@@ -197,6 +197,49 @@ def furthest_point_sampling(attention_maps, top_k, initial_candidates=30, sigma 
     return torch.tensor(selected_indices).to(device)
 
 
+def furthest_point_sampling_consistent(attention_maps, top_k, initial_candidates=30):
+    """
+    attention_maps is of shape [batch_size, image_h, image_w]
+    
+    min_dist set to 0 becomes a simple top_k
+    """
+    
+    device = attention_maps.device
+
+    batch_size, image_h, image_w = attention_maps.shape
+
+    # Assuming you have a function find_max_pixel to get the pixel locations
+    max_pixel_locations = find_max_pixel(attention_maps)/image_h  # You'll need to define find_max_pixel
+    
+    # Take top initial_candidates points consistently
+    top_initial_candidates = torch.arange(top_k).to(device)
+    
+    if initial_candidates == top_k:
+        return top_initial_candidates
+    
+    # Initialize the furthest point sampling
+    selected_indices = [top_initial_candidates[0].item()]
+    
+    for _ in range(top_k - 1):
+        max_min_dist = -1
+        furthest_point = None
+        
+        for i in top_initial_candidates:
+            if i.item() in selected_indices:
+                continue
+            
+            this_min_dist = torch.min(torch.sqrt(torch.sum((max_pixel_locations[i] - torch.index_select(max_pixel_locations, 0, torch.tensor(selected_indices).to(device)))**2, dim=-1)))
+            
+            if this_min_dist > max_min_dist:
+                max_min_dist = this_min_dist
+                furthest_point = i.item()
+        
+        if furthest_point is not None:
+            selected_indices.append(furthest_point)
+    
+    return torch.tensor(selected_indices).to(device)
+
+
 
 
 def find_top_k(attention_maps, top_k, min_dist=0.05):

@@ -95,7 +95,7 @@ parser.add_argument(
     "--top_k_strategy",
     type=str,
     default="furthest_point",
-    choices=["entropy", "gaussian", "consistent", "furthest_point"],
+    choices=["entropy", "gaussian", "consistent", "furthest_point", "consistent_furthest_point"],
     help="strategy for choosing top k tokens",
 )
 parser.add_argument(

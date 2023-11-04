@@ -131,6 +131,10 @@ def find_best_indices(
                 )
             elif top_k_strategy == "consistent":
                 top_embedding_indices = torch.arange(top_k)
+            elif top_k_strategy == "consistent_furthest_point":
+                top_embedding_indices = ptp_utils.furthest_point_sampling_consistent(attention_map, top_k, initial_candidates=furthest_point_num_samples)
+            else:
+                raise NotImplementedError
         
             indices_list.append(top_embedding_indices.cpu())
     
