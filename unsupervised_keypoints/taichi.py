@@ -1,5 +1,5 @@
 import os
-
+import h5py
 import numpy as np
 import pandas
 import torch
@@ -7,6 +7,7 @@ import torch.utils.data
 import torchvision
 from PIL import Image
 from matplotlib import colors
+from tqdm import tqdm
 from torchvision import transforms
 
 
@@ -55,19 +56,6 @@ class TrainRegSet(torch.utils.data.Dataset):
 
         with open(os.path.join(data_root, 'landmark', 'taichi_train_gt.pkl'), 'rb') as f:
             self.pose_file = pandas.read_pickle(f)
-
-        # for i in range(len(pose_file)):
-        #     image_file = pose_file.file_name[i]
-        #     img = Image.open(os.path.join(data_root, 'eval_images', 'taichi-256', 'train', image_file))
-        #     img = img.resize((image_size, image_size), resample=Image.BILINEAR)
-        #     self.imgs.append(np.asarray(img) / 255)
-        #     self.poses.append(pose_file.value[i])  # [0, 255]
-
-
-        # self.imgs = torch.tensor(np.array(self.imgs)).float().permute(0, 3, 1, 2)
-        # self.imgs = self.imgs.contiguous()
-        # self.poses = torch.tensor(self.poses).float()
-        # self.poses = torch.cat([self.poses[:, :, 1:2], self.poses[:, :, 0:1]], dim=2)
 
     def __getitem__(self, idx):
         
@@ -212,15 +200,28 @@ def test_epoch_end(batch_list_list):
 
 if __name__ == "__main__":
     
-    # select random number between 0 and 4999
-    num = np.random.randint(0, 5000)
-    print("Testing taichi.py")
-    dataset = TrainRegSet(data_root="/ubc/cs/home/i/iamerich/scratch/datasets/taichi", image_size=512)
+    # Initialize your dataset
+    data_root = '/home/iamerich/burst/taichi/'
+    image_size = 512  # for example
+    dataset = TrainSet(data_root, image_size)
     
-    print("len(dataset):", len(dataset))
-    
-    batch = dataset[num]
-    
-    print("batch['img'].shape:", batch['img'].shape)
-    
-    pass
+    # import ipdb; ipdb.set_trace()
+
+    # Prepare to convert the dataset
+    # Open an HDF5 file in 'w'rite mode
+    with h5py.File('/home/iamerich/scratch/taichi/TrainSet.h5', 'w') as h5f:
+        # Preallocate space for the largest expected size in your dataset
+        # This assumes all images are the same size and the poses have the same shape
+        images_dataset = h5f.create_dataset('images', (len(dataset), 3, image_size, image_size), dtype='f')
+        # poses_dataset = h5f.create_dataset('kpts', (len(dataset), dataset.pose_file.value[0].shape[0], 2), dtype='f')
+        # visibility_dataset = h5f.create_dataset('visibility', (len(dataset), dataset.pose_file.value[0].shape[0]), dtype='i')
+
+        # Convert each item and save it to the HDF5 file
+        for i in tqdm(range(len(dataset))):
+            sample = dataset[i]
+            images_dataset[i] = sample['img']
+            # poses_dataset[i] = sample['kpts']
+            # visibility_dataset[i] = sample['visibility']
+
+        # Optionally you can also save some attributes or metadata if needed
+        h5f.attrs['image_size'] = image_size
