@@ -607,6 +607,7 @@ def evaluate(
     controllers=None,
     num_gpus=1,
     max_loc_strategy = "argmax",
+    validation = False,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", dataset_loc=dataset_loc)
@@ -625,7 +626,7 @@ def evaluate(
     elif dataset_name == "taichi":
         dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
-        dataset = human36m.TestSet(data_root=dataset_loc, image_size=512)
+        dataset = human36m.TestSet(data_root=dataset_loc, validation=validation)
     elif dataset_name == "unaligned_human3.6m":
         dataset = unaligned_human36m.TestSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "deepfashion":
@@ -642,11 +643,18 @@ def evaluate(
     max_value = 0
 
     all_values = []
+    
+    
+    # create dataloader for the dataset
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, drop_last=True)
+
+    dataloader_iter = iter(dataloader)
 
     for i in range(len(dataset)):
-        batch = dataset[i]
 
-        img = batch["img"]
+        batch = next(dataloader_iter)
+
+        img = batch["img"][0]
 
         attention_maps = run_image_with_context_augmented(
             ldm,
@@ -679,7 +687,7 @@ def evaluate(
 
         estimated_kpts = estimated_kpts.view(-1, 2)
 
-        gt_kpts = batch["kpts"].cuda()
+        gt_kpts = batch["kpts"][0].cuda()
         
         if evaluation_method == "mean_average_error" or evaluation_method == "pck":
             estimated_kpts *= 256
@@ -697,7 +705,7 @@ def evaluate(
             l2_mean = torch.mean(l2)
             
         if evaluation_method == "visible" or evaluation_method == "mean_average_error":
-            visible = batch['visibility'].to(device)
+            visible = batch['visibility'][0].to(device)
             
             l2_mean = (l2*visible).sum()
             

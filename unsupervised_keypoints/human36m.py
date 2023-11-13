@@ -29,14 +29,16 @@ def get_part_color(n_parts):
 
 
 class TrainSet(torch.utils.data.Dataset):
-    def __init__(self, data_root, image_size):
+    def __init__(self, data_root, validation = False):
         super().__init__()
 
         self.data_root = data_root
 
         self.samples = []
+        
+        subjects =  [1, 5, 6, 7, 8, 9] if not validation else [1, 5, 6, 7, 8]
 
-        for subject_index in [1, 5, 6, 7, 8, 9]:
+        for subject_index in subjects:
             for action in ['Directions', 'Discussion', 'Posing', 'Waiting', 'Greeting', 'Walking']:
                 for folder_names in os.listdir(os.path.join(data_root, 'S{}'.format(subject_index), 'WithBackground')):
                     if folder_names.startswith(action):
@@ -71,14 +73,16 @@ class TrainSet(torch.utils.data.Dataset):
 
 
 class TrainRegSet(torch.utils.data.Dataset):
-    def __init__(self, data_root, image_size):
+    def __init__(self, data_root, validation = False):
         super().__init__()
 
         self.data_root = data_root
 
         self.samples = []
+        
+        subjects =  [1, 5, 6, 7, 8, 9] if not validation else [1, 5, 6, 7, 8]
 
-        for subject_index in [1, 5, 6, 7, 8, 9]:
+        for subject_index in subjects:
             for action in ['Directions', 'Discussion', 'Posing', 'Waiting', 'Greeting', 'Walking']:
                 for folder_names in os.listdir(os.path.join(data_root, 'S{}'.format(subject_index), 'WithBackground')):
                     if folder_names.startswith(action):
@@ -115,14 +119,16 @@ class TrainRegSet(torch.utils.data.Dataset):
 
 
 class TestSet(torch.utils.data.Dataset):
-    def __init__(self, data_root, image_size):
+    def __init__(self, data_root, validation=False):
         super().__init__()
 
         self.data_root = data_root
 
         self.samples = []
+        
+        subjects =  [11] if not validation else [9]
 
-        for subject_index in [11]:
+        for subject_index in subjects:
             for action in ['Directions', 'Discussion', 'Posing', 'Waiting', 'Greeting', 'Walking']:
                 for folder_names in os.listdir(os.path.join(data_root, 'S{}'.format(subject_index), 'WithBackground')):
                     if folder_names.startswith(action):

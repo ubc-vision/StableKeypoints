@@ -59,6 +59,7 @@ def find_best_indices(
     num_gpus=1,
     top_k_strategy = "entropy",
     sigma = 3,
+    validation = False,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
@@ -77,7 +78,7 @@ def find_best_indices(
     elif dataset_name == "taichi":
         dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
-        dataset = human36m.TrainSet(data_root=dataset_loc, image_size=512)
+        dataset = human36m.TrainSet(data_root=dataset_loc, validation=validation)
     elif dataset_name == "unaligned_human3.6m":
         dataset = unaligned_human36m.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "deepfashion":
@@ -118,29 +119,25 @@ def find_best_indices(
         for attention_map in attention_maps:
         
             if top_k_strategy == "entropy":
-                top_embedding_indices = ptp_utils.find_top_k(
-                    attention_map, top_k, min_dist = min_dist,
+                top_initial_candidates = ptp_utils.entropy_sort(
+                    attention_map, furthest_point_num_samples, 
                 )
             elif top_k_strategy == "gaussian":
-                top_embedding_indices = ptp_utils.find_top_k_gaussian(
-                    attention_map, top_k, min_dist = min_dist, sigma=sigma,
-                )
-            elif top_k_strategy == "furthest_point":
-                top_embedding_indices = ptp_utils.furthest_point_sampling(
-                    attention_map, top_k, initial_candidates=furthest_point_num_samples, sigma = sigma,
+                top_initial_candidates = ptp_utils.find_top_k_gaussian(
+                    attention_map, furthest_point_num_samples, sigma=sigma,
                 )
             elif top_k_strategy == "consistent":
-                top_embedding_indices = torch.arange(top_k)
-            elif top_k_strategy == "consistent_furthest_point":
-                top_embedding_indices = ptp_utils.furthest_point_sampling_consistent(attention_map, top_k, initial_candidates=furthest_point_num_samples)
+                top_initial_candidates = torch.arange(furthest_point_num_samples)
             else:
                 raise NotImplementedError
+            
+            top_embedding_indices = ptp_utils.furthest_point_sampling(attention_map, top_k, top_initial_candidates)
         
             indices_list.append(top_embedding_indices.cpu())
     
     # find the top_k most common indices
-    indices_list = torch.stack([index for index in indices_list])
-    indices_list = indices_list.reshape(-1)
+    indices_list = torch.cat([index for index in indices_list])
+    # indices_list = indices_list.reshape(-1)
     indices, counts = torch.unique(indices_list, return_counts=True)
     indices = indices[counts.argsort(descending=True)]
     indices = indices[:top_k]
@@ -279,6 +276,7 @@ def precompute_all_keypoints(
     max_num_points = 50_000,
     max_loc_strategy="argmax",
     save_folder="outputs",
+    validation = False,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
@@ -297,7 +295,7 @@ def precompute_all_keypoints(
     elif dataset_name == "taichi":
         dataset = taichi.TrainRegSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
-        dataset = human36m.TrainRegSet(data_root=dataset_loc, image_size=512)
+        dataset = human36m.TrainRegSet(data_root=dataset_loc, validation=validation)
     elif dataset_name == "unaligned_human3.6m":
         dataset = unaligned_human36m.TrainRegSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "deepfashion":

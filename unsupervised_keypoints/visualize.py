@@ -118,6 +118,7 @@ def visualize_attn_maps(
     controllers=None,
     num_gpus=1,
     max_loc_strategy="argmax",
+    validation = False,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", dataset_loc=dataset_loc)
@@ -138,7 +139,7 @@ def visualize_attn_maps(
     elif dataset_name == "taichi":
         dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
-        dataset = human36m.TestSet(data_root=dataset_loc, image_size=512)
+        dataset = human36m.TestSet(data_root=dataset_loc, validation=validation)
     elif dataset_name == "unaligned_human3.6m":
         dataset = unaligned_human36m.TestSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "deepfashion":
@@ -152,6 +153,7 @@ def visualize_attn_maps(
     
     # random permute the dataset
     randperm = torch.randperm(len(dataset))
+    # randperm = torch.arange(len(dataset))*100
     
     for i in tqdm(range(num_images)):
     # for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:

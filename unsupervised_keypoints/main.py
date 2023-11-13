@@ -94,8 +94,8 @@ parser.add_argument(
 parser.add_argument(
     "--top_k_strategy",
     type=str,
-    default="furthest_point",
-    choices=["entropy", "gaussian", "consistent", "furthest_point", "consistent_furthest_point"],
+    default="gaussian",
+    choices=["entropy", "gaussian", "consistent"],
     help="strategy for choosing top k tokens",
 )
 parser.add_argument(
@@ -203,6 +203,9 @@ parser.add_argument(
 parser.add_argument(
     "--visualize", action="store_true", help="visualize the attention maps"
 )
+parser.add_argument(
+    "--validation", action="store_true", help="use the validation sets instead of the training/testing set"
+)
 parser.add_argument("--top_k", type=int, default=10, help="number of points to choose")
 
 args = parser.parse_args()
@@ -250,6 +253,7 @@ if args.start_from_stage == "optimize":
         min_dist=args.min_dist,
         controllers=controllers,
         num_gpus=num_gpus,
+        validation=args.validation,
     )
     torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 else:
@@ -275,6 +279,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         top_k_strategy=args.top_k_strategy,
         furthest_point_num_samples=args.furthest_point_num_samples,
         sigma = args.sigma,
+        validation=args.validation,
     )
     torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
     
@@ -300,6 +305,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         controllers=controllers,
         num_gpus=num_gpus,
         max_loc_strategy=args.max_loc_strategy,
+        validation=args.validation,
     )
 else:
     indices = (
@@ -329,6 +335,7 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         max_num_points=args.max_num_points,
         max_loc_strategy=args.max_loc_strategy,
         save_folder=args.save_folder,
+        validation=args.validation,
     )
 
     torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
@@ -395,6 +402,7 @@ visualize_attn_maps(
     controllers=controllers,
     num_gpus=num_gpus,
     max_loc_strategy=args.max_loc_strategy,
+    validation=args.validation,
 )
 
 evaluate(
@@ -420,4 +428,5 @@ evaluate(
     controllers=controllers,
     num_gpus=num_gpus,
     max_loc_strategy=args.max_loc_strategy,
+    validation=args.validation,
 )

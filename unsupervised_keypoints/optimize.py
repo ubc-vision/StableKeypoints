@@ -365,6 +365,7 @@ def optimize_embedding(
     min_dist=0.05,
     furthest_point_num_samples=50,
     controllers=None,
+    validation = False,
 ):
     
     if dataset_name == "celeba_aligned":
@@ -384,7 +385,7 @@ def optimize_embedding(
     elif dataset_name == "taichi":
         dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "human3.6m":
-        dataset = human36m.TrainSet(data_root=dataset_loc, image_size=512)
+        dataset = human36m.TrainSet(data_root=dataset_loc, validation=validation)
     elif dataset_name == "unaligned_human3.6m":
         dataset = unaligned_human36m.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "deepfashion":
@@ -492,22 +493,15 @@ def optimize_embedding(
         for index, attn_map, attention_map_transformed in zip(torch.arange(num_gpus), attn_maps, attention_maps_transformed):
 
             if top_k_strategy == "entropy":
-                top_embedding_indices = ptp_utils.find_top_k(
-                    attn_map, top_k, min_dist = min_dist,
+                top_embedding_indices = ptp_utils.entropy_sort(
+                    attn_map, top_k,
                 )
             elif top_k_strategy == "gaussian":
                 top_embedding_indices = ptp_utils.find_top_k_gaussian(
-                    attn_map, top_k, min_dist = min_dist, sigma=sigma,
-                )
-            elif top_k_strategy == "furthest_point":
-                top_embedding_indices = ptp_utils.furthest_point_sampling(
-                    attn_map, top_k, initial_candidates=furthest_point_num_samples, sigma = sigma,
+                    attn_map, top_k, sigma=sigma,
                 )
             elif top_k_strategy == "consistent":
                 top_embedding_indices = torch.arange(top_k)
-            elif top_k_strategy == "consistent_furthest_point":
-                # top_embedding_indices = ptp_utils.furthest_point_sampling_consistent(attn_map, top_k, initial_candidates=furthest_point_num_samples)
-                top_embedding_indices = torch.arange(furthest_point_num_samples)
             else:
                 raise NotImplementedError
 
