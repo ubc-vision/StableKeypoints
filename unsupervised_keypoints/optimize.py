@@ -494,16 +494,18 @@ def optimize_embedding(
 
             if top_k_strategy == "entropy":
                 top_embedding_indices = ptp_utils.entropy_sort(
-                    attn_map, top_k,
+                    attn_map, furthest_point_num_samples,
                 )
             elif top_k_strategy == "gaussian":
                 top_embedding_indices = ptp_utils.find_top_k_gaussian(
-                    attn_map, top_k, sigma=sigma,
+                    attn_map, furthest_point_num_samples, sigma=sigma,
                 )
             elif top_k_strategy == "consistent":
-                top_embedding_indices = torch.arange(top_k)
+                top_embedding_indices = torch.arange(furthest_point_num_samples)
             else:
                 raise NotImplementedError
+            
+            top_embedding_indices = ptp_utils.furthest_point_sampling(attention_map_transformed, top_k, top_embedding_indices)
 
             _sharpening_loss.append(sharpening_loss(attn_map[top_embedding_indices], device=device, sigma=sigma))
 

@@ -27,7 +27,7 @@ def get_part_color(n_parts):
 
     return part_color
 
-def crop_and_upsample(img_array, pose, margin=int(150*0.6), jitter = int(120*0.6), target_size=(512, 512)):
+def crop_and_upsample(img_array, pose, margin=100, jitter = 100, target_size=(512, 512)):
     """
     Crop the image based on the normalized keypoints from pose, apply a margin, introduce random jitter,
     and then upsample it bilinearly. Also, adjust the keypoints according to the cropped and jittered image.
