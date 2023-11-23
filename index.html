@@ -1,277 +1,876 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <meta name="description"
-        content="Unsupervised Semantic Correspondence Using Stable Diffusion.">
-  <meta name="keywords" content="Unsupervised Semantic Correspondence Using Stable Diffusion">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Unsupervised Semantic Correspondence Using Stable Diffusion</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="description"
+      content="Unsupervised Keypoints from Pretrained Diffusion Models."
+    />
+    <meta
+      name="keywords"
+      content="Unsupervised Keypoints from Pretrained Diffusion Models"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Unsupervised Keypoints from Pretrained Diffusion Models</title>
 
-  <!-- Global site tag (gtag.js) - Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
 
-    function gtag() {
-      dataLayer.push(arguments);
-    }
+      function gtag() {
+        dataLayer.push(arguments);
+      }
 
-    gtag('js', new Date());
+      gtag("js", new Date());
 
-    gtag('config', 'G-PYVRSFMDRL');
-  </script>
+      gtag("config", "G-PYVRSFMDRL");
+    </script>
 
-  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
-        rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+      rel="stylesheet"
+    />
 
-  <link rel="stylesheet" href="./static/css/bulma.min.css">
-  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
-  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
-  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
-  <link rel="stylesheet" href="./static/css/index.css">
-  <link rel="icon" href="./static/images/favicon.svg">
+    <link rel="stylesheet" href="./static/css/bulma.min.css" />
+    <link rel="stylesheet" href="./static/css/bulma-carousel.min.css" />
+    <link rel="stylesheet" href="./static/css/bulma-slider.min.css" />
+    <link rel="stylesheet" href="./static/css/fontawesome.all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css"
+    />
+    <link rel="stylesheet" href="./static/css/index.css" />
+    <link rel="icon" href="./static/images/favicon.svg" />
 
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  <script defer src="./static/js/fontawesome.all.min.js"></script>
-  <script src="./static/js/bulma-carousel.min.js"></script>
-  <script src="./static/js/bulma-slider.min.js"></script>
-  <script src="./static/js/index.js"></script>
-</head>
-<body>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="./static/js/fontawesome.all.min.js"></script>
+    <script src="./static/js/bulma-carousel.min.js"></script>
+    <script src="./static/js/bulma-slider.min.js"></script>
+    <script src="./static/js/index.js"></script>
+  </head>
+  <body>
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+      <div class="navbar-brand">
+        <a
+          role="button"
+          class="navbar-burger"
+          aria-label="menu"
+          aria-expanded="false"
+        >
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </a>
+      </div>
+    </nav>
 
-<nav class="navbar" role="navigation" aria-label="main navigation">
-  <div class="navbar-brand">
-    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
-      <span aria-hidden="true"></span>
-      <span aria-hidden="true"></span>
-      <span aria-hidden="true"></span>
-    </a>
-  </div>
-</nav>
+    <section class="hero">
+      <div class="hero-body">
+        <div class="container is-max-desktop">
+          <div class="columns is-centered">
+            <div class="column has-text-centered">
+              <h1 class="title is-1 publication-title">
+                Unsupervised Keypoints from Pretrained Diffusion Models
+              </h1>
+              <div class="is-size-5 publication-authors">
+                <span class="author-block">
+                  <a href="https://ehedlin.github.io/">Eric Hedlin</a
+                  ><sup>1</sup>,</span
+                >
+                <span class="author-block">
+                  <a href="https://hippogriff.github.io/"> Gopal Sharma</a
+                  ><sup>1</sup>,</span
+                >
+                <span class="author-block">
+                  <a href="https://s-mahajan.github.io/">Shweta Mahajan</a
+                  ><sup>1, 2</sup>,
+                </span>
+                <span class="author-block">
+                  <a href="https://xingzhehe.github.io/">Xingzhe He</a
+                  ><sup>1</sup>,
+                </span>
+                <span class="author-block">
+                  <a href="http://www.hossamisack.com/">Hossam Isack</a
+                  ><sup>3</sup>,
+                </span>
+                <span class="author-block">
+                  <a href="https://abhishekkar.info/">Abhishek Kar</a
+                  ><sup>3</sup>
+                </span>
+                <span class="author-block">
+                  <a href="https://www.cs.ubc.ca/~rhodin/web/">Helge Rhodin</a
+                  ><sup>1</sup>
+                </span>
+                <span class="author-block">
+                  <a href="https://taiya.github.io/">Andrea Tagliasacchi</a
+                  ><sup>3, 4, 5</sup>
+                </span>
+                <span class="author-block">
+                  <a href="https://www.cs.ubc.ca/~kmyi/">Kwang Moo Yi</a
+                  ><sup>1</sup>
+                </span>
+              </div>
 
+              <div class="is-size-5 publication-authors">
+                <span class="author-block"
+                  ><sup>1</sup>University of British Columbia,</span
+                >
+                <span class="author-block"
+                  ><sup>2</sup>Vector Institute for AI</span
+                >
+                <span class="author-block"><sup>3</sup>Google</span>
+                <span class="author-block"
+                  ><sup>4</sup>Simon Fraser University</span
+                >
+                <span class="author-block"
+                  ><sup>5</sup>University of Toronto</span
+                >
+              </div>
 
-<section class="hero">
-  <div class="hero-body">
-    <div class="container is-max-desktop">
-      <div class="columns is-centered">
-        <div class="column has-text-centered">
-          <h1 class="title is-1 publication-title">Unsupervised Semantic Correspondence Using Stable Diffusion</h1>
-          <div class="is-size-5 publication-authors">
-              <span class="author-block">
-                <a href="https://ehedlin.github.io/">Eric Hedlin</a><sup>1</sup>,</span>
-              <span class="author-block">
-                <a href="https://hippogriff.github.io/"> Gopal Sharma</a><sup>1</sup>,</span>
-              <span class="author-block">
-                <a href="https://s-mahajan.github.io/">Shweta Mahajan</a><sup>1, 2</sup>,
-              </span>
-              <span class="author-block">
-                <a href="http://www.hossamisack.com/">Hossam Isack</a><sup>3</sup>,
-              </span>
-              <span class="author-block">
-                <a href="https://abhishekkar.info/">Abhishek Kar</a><sup>3</sup>
-              </span>
-              <span class="author-block">
-                <a href="https://taiya.github.io/">Andrea Tagliasacchi</a><sup>3, 4, 5</sup>
-              </span>
-              <span class="author-block">
-                <a href="https://www.cs.ubc.ca/~kmyi/">Kwang Moo Yi</a><sup>1</sup>
-              </span>
-            </div>
-  
-            <div class="is-size-5 publication-authors">
-              <span class="author-block"><sup>1</sup>University of British Columbia,</span>
-              <span class="author-block"><sup>2</sup>Vector Institute for AI</span>
-              <span class="author-block"><sup>3</sup>Google</span>
-              <span class="author-block"><sup>4</sup>Simon Fraser University</span>
-              <span class="author-block"><sup>5</sup>University of Toronto</span>
-            </div>
-
-          <div class="column has-text-centered">
-            <div class="publication-links">
-              <!-- Paper Link. -->
-              <span class="link-block">
-                <a href="https://arxiv.org/abs/2305.15581"
-                   class="external-link button is-normal is-rounded is-dark">
-                  <span class="icon">
-                      <i class="ai ai-arxiv"></i>
+              <div class="column has-text-centered">
+                <div class="publication-links">
+                  <!-- Paper Link. -->
+                  <span class="link-block">
+                    <a
+                      href="https://arxiv.org/abs/2305.15581"
+                      class="external-link button is-normal is-rounded is-dark"
+                    >
+                      <span class="icon">
+                        <i class="ai ai-arxiv"></i>
+                      </span>
+                      <span>arXiv</span>
+                    </a>
                   </span>
-                  <span>arXiv</span>
-                </a>
-              </span>
-              <!-- Code Link. -->
-              <span class="link-block">
-                <a href="https://github.com/ubc-vision/LDM_correspondences"
-                   class="external-link button is-normal is-rounded is-dark">
-                  <span class="icon">
-                      <i class="fab fa-github"></i>
+                  <!-- Code Link. -->
+                  <span class="link-block">
+                    <a
+                      href="https://github.com/ehedlin/new_project"
+                      class="external-link button is-normal is-rounded is-dark"
+                    >
+                      <span class="icon">
+                        <i class="fab fa-github"></i>
+                      </span>
+                      <span>Code</span>
+                    </a>
                   </span>
-                  <span>Code</span>
-                  </a>
-              </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<section class="hero teaser">
-  <div class="container is-max-desktop">
-    <div class="hero-body">
-      <video id="teaser" autoplay muted loop playsinline height="100%">
-        <source src="./static/videos/teaser_video.mov"
-                type="video/mp4">
-      </video>
-      <h2 class="subtitle has-text-centered">
-        <strong>Teaser –</strong> An image and a text embedding are input into Stable Diffusion. 
-        The text embedding is optimized to match a specific part of the source image's attention map, then applied to a target image. 
-        The argmax of these maps identify semantic correspondences between the two images.
-      </h2>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="container is-max-desktop">
-    <div class="columns is-centered has-text-centered">
-      <div class="column is-four-fifths">
-        <h2 class="title is-3">Abstract</h2>
-        <div class="content has-text-justified">
-          <p>
-            Text-to-image diffusion models are now capable of generating images that are often indistinguishable from real images. 
-            To generate such images, these models must understand the semantics of the objects they are asked to generate. 
-            In this work we show that, without any training, one can leverage this semantic knowledge within diffusion models to find semantic correspondences -- locations in multiple images that have the same semantic meaning. 
-            Specifically, given an image, we optimize the prompt embeddings of these models for maximum attention on the regions of interest. 
-            These optimized embeddings capture semantic information about the location, which can then be transferred to another image. 
-            By doing so we obtain results on par with the strongly supervised state of the art on the PF-Willow dataset and significantly outperform (20.9% relative for the SPair-71k dataset) any existing weakly or unsupervised method on PF-Willow, CUB-200 and SPair-71k datasets.
-          </p>
+    <div class="videos-container">
+      <!-- Container for Side-by-Side Videos -->
+      <div class="side-by-side-videos">
+        <div class="video-container">
+            <video id="video1" autoplay muted loop playsinline>
+                <source src="./static/videos/satya_nadella.mov" type="video/mp4" />
+            </video>
+        </div>
+        <div class="video-container">
+            <video id="video2" autoplay muted loop playsinline>
+                <source src="./static/videos/ilya.mov" type="video/mp4" />
+            </video>
         </div>
       </div>
-    </div>
-  </div>
-</section>
-
-<section class="hero teaser">
-  <div class="container is-max-desktop">
-    <div class="hero-body">
-      <video id="teaser" autoplay muted loop playsinline height="100%">
-        <source src="./static/videos/Short_video.mov"
-                type="video/mp4">
-      </video>
-      <h2 class="subtitle has-text-centered">
-        <strong>Method –</strong> Given a source image and a query point, we optimize the embeddings so that the attention map for the denoising step at time <i>t</i> highlights the query location in the source image. 
-        During inference, we input the target image and reuse the embeddings for the same denoising step <i>t</i>, determining the corresponding point in the target image as the argmax of the attention map. 
-        The architecture mapping images to attention maps is a pre-trained Stable Diffusion model which is kept frozen throughout the entire process.
-      </h2>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="container is-max-desktop">
-    <figure class="image">
-      <img src="./static/images/qualitatives.png">
-    </figure>
-    <div class="content has-text-justified">
-      <p>
-        Example succesful, mixed and failure cases are shown across the 3 datasets. 
-        Interestingly it can be seen that even the failure cases tend to map to reasonable regions of the image. 
-      </p>
-    </div>
-
-    <figure class="image">
-      <img src="./static/images/correct_spair.png">
-    </figure>
-    <figure class="image">
-      <img src="./static/images/incorrect_spair.png">
-    </figure>
-    <figure class="image">
-      <img src="./static/images/correct_cubs.png">
-    </figure>
-    <figure class="image">
-      <img src="./static/images/incorrect_cubs.png">
-    </figure>
-    <figure class="image">
-      <img src="./static/images/correct_pfwillow.png">
-    </figure>
-    <figure class="image">
-      <img src="./static/images/incorrect_pfwillow.png">
-    </figure>
-    <div class="content has-text-justified">
-      <p>
-        Attention maps for both correct and incorrect correspondences across Spair-71k, PF-Willow and CUB-200 are visualized for the layers indicated.
-        Source and target locations are displayed as yellow stars on the source and target images respectively. 
-      </p>
-    </div>
-
-    <!-- Concurrent Work. -->
-    <div class="columns is-centered">
-      <div class="column is-full-width">
-        <h2 class="title is-3">Concurrent Work</h2>
-
-        <div class="content has-text-justified">
-          <p>
-            There's a lot of excellent work that was introduced around the same time as ours.
-          </p>
-          <p>
-            <a href="https://diffusion-hyperfeatures.github.io/">Diffusion Hyperfeatures</a> consolidates multi-scale and multi-timestep feature maps from Stable Diffusion into per-pixel feature descriptors with a lightweight aggregation network.
-          </p>
-          <p>
-            <a href="https://sd-complements-dino.github.io/">A Tale of Two Features</a> introduces a fusion approach that capitalizes on the distinct properties of Stable Diffusion (SD) features and DINOv2 by extracting per pixel features from each.
-          </p>
-          <p>
-            <a href="https://diffusionfeatures.github.io/">Emergent Correspondence from Image Diffusion</a> extracts per pixel features from Stable Diffusion.
-          </p>
-        </div>
+  
+      <!-- Common Caption for both videos below them -->
+      <div class="video-caption">
+          <h2 class="subtitle has-text-centered">
+            <strong>Unsupervised keypoints show temporal consistency –</strong>
+            Besides the state of the art results in the paper, 
+            we show that we can find keypoints even with a single video with our method.
+            Without being given any explicit temporal information, keypoints found over video show smoothness over time.
+          </h2>
       </div>
     </div>
-    <!--/ Concurrent Work. -->
 
-  </div>
-</section>
+    <section class="section">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+
+        <!-- Localization. -->
+        <div class="columns is-centered">
+          <div class="column is-full-width">
+            <!-- <h2 class="title is-3">Visualizing localization</h2> -->
+
+            <!-- Interpolating. -->
+            
+            <div class="columns is-vcentered interpolation-panel">
+              <div class="column interpolation-video-column">
+                <div id="interpolation-image-wrapper">Loading...</div>
+                <input
+                  class="slider is-fullwidth is-large is-info"
+                  id="interpolation-slider"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value="0"
+                  type="range"
+                />
+              </div>
+            </div>
+            <div class="content has-text-justified">
+              <p>
+                This interactive slider allows you to view the progression of our training process for a given token using a consistent, randomly chosen set of images. The slider's position correlates with the point in the training timeline, providing a clear visual representation of the training's development at each stage. 
+              </p>
+            </div>
+            <!-- <br /> -->
+            <!--/ Interpolating. -->
+          </div>
+        </div>
+        <!--/ Animation. -->
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-four-fifths">
+            <h2 class="title is-3">Abstract</h2>
+            <div class="content has-text-justified">
+              <p>
+                Unsupervised learning of keypoints and landmarks has seen
+                significant progress with the help of modern neural network
+                architectures, but performance is yet to match the supervised
+                counterpart, making their practicability questionable. We
+                leverage the emergent knowledge within text-to-image diffusion
+                models, towards more robust unsupervised keypoints. Our core
+                idea is to find text embeddings that would cause the generative
+                model to consistently attend to compact regions in images (i.e.
+                keypoints). To do so, we simply optimize the text embedding such
+                that the cross-attention maps within the denoising network are
+                localized as Gaussians with small standard deviations. We
+                validate our performance on multiple dataset: the CelebA,
+                CUB-200-2011, Tai-Chi-HD, DeepFashion, and Human3.6m datasets.
+                We achieve significantly improved accuracy, sometimes even
+                outperforming supervised ones, particularly for data that is
+                non-aligned and less curated.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="hero teaser">
+      <div class="container is-max-desktop">
+        <div class="hero-body">
+          <img
+            id="teaser"
+            src="./static/images/method.png"
+            alt="Descriptive Text"
+            style="width: 100%; height: auto"
+          />
+          <h2 class="subtitle has-text-centered">
+            <strong>Overview –</strong> we pass a randomly initialized text
+            embedding into Stable Diffusion and extract the attention maps. We
+            then optimize the text embedding to have localized attention maps,
+            by supervising them to become a single-mode Gaussian distribution,
+            drawn at the location of their maxima. We also enforce attention
+            maps to be transformation equivariant to small affine
+            transformations on images. We repeat this process over a set of
+            training images, which after optimization provides a set of K
+            keypoints.
+          </h2>
+        </div>
+      </div>
+    </section>
+  
+
+    <section class="hero is-light is-small">
+      <div class="hero-body">
+        <div class="container">
+          <div class="carousel results-carousel">
+            
+
+            <!-- First slide with 5 images -->
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0000.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0000.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0000.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0000.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0000.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0000.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0000.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0000.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0001.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0001.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0001.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0001.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0001.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0001.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0001.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0001.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0002.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0002.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0002.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0002.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0002.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0002.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0002.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0002.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0003.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0003.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0003.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0003.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0003.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0003.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0003.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0003.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0004.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0004.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0004.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0004.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0004.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0004.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0004.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0004.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0005.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0005.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0005.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0005.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0005.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0005.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0005.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0005.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0006.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0006.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0006.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0006.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0006.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0006.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0006.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0006.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0007.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0007.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0007.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0007.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0007.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0007.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0007.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0007.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0008.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0008.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0008.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0008.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0008.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0008.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0008.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0008.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="item">
+                <img
+                  src="./static/images/celeba_aligned/unsupervised_keypoints_0009.png"
+                />
+                <div class="caption">CelebA aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/celeba_wild/unsupervised_keypoints_0009.png"
+                />
+                <div class="caption">CelebA in the wild</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/deepfashion/unsupervised_keypoints_0009.png"
+                />
+                <div class="caption">DeepFashion</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/taichi/unsupervised_keypoints_0009.png"
+                />
+                <div class="caption">Tai-Chi-HD</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_all/unsupervised_keypoints_0009.png"
+                />
+                <div class="caption">CUB-all</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/cub_aligned/unsupervised_keypoints_0009.png"
+                />
+                <div class="caption">CUB-aligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m_unaligned/unsupervised_keypoints_0009.png"
+                />
+                <div class="caption">Human3.6m unaligned</div>
+              </div>
+              <div class="item">
+                <img
+                  src="./static/images/human36m/unsupervised_keypoints_0009.png"
+                />
+                <div class="caption">Human3.6m aligned</div>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-caption">
+            <p>Visualized examples from each dataset</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
 
-<section class="section" id="BibTeX">
-  <div class="container is-max-desktop content">
-    <h2 class="title">BibTeX</h2>
-    <pre><code>@article{hedlin2023unsupervised,
-      title={Unsupervised Semantic Correspondence Using Stable Diffusion}, 
+    <div class="videos-container">
+
+      <!-- Video 2 Container -->
+      <div class="video-container">
+        <video id="video2" autoplay muted loop playsinline>
+          <source src="./static/videos/tesla_bot.mov" type="video/mp4" />
+        </video>
+        <h2 class="subtitle has-text-centered">
+          <strong>Multi subject applications –</strong> keypoints for this
+          video were found from the video on the left. We find the argmax,
+          mask out the local region of the argmax, then find the next argmax.
+        </h2>
+      </div>
+    </div>
+
+    <section class="section" id="BibTeX">
+      <div class="container is-max-desktop content">
+        <h2 class="title">BibTeX</h2>
+        <pre><code>@article{hedlin2023unsupervised,
+      title={Unsupervised Keypoints from Pretrained Diffusion Models}, 
       author={Eric Hedlin and Gopal Sharma and Shweta Mahajan and Hossam Isack and Abhishek Kar and Andrea Tagliasacchi and Kwang Moo Yi},
       year={2023},
       eprint={2305.15581},
       archivePrefix={arXiv},
       primaryClass={cs.CV}
     }</code></pre>
-  </div>
-</section>
+      </div>
+    </section>
 
-
-<footer class="footer">
-  <div class="container">
-    <div class="content has-text-centered">
-      <a class="icon-link" href="https://arxiv.org/abs/2305.15581" class="external-link" disabled>
-        <i class="ai ai-arxiv"></i>
-      </a>
-      <a class="icon-link" href="https://github.com/ubc-vision/LDM_correspondences" class="external-link" disabled>
-        <i class="fab fa-github"></i>
-      </a>
-    </div>
-    <div class="columns is-centered">
-      <div class="column is-8">
-        <div class="content">
-          <p>
-            This website layout is borrowed from <a
-            href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>.
-          </p>
+    <footer class="footer">
+      <div class="container">
+        <div class="content has-text-centered">
+          <a
+            class="icon-link"
+            href="https://arxiv.org/abs/2305.15581"
+            class="external-link"
+            disabled
+          >
+            <i class="ai ai-arxiv"></i>
+          </a>
+          <a
+            class="icon-link"
+            href="https://github.com/ubc-vision/LDM_correspondences"
+            class="external-link"
+            disabled
+          >
+            <i class="fab fa-github"></i>
+          </a>
+        </div>
+        <div class="columns is-centered">
+          <div class="column is-8">
+            <div class="content">
+              <p>
+                This page is modified from
+                <a href="https://github.com/nerfies/nerfies.github.io"
+                  >Nerfies</a
+                >.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-</footer>
-
-</body>
+    </footer>
+  </body>
 </html>
