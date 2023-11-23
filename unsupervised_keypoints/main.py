@@ -17,7 +17,7 @@ from unsupervised_keypoints.keypoint_regressor import (
 )
 
 from unsupervised_keypoints.eval import evaluate
-from unsupervised_keypoints.visualize import visualize_attn_maps
+from unsupervised_keypoints.visualize import visualize_attn_maps, create_vid, save_all_contexts
 
 
 # Argument parsing
@@ -27,7 +27,6 @@ parser = argparse.ArgumentParser(description="optimize a class embedding")
 parser.add_argument(
     "--model_type",
     type=str,
-    # default="CompVis/stable-diffusion-v1-4",
     default="runwayml/stable-diffusion-v1-5",
     help="ldm model type",
 )
@@ -53,7 +52,7 @@ parser.add_argument(
 parser.add_argument(
     "--dataset_name",
     # set the choices to be "mafl" and "celeba_aligned"
-    choices=["celeba_aligned", "celeba_wild", "cub_aligned", "cub_001", "cub_002", "cub_003", "cub_all", "deepfashion", "taichi", "human3.6m", "unaligned_human3.6m"],
+    choices=["celeba_aligned", "celeba_wild", "cub_aligned", "cub_001", "cub_002", "cub_003", "cub_all", "deepfashion", "taichi", "human3.6m", "unaligned_human3.6m", "custom"],
     type=str,
     default="celeba_aligned",
     help="name of the dataset to use",
@@ -127,7 +126,7 @@ parser.add_argument(
 parser.add_argument(
     "--num_indices",
     type=int,
-    default=1000,
+    default=100,
     help="the number of samples to use for finding the indices of the best tokens",
 )
 parser.add_argument(
@@ -222,6 +221,27 @@ print("Number of GPUs: ", torch.cuda.device_count())
 if args.wandb:
     # start a wandb session
     wandb.init(project="attention_maps", name=args.wandb_name, config=vars(args))
+    
+save_all_contexts(ldm,
+    torch.arange(10),
+    noise_level=args.noise_level,
+    num_tokens=args.num_tokens,
+    layers=args.layers,
+    num_points=args.top_k,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    augmentation_iterations=args.augmentation_iterations,
+    dataset_loc=args.dataset_loc,
+    save_folder=args.save_folder,
+    visualize=args.visualize,
+    device=args.device,
+    dataset_name = args.dataset_name,
+    controllers=controllers,
+    num_gpus=num_gpus,
+    max_loc_strategy=args.max_loc_strategy,
+    validation=args.validation,)
 
 
 if args.start_from_stage == "optimize":
@@ -311,6 +331,57 @@ else:
     indices = (
         torch.load(os.path.join(args.save_folder, "indices.pt")).to(args.device).detach()
     )
+    
+    
+
+    
+visualize_attn_maps(
+    ldm,
+    embedding,
+    indices,
+    noise_level=args.noise_level,
+    num_tokens=args.num_tokens,
+    layers=args.layers,
+    num_points=args.top_k,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augment_shear=args.augment_shear,
+    augmentation_iterations=args.augmentation_iterations,
+    dataset_loc=args.dataset_loc,
+    save_folder=args.save_folder,
+    visualize=args.visualize,
+    device=args.device,
+    dataset_name = args.dataset_name,
+    controllers=controllers,
+    num_gpus=num_gpus,
+    max_loc_strategy=args.max_loc_strategy,
+    validation=args.validation,
+)
+
+exit()
+    
+# create_vid(
+#     ldm,
+#     embedding,
+#     indices,
+#     noise_level=args.noise_level,
+#     layers=args.layers,
+#     num_points=args.top_k,
+#     augment_degrees=args.augment_degrees,
+#     augment_scale=args.augment_scale,
+#     augment_translate=args.augment_translate,
+#     augment_shear=args.augment_shear,
+#     augmentation_iterations=args.augmentation_iterations,
+#     dataset_loc=args.dataset_loc,
+#     save_folder=args.save_folder,
+#     dataset_name = args.dataset_name,
+#     device=args.device,
+#     controllers=controllers,
+#     num_gpus=num_gpus,
+#     max_loc_strategy=args.max_loc_strategy,
+# )
+# exit()
 
 
 if args.start_from_stage == "precompute" or args.start_from_stage == "find_indices" or args.start_from_stage == "optimize":
@@ -357,7 +428,11 @@ else:
         visible = visible.to(args.device)
 
 if args.evaluation_method == "visible" or args.evaluation_method == "mean_average_error":
-    visible_reshaped = visible.unsqueeze(-1).repeat(1, 1, 2).reshape(visible.shape[0], visible.shape[1] * 2)
+    
+    if visible is None:
+        visible_reshaped = torch.ones_like(target_kpts).reshape(target_kpts.shape[0], target_kpts.shape[1] * 2)
+    else:
+        visible_reshaped = visible.unsqueeze(-1).repeat(1, 1, 2).reshape(visible.shape[0], visible.shape[1] * 2)
 
     regressor = return_regressor_visible( 
         source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
@@ -403,6 +478,7 @@ visualize_attn_maps(
     num_gpus=num_gpus,
     max_loc_strategy=args.max_loc_strategy,
     validation=args.validation,
+    augmentation_iterations=args.augmentation_iterations,
 )
 
 evaluate(

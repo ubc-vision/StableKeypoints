@@ -68,7 +68,7 @@ class TrainRegSet(torch.utils.data.Dataset):
         ])
 
     def __getitem__(self, idx):
-        sample = {'img': self.transform(self.imgs[idx] / 255), 'kpts': self.keypoints[idx], 'visibility': self.visibility[idx]}
+        sample = {'img': self.transform(self.imgs[idx] / 255), 'kpts': self.keypoints[idx][:, [1, 0]], 'visibility': self.visibility[idx]}
         return sample
 
     def __len__(self):
@@ -89,7 +89,9 @@ class TestSet(torch.utils.data.Dataset):
         ])
 
     def __getitem__(self, idx):
-        sample = {'img': self.transform(self.imgs[idx] / 255), 'kpts': self.keypoints[idx], 'visibility': self.visibility[idx]}
+        # swap x and y for keypoints
+        # kpts = self.keypoints[idx][:, [1, 0]]
+        sample = {'img': self.transform(self.imgs[idx] / 255), 'kpts': self.keypoints[idx][:, [1, 0]], 'visibility': self.visibility[idx]}
         return sample
 
     def __len__(self):

@@ -8,6 +8,7 @@ from unsupervised_keypoints import eval
 import torch.nn.functional as F
 import torch.distributions as dist
 from unsupervised_keypoints.celeba import CelebA
+from unsupervised_keypoints import custom_images
 from unsupervised_keypoints import cub
 from unsupervised_keypoints import cub_parts
 from unsupervised_keypoints import taichi
@@ -75,10 +76,6 @@ def collect_maps(
 
 
     attention_maps_list = torch.stack(attention_maps_list, dim=0).mean(dim=(0, 1))
-    
-    # # to save memory
-    # features_list = [x[:, :num_features_per_layer] for x in features_list]
-    # features_list = torch.cat(features_list, dim=1)[0]
 
     controller.reset()
 
@@ -390,6 +387,8 @@ def optimize_embedding(
         dataset = unaligned_human36m.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "deepfashion":
         dataset = deepfashion.TrainSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "custom":
+        dataset = custom_images.CustomDataset(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -430,6 +429,10 @@ def optimize_embedding(
     # import ipdb; ipdb.set_trace()  
     
     for iteration in tqdm(range(int(num_steps*(batch_size//num_gpus)))):
+        
+        if iteration < 100 or (iteration < 1000 and iteration % 10 == 0) or iteration % 100 == 0:
+            # save embedding
+            torch.save(context.detach(), f"cub_all_visualization/embedding_{iteration:05d}.pt")
         
         try:
             mini_batch = next(dataloader_iter)

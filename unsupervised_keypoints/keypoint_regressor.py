@@ -6,6 +6,7 @@ import torch.distributions as dist
 from torch.optim.lr_scheduler import StepLR
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
+from unsupervised_keypoints import custom_images
 from unsupervised_keypoints import cub
 from unsupervised_keypoints import cub_parts
 from unsupervised_keypoints import taichi
@@ -83,6 +84,8 @@ def find_best_indices(
         dataset = unaligned_human36m.TrainSet(data_root=dataset_loc, image_size=512)
     elif dataset_name == "deepfashion":
         dataset = deepfashion.TrainSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "custom":
+        dataset = custom_images.CustomDataset(data_root=dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -319,6 +322,8 @@ def precompute_all_keypoints(
 
         image = mini_batch["img"][0]
         kpts = mini_batch["kpts"][0]
+        
+        
         target_keypoints.append(kpts)
         
     

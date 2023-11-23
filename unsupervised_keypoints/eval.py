@@ -67,6 +67,35 @@ def find_max_pixel(map):
 
     return max_indices
 
+def mask_radius(map, max_coords, radius):
+    """
+    Masks all values within a given radius of the max_coords in the map.
+    
+    Args:
+    map (Tensor): The attention map with shape [batch_size, h, w].
+    max_coords (Tensor): The coordinates of the point to mask around, shape [batch_size, 2].
+    radius (float): The radius within which to mask the values.
+    
+    Returns:
+    Tensor: The masked map.
+    """
+    batch_size, h, w = map.shape
+
+    # Create a meshgrid to compute the distance for each pixel
+    x_coords = torch.arange(w).view(1, -1).repeat(h, 1).to(map.device)
+    y_coords = torch.arange(h).view(-1, 1).repeat(1, w).to(map.device)
+    x_coords = x_coords.unsqueeze(0).repeat(batch_size, 1, 1)
+    y_coords = y_coords.unsqueeze(0).repeat(batch_size, 1, 1)
+
+    # Calculate squared Euclidean distance from the max_coords
+    squared_dist = (x_coords - max_coords[:, 1].unsqueeze(1).unsqueeze(2))**2 + \
+                   (y_coords - max_coords[:, 0].unsqueeze(1).unsqueeze(2))**2
+
+    # Mask out pixels within the specified radius
+    mask = squared_dist > radius**2
+    masked_map = map * mask.float()
+
+    return masked_map
 
 def pixel_from_weighted_avg(heatmaps, distance=5):
     """
@@ -705,7 +734,7 @@ def evaluate(
             l2_mean = torch.mean(l2)
             
         if evaluation_method == "visible" or evaluation_method == "mean_average_error":
-            visible = batch['visibility'][0].to(device)
+            visible = batch['visibility'][0].to(device) if 'visibility' in batch else torch.ones_like(l2)
             
             l2_mean = (l2*visible).sum()
             
