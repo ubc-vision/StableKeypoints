@@ -61,6 +61,7 @@ def find_best_indices(
     top_k_strategy = "entropy",
     sigma = 3,
     validation = False,
+    num_subjects=1,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="train", dataset_loc=dataset_loc)
@@ -127,7 +128,7 @@ def find_best_indices(
                 )
             elif top_k_strategy == "gaussian":
                 top_initial_candidates = ptp_utils.find_top_k_gaussian(
-                    attention_map, furthest_point_num_samples, sigma=sigma,
+                    attention_map, furthest_point_num_samples, sigma=sigma, num_subjects = num_subjects
                 )
             elif top_k_strategy == "consistent":
                 top_initial_candidates = torch.arange(furthest_point_num_samples)
@@ -148,54 +149,54 @@ def find_best_indices(
     return indices
 
 
-def compose_transform(
-    scale=(1.0, 1.0),
-    translation=(0.0, 0.0),
-    rotation=0.0,
-    shear=(0.0, 0.0),
-    center=(0.5, 0.5),
-    device="cuda",
-):
-    # Convert rotation to radians
-    theta = rotation * (3.14159 / 180.0)
+# def compose_transform(
+#     scale=(1.0, 1.0),
+#     translation=(0.0, 0.0),
+#     rotation=0.0,
 
-    # Create individual transformation matrices
-    T_scale = torch.tensor(
-        [[scale[0], 0, 0], [0, scale[1], 0], [0, 0, 1]], dtype=torch.float32
-    ).to(device)
-    T_trans = torch.tensor(
-        [[1, 0, translation[0]], [0, 1, translation[1]], [0, 0, 1]], dtype=torch.float32
-    ).to(device)
-    T_rot = torch.tensor(
-        [
-            [torch.cos(theta), -torch.sin(theta), 0],
-            [torch.sin(theta), torch.cos(theta), 0],
-            [0, 0, 1],
-        ],
-        dtype=torch.float32,
-    ).to(device)
-    T_shear = torch.tensor(
-        [[1, shear[0], 0], [shear[1], 1, 0], [0, 0, 1]], dtype=torch.float32
-    ).to(device)
+#     center=(0.5, 0.5),
+#     device="cuda",
+# ):
+#     # Convert rotation to radians
+#     theta = rotation * (3.14159 / 180.0)
 
-    # Transformation matrices for translating rotation center to origin and back
-    T_center_to_origin = torch.tensor(
-        [[1, 0, -center[0]], [0, 1, -center[1]], [0, 0, 1]], dtype=torch.float32
-    ).to(device)
-    T_origin_to_center = torch.tensor(
-        [[1, 0, center[0]], [0, 1, center[1]], [0, 0, 1]], dtype=torch.float32
-    ).to(device)
+#     # Create individual transformation matrices
+#     T_scale = torch.tensor(
+#         [[scale[0], 0, 0], [0, scale[1], 0], [0, 0, 1]], dtype=torch.float32
+#     ).to(device)
+#     T_trans = torch.tensor(
+#         [[1, 0, translation[0]], [0, 1, translation[1]], [0, 0, 1]], dtype=torch.float32
+#     ).to(device)
+#     T_rot = torch.tensor(
+#         [
+#             [torch.cos(theta), -torch.sin(theta), 0],
+#             [torch.sin(theta), torch.cos(theta), 0],
+#             [0, 0, 1],
+#         ],
+#         dtype=torch.float32,
+#     ).to(device)
+#     T_shear = torch.tensor(
+#         [[1, shear[0], 0], [shear[1], 1, 0], [0, 0, 1]], dtype=torch.float32
+#     ).to(device)
 
-    # Compose transformations
-    T = torch.mm(
-        T_trans,
-        torch.mm(
-            T_origin_to_center,
-            torch.mm(T_shear, torch.mm(T_scale, torch.mm(T_rot, T_center_to_origin))),
-        ),
-    )
+#     # Transformation matrices for translating rotation center to origin and back
+#     T_center_to_origin = torch.tensor(
+#         [[1, 0, -center[0]], [0, 1, -center[1]], [0, 0, 1]], dtype=torch.float32
+#     ).to(device)
+#     T_origin_to_center = torch.tensor(
+#         [[1, 0, center[0]], [0, 1, center[1]], [0, 0, 1]], dtype=torch.float32
+#     ).to(device)
 
-    return T
+#     # Compose transformations
+#     T = torch.mm(
+#         T_trans,
+#         torch.mm(
+#             T_origin_to_center,
+#             torch.mm(T_shear, torch.mm(T_scale, torch.mm(T_rot, T_center_to_origin))),
+#         ),
+#     )
+
+#     return T
 
 
 def transform_points(points, T):
@@ -213,47 +214,47 @@ def transform_points(points, T):
     return transformed_points
 
 
-def create_batch_of_augmentations(initial_keypoints, final_keypoints, device="cuda"):
-    # Number of augmentations
-    batch_size = 32
+# def create_batch_of_augmentations(initial_keypoints, final_keypoints, device="cuda"):
+#     # Number of augmentations
+#     batch_size = 32
 
-    # Initialize tensors to hold the batch of transformed keypoints
-    transformed_initial_keypoints_batch = torch.zeros(
-        (batch_size, *initial_keypoints.shape)
-    ).to(device)
-    transformed_final_keypoints_batch = torch.zeros(
-        (batch_size, *final_keypoints.shape)
-    ).to(device)
+#     # Initialize tensors to hold the batch of transformed keypoints
+#     transformed_initial_keypoints_batch = torch.zeros(
+#         (batch_size, *initial_keypoints.shape)
+#     ).to(device)
+#     transformed_final_keypoints_batch = torch.zeros(
+#         (batch_size, *final_keypoints.shape)
+#     ).to(device)
 
-    transformed_initial_keypoints_batch[0] = initial_keypoints
-    transformed_final_keypoints_batch[0] = final_keypoints
+#     transformed_initial_keypoints_batch[0] = initial_keypoints
+#     transformed_final_keypoints_batch[0] = final_keypoints
 
-    # Generate a batch of differently rotated keypoints
-    for i in range(1, batch_size):
-        # create random scale, translation, rotation, and shear
-        scale = ptp_utils.random_range(2, 0.95, 1.05)
-        translation = ptp_utils.random_range(2, -0.05, 0.05)
-        rotation = ptp_utils.random_range(1, -10, 10)
-        shear = ptp_utils.random_range(2, -0.05, 0.05)
+#     # Generate a batch of differently rotated keypoints
+#     for i in range(1, batch_size):
+#         # create random scale, translation, rotation, and shear
+#         scale = ptp_utils.random_range(2, 0.95, 1.05)
+#         translation = ptp_utils.random_range(2, -0.05, 0.05)
+#         rotation = ptp_utils.random_range(1, -10, 10)
+#         shear = ptp_utils.random_range(2, -0.05, 0.05)
 
-        # Create rotation matrix
-        T_rot = compose_transform(
-            scale=scale,
-            translation=translation,
-            rotation=rotation,
-            shear=shear,
-            device=device,
-        )
+#         # Create rotation matrix
+#         T_rot = compose_transform(
+#             scale=scale,
+#             translation=translation,
+#             rotation=rotation,
+#             shear=shear,
+#             device=device,
+#         )
 
-        # Transform the keypoints
-        transformed_initial_keypoints = transform_points(initial_keypoints, T_rot)
-        transformed_final_keypoints = transform_points(final_keypoints, T_rot)
+#         # Transform the keypoints
+#         transformed_initial_keypoints = transform_points(initial_keypoints, T_rot)
+#         transformed_final_keypoints = transform_points(final_keypoints, T_rot)
 
-        # Store in batch tensors
-        transformed_initial_keypoints_batch[i] = transformed_initial_keypoints
-        transformed_final_keypoints_batch[i] = transformed_final_keypoints
+#         # Store in batch tensors
+#         transformed_initial_keypoints_batch[i] = transformed_initial_keypoints
+#         transformed_final_keypoints_batch[i] = transformed_final_keypoints
 
-    return transformed_initial_keypoints_batch, transformed_final_keypoints_batch
+#     return transformed_initial_keypoints_batch, transformed_final_keypoints_batch
 
 
 
@@ -269,7 +270,6 @@ def precompute_all_keypoints(
     augment_degrees=30,
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
     dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     visualize=False,
@@ -347,7 +347,6 @@ def precompute_all_keypoints(
             augment_degrees=augment_degrees,
             augment_scale=augment_scale,
             augment_translate=augment_translate,
-            augment_shear=augment_shear,
             controllers=controllers,
             save_folder=save_folder,
             num_gpus=num_gpus,

@@ -15,7 +15,7 @@ from unsupervised_keypoints import human36m
 from unsupervised_keypoints import unaligned_human36m
 from unsupervised_keypoints import deepfashion
 from unsupervised_keypoints.eval import run_image_with_context_augmented
-from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel, mask_radius
+from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel, mask_radius, find_k_max_pixels
 
 from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
 
@@ -91,7 +91,9 @@ def plot_point_single(img, points, name):
     for i in range(num_people):
         for j in range(num_points):
             # Choose color based on j, cycling through the default color cycle
-            if j == 14:
+            if j == 5:
+                color = "purple"
+            elif j == 11:
                 color = "yellow"
             else:
                 color = colors[j % len(colors)]
@@ -104,7 +106,7 @@ def plot_point_single(img, points, name):
     ax.axis("off")  # Remove axis
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Remove border
 
-    plt.savefig(name, bbox_inches='tight', pad_inches=0, dpi=100)
+    plt.savefig(name, bbox_inches='tight', pad_inches=0, dpi=300)
     plt.close(fig)
 
 def plot_point_correspondences(imgs, points, name, height = 11, width = 9):
@@ -161,7 +163,6 @@ def save_all_contexts(
     augment_degrees=30,
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
     dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     save_folder="outputs",
@@ -236,7 +237,6 @@ def save_all_contexts(
                 augment_degrees=augment_degrees,
                 augment_scale=augment_scale,
                 augment_translate=augment_translate,
-                augment_shear=augment_shear,
                 augmentation_iterations=augmentation_iterations,
                 controllers=controllers,
                 num_gpus=num_gpus,
@@ -271,7 +271,6 @@ def visualize_attn_maps(
     augment_degrees=30,
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
     dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     save_folder="outputs",
@@ -321,7 +320,7 @@ def visualize_attn_maps(
     
     for i in tqdm(range(height * width)):
     # for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:
-        batch = dataset[randperm[i].item()]
+        batch = dataset[randperm[i%len(dataset)].item()]
 
         img = batch["img"]
 
@@ -341,7 +340,6 @@ def visualize_attn_maps(
             augment_degrees=augment_degrees,
             augment_scale=augment_scale,
             augment_translate=augment_translate,
-            augment_shear=augment_shear,
             augmentation_iterations=augmentation_iterations,
             visualize=(i==0),
             controllers=controllers,
@@ -401,7 +399,6 @@ def create_vid(
     augment_degrees=30,
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
     dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     save_folder="outputs",
@@ -411,6 +408,7 @@ def create_vid(
     dataset_name = "celeba_aligned",
     validation=False,
     max_num_frames = 1_000,
+    num_subjects = 1,
 ):
     if dataset_name == "celeba_aligned":
         dataset = CelebA(split="test", dataset_loc=dataset_loc)
@@ -439,6 +437,9 @@ def create_vid(
     else:
         raise NotImplementedError
     
+    # remove indeces 8, 4, 15, 11, 1 from 'indices'
+    indices = indices[torch.tensor([1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 13, 14])]
+    
     # make a random permutation of the dataset
     # randperm = torch.randperm(len(dataset))
     randperm = torch.arange(len(dataset))
@@ -460,26 +461,16 @@ def create_vid(
             augment_degrees=augment_degrees,
             augment_scale=augment_scale,
             augment_translate=augment_translate,
-            augment_shear=augment_shear,
             augmentation_iterations=augmentation_iterations,
             controllers=controllers,
             num_gpus=num_gpus,
             save_folder=save_folder,
         )
         
-        point = find_max_pixel(map) / 512.0
+        points = find_k_max_pixels(map, num=num_subjects)/512
         
         plot_point_single(
-            img, point.unsqueeze(0).cpu(), os.path.join(save_folder, f"unsupervised_keypoints_{i:04d}.png")
-        )
-        continue
-        
-        map_masked = mask_radius(map, point*512, 50)
-        
-        second_point = find_max_pixel(map_masked) / 512.0
-        
-        plot_point_single(
-            img, torch.stack([point, second_point]).cpu(), os.path.join(save_folder, f"unsupervised_keypoints_{i:04d}.png")
+            img, points.cpu(), os.path.join(save_folder, f"unsupervised_keypoints_{i:04d}.png")
         )
         # plot_point_single(
         #     img, second_point.cpu(), os.path.join(save_folder, f"unsupervised_keypoints_2_{i:04d}.png")

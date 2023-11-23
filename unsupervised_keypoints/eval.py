@@ -67,6 +67,27 @@ def find_max_pixel(map):
 
     return max_indices
 
+def find_k_max_pixels(map, num=3):
+    """
+    finds the pixel of the map with the highest value
+    map shape [batch_size, h, w]
+    
+    output shape [num, batch_size, 2]
+    """
+    
+    batch_size, h, w = map.shape
+    
+    points = []
+    
+    for i in range(num):
+    
+        point = find_max_pixel(map)
+        points.append(point)
+        
+        map = mask_radius(map, point, 0.05*h)
+
+    return torch.stack(points)
+
 def mask_radius(map, max_coords, radius):
     """
     Masks all values within a given radius of the max_coords in the map.
@@ -408,7 +429,6 @@ def run_image_with_context_augmented(
     augment_degrees=30,
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
     visualize=False,
     controllers=None,
     num_gpus=1,
@@ -426,7 +446,6 @@ def run_image_with_context_augmented(
         degrees=augment_degrees,
         scale=augment_scale,
         translate=augment_translate,
-        shear=augment_shear,
     )
 
     if visualize:
@@ -625,7 +644,6 @@ def evaluate(
     augment_degrees=30,
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
     augmentation_iterations=20,
     dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     save_folder="outputs",
@@ -698,7 +716,6 @@ def evaluate(
             augment_degrees=augment_degrees,
             augment_scale=augment_scale,
             augment_translate=augment_translate,
-            augment_shear=augment_shear,
             controllers=controllers,
             num_gpus=num_gpus,
             save_folder=save_folder,

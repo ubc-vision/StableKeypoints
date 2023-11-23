@@ -19,7 +19,7 @@ from typing import Optional, Union, Tuple, List, Dict
 from tqdm.notebook import tqdm
 import torch.nn.functional as F
 import abc
-from unsupervised_keypoints.eval import find_max_pixel
+from unsupervised_keypoints.eval import find_max_pixel, find_k_max_pixels
 from unsupervised_keypoints import optimize_token
 from torch.nn.parallel.data_parallel import DataParallel
 from collections import OrderedDict
@@ -83,26 +83,23 @@ class AttentionStore(AttentionControl):
         self.step_store = self.get_empty_store()
 
 
-def find_top_k_gaussian(attention_maps, top_k, sigma = 3, epsilon = 1e-5):
+def find_top_k_gaussian(attention_maps, top_k, sigma = 3, epsilon = 1e-5, num_subjects = 1):
     """
     attention_maps is of shape [batch_size, image_h, image_w]
     
     min_dist set to 0 becomes a simple top_k
     """
     
-    
     device = attention_maps.device
 
     batch_size, image_h, image_w = attention_maps.shape
 
-    max_pixel_locations = find_max_pixel(attention_maps)/image_h
+    max_pixel_locations = find_k_max_pixels(attention_maps, num=num_subjects)/image_h
 
     # Normalize the activation maps to represent probability distributions
     attention_maps_softmax = torch.softmax(attention_maps.view(batch_size, image_h * image_w)+epsilon, dim=-1)
 
-    target = optimize_token.gaussian_circle(
-        max_pixel_locations, size=image_h, sigma=sigma, device=attention_maps.device
-    )  # Assuming H and W are the same
+    target = optimize_token.gaussian_circles(max_pixel_locations, size=image_h, sigma=sigma, device=attention_maps.device)
     
     target = target.reshape(batch_size, image_h * image_w)+epsilon
     target/=target.sum(dim=-1, keepdim=True)

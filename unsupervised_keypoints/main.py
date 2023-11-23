@@ -130,6 +130,12 @@ parser.add_argument(
     help="the number of samples to use for finding the indices of the best tokens",
 )
 parser.add_argument(
+    "--num_subjects",
+    type=int,
+    default=1,
+    help="the number of subjects within each image",
+)
+parser.add_argument(
     "--sharpening_loss_weight",
     type=float,
     default=100,
@@ -139,12 +145,6 @@ parser.add_argument(
     "--equivariance_attn_loss_weight",
     type=float,
     default=1000.0,
-    help="Weight of the old equivariance loss",
-)
-parser.add_argument(
-    "--ddpm_loss_weight",
-    type=float,
-    default=0.0,
     help="Weight of the old equivariance loss",
 )
 parser.add_argument("--layers", type=int, nargs="+", default=[0, 1, 2, 3])
@@ -186,13 +186,6 @@ parser.add_argument(
     help="amount of translation for augmentation along x and y axis",
 )
 parser.add_argument(
-    "--augment_shear",
-    type=float,
-    nargs="+",
-    default=[0.0, 0.0],
-    help=" amount of shear for augmentation",
-)
-parser.add_argument(
     "--augmentation_iterations",
     type=int,
     default=10,
@@ -221,27 +214,6 @@ print("Number of GPUs: ", torch.cuda.device_count())
 if args.wandb:
     # start a wandb session
     wandb.init(project="attention_maps", name=args.wandb_name, config=vars(args))
-    
-save_all_contexts(ldm,
-    torch.arange(10),
-    noise_level=args.noise_level,
-    num_tokens=args.num_tokens,
-    layers=args.layers,
-    num_points=args.top_k,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
-    augmentation_iterations=args.augmentation_iterations,
-    dataset_loc=args.dataset_loc,
-    save_folder=args.save_folder,
-    visualize=args.visualize,
-    device=args.device,
-    dataset_name = args.dataset_name,
-    controllers=controllers,
-    num_gpus=num_gpus,
-    max_loc_strategy=args.max_loc_strategy,
-    validation=args.validation,)
 
 
 if args.start_from_stage == "optimize":
@@ -260,12 +232,10 @@ if args.start_from_stage == "optimize":
         augment_degrees=args.augment_degrees,
         augment_scale=args.augment_scale,
         augment_translate=args.augment_translate,
-        augment_shear=args.augment_shear,
         dataset_loc=args.dataset_loc,
         sigma=args.sigma,
         sharpening_loss_weight=args.sharpening_loss_weight,
         equivariance_attn_loss_weight=args.equivariance_attn_loss_weight,
-        ddpm_loss_weight=args.ddpm_loss_weight,
         batch_size=args.batch_size,
         dataset_name = args.dataset_name,
         max_len=args.max_len,
@@ -274,6 +244,7 @@ if args.start_from_stage == "optimize":
         controllers=controllers,
         num_gpus=num_gpus,
         validation=args.validation,
+        num_subjects=args.num_subjects,
     )
     torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
 else:
@@ -300,6 +271,7 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         furthest_point_num_samples=args.furthest_point_num_samples,
         sigma = args.sigma,
         validation=args.validation,
+        num_subjects=args.num_subjects,
     )
     torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
     
@@ -315,7 +287,6 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
         augment_degrees=args.augment_degrees,
         augment_scale=args.augment_scale,
         augment_translate=args.augment_translate,
-        augment_shear=args.augment_shear,
         augmentation_iterations=args.augmentation_iterations,
         dataset_loc=args.dataset_loc,
         save_folder=args.save_folder,
@@ -335,53 +306,52 @@ else:
     
 
     
-visualize_attn_maps(
-    ldm,
-    embedding,
-    indices,
-    noise_level=args.noise_level,
-    num_tokens=args.num_tokens,
-    layers=args.layers,
-    num_points=args.top_k,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
-    augmentation_iterations=args.augmentation_iterations,
-    dataset_loc=args.dataset_loc,
-    save_folder=args.save_folder,
-    visualize=args.visualize,
-    device=args.device,
-    dataset_name = args.dataset_name,
-    controllers=controllers,
-    num_gpus=num_gpus,
-    max_loc_strategy=args.max_loc_strategy,
-    validation=args.validation,
-)
-
-exit()
-    
-# create_vid(
+# visualize_attn_maps(
 #     ldm,
 #     embedding,
 #     indices,
 #     noise_level=args.noise_level,
+#     num_tokens=args.num_tokens,
 #     layers=args.layers,
 #     num_points=args.top_k,
 #     augment_degrees=args.augment_degrees,
 #     augment_scale=args.augment_scale,
 #     augment_translate=args.augment_translate,
-#     augment_shear=args.augment_shear,
 #     augmentation_iterations=args.augmentation_iterations,
 #     dataset_loc=args.dataset_loc,
 #     save_folder=args.save_folder,
-#     dataset_name = args.dataset_name,
+#     visualize=args.visualize,
 #     device=args.device,
+#     dataset_name = args.dataset_name,
 #     controllers=controllers,
 #     num_gpus=num_gpus,
 #     max_loc_strategy=args.max_loc_strategy,
+#     validation=args.validation,
 # )
+
 # exit()
+    
+create_vid(
+    ldm,
+    embedding,
+    indices,
+    noise_level=args.noise_level,
+    layers=args.layers,
+    num_points=args.top_k,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augmentation_iterations=args.augmentation_iterations,
+    dataset_loc=args.dataset_loc,
+    save_folder=args.save_folder,
+    dataset_name = args.dataset_name,
+    device=args.device,
+    controllers=controllers,
+    num_gpus=num_gpus,
+    max_loc_strategy=args.max_loc_strategy,
+    num_subjects=args.num_subjects,
+)
+exit()
 
 
 if args.start_from_stage == "precompute" or args.start_from_stage == "find_indices" or args.start_from_stage == "optimize":
@@ -396,7 +366,6 @@ if args.start_from_stage == "precompute" or args.start_from_stage == "find_indic
         augment_degrees=args.augment_degrees,
         augment_scale=args.augment_scale,
         augment_translate=args.augment_translate,
-        augment_shear=args.augment_shear,
         augmentation_iterations=args.augmentation_iterations,
         dataset_loc=args.dataset_loc,
         visualize=args.visualize,
@@ -469,7 +438,6 @@ visualize_attn_maps(
     augment_degrees=args.augment_degrees,
     augment_scale=args.augment_scale,
     augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
     dataset_loc=args.dataset_loc,
     save_folder=args.save_folder,
     device=args.device,
@@ -492,7 +460,6 @@ evaluate(
     augment_degrees=args.augment_degrees,
     augment_scale=args.augment_scale,
     augment_translate=args.augment_translate,
-    augment_shear=args.augment_shear,
     augmentation_iterations=args.augmentation_iterations,
     dataset_loc=args.dataset_loc,
     save_folder=args.save_folder,

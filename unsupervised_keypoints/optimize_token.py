@@ -304,6 +304,24 @@ def gaussian_circle(pos, size=64, sigma=16, device="cuda"):
 
     return gaussian
 
+def gaussian_circles(pos, size=64, sigma=16, device="cuda"):
+    """In the case of multiple points, pos has shape [batch_size, num_points, 2]
+    """
+    
+    circles = []
+
+    for i in range(pos.shape[0]):
+        _circles = gaussian_circle(
+            pos[i], size=size, sigma=sigma, device=device
+        )  # Assuming H and W are the same
+        
+        circles.append(_circles)
+        
+    circles = torch.stack(circles)
+    circles = torch.mean(circles, dim=0)
+    
+    return circles
+
 
 def crop_image(image, pixel, crop_percent=80, margin=0.15):
     """pixel is an integer between 0 and image.shape[1] or image.shape[2]"""

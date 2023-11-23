@@ -206,8 +206,9 @@ def olf_sharpening_loss(attn_map, kernel_size=5, sigma=1.0, temperature=1e-1, l1
     return loss
 
 
-def sharpening_loss(attn_map, sigma=1.0, temperature=1e1, device="cuda"):
-    pos = eval.find_max_pixel(attn_map) / attn_map.shape[-1]
+def sharpening_loss(attn_map, sigma=1.0, temperature=1e1, device="cuda", num_subjects = 1):
+    
+    pos = eval.find_k_max_pixels(attn_map, num=num_subjects)/attn_map.shape[-1]
 
     loss = find_gaussian_loss_at_point(
         attn_map,
@@ -215,13 +216,14 @@ def sharpening_loss(attn_map, sigma=1.0, temperature=1e1, device="cuda"):
         sigma=sigma,
         temperature=temperature,
         device=device,
+        num_subjects=num_subjects,
     )
 
     return loss
 
 
 def find_gaussian_loss_at_point(
-    attn_map, pos, sigma=1.0, temperature=1e-1, device="cuda", indices=None
+    attn_map, pos, sigma=1.0, temperature=1e-1, device="cuda", indices=None, num_subjects=1
 ):
     """
     pos is a location between 0 and 1
@@ -231,7 +233,7 @@ def find_gaussian_loss_at_point(
     T, H, W = attn_map.shape
 
     # Create Gaussian circle at the given position
-    target = optimize_token.gaussian_circle(
+    target = optimize_token.gaussian_circles(
         pos, size=H, sigma=sigma, device=attn_map.device
     )  # Assuming H and W are the same
     target = target.to(attn_map.device)
@@ -348,13 +350,11 @@ def optimize_embedding(
     augment_degrees=30,
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
-    augment_shear=(0.0, 0.0),
     sdxl=False,
     dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
     sigma=1.0,
     sharpening_loss_weight=100,
     equivariance_attn_loss_weight=100,
-    ddpm_loss_weight = 0.01,
     batch_size=4,
     num_gpus=1,
     dataset_name = "celeba_aligned",
@@ -363,6 +363,7 @@ def optimize_embedding(
     furthest_point_num_samples=50,
     controllers=None,
     validation = False,
+    num_subjects=1,
 ):
     
     if dataset_name == "celeba_aligned":
@@ -397,7 +398,6 @@ def optimize_embedding(
         degrees=augment_degrees,
         scale=augment_scale,
         translate=augment_translate,
-        shear=augment_shear,
     )
 
     # every iteration return image, pixel_loc
@@ -417,7 +417,6 @@ def optimize_embedding(
     it_start = time.time()
 
     running_equivariance_attn_loss = 0
-    running_ddpm_loss = 0
     running_sharpening_loss = 0
     running_total_loss = 0
     
@@ -429,10 +428,6 @@ def optimize_embedding(
     # import ipdb; ipdb.set_trace()  
     
     for iteration in tqdm(range(int(num_steps*(batch_size//num_gpus)))):
-        
-        if iteration < 100 or (iteration < 1000 and iteration % 10 == 0) or iteration % 100 == 0:
-            # save embedding
-            torch.save(context.detach(), f"cub_all_visualization/embedding_{iteration:05d}.pt")
         
         try:
             mini_batch = next(dataloader_iter)
@@ -472,24 +467,6 @@ def optimize_embedding(
             human36m=dataset_name == "human3.6m",
         )
         
-        if ddpm_loss_weight != 0:
-            rand_noise_level = torch.randint(0, 50, (1,)).item()
-            
-            # import ipdb; ipdb.set_trace()
-            
-            noise, pred_noise = ptp_utils.find_pred_noise(
-                ldm,
-                image,
-                context,
-                noise_level=rand_noise_level,
-                device=device,
-            )
-            
-            
-            for controller in controllers:
-                controllers[controller].reset()
-        
-        _ddpm_loss = []
         _sharpening_loss = []
         _loss_equivariance_attn = []
         
@@ -501,7 +478,7 @@ def optimize_embedding(
                 )
             elif top_k_strategy == "gaussian":
                 top_embedding_indices = ptp_utils.find_top_k_gaussian(
-                    attn_map, furthest_point_num_samples, sigma=sigma,
+                    attn_map, furthest_point_num_samples, sigma=sigma, num_subjects = num_subjects
                 )
             elif top_k_strategy == "consistent":
                 top_embedding_indices = torch.arange(furthest_point_num_samples)
@@ -510,17 +487,14 @@ def optimize_embedding(
             
             top_embedding_indices = ptp_utils.furthest_point_sampling(attention_map_transformed, top_k, top_embedding_indices)
 
-            _sharpening_loss.append(sharpening_loss(attn_map[top_embedding_indices], device=device, sigma=sigma))
+            _sharpening_loss.append(sharpening_loss(attn_map[top_embedding_indices], device=device, sigma=sigma, num_subjects = num_subjects))
 
             _loss_equivariance_attn.append(equivariance_loss(
                 attn_map[top_embedding_indices], attention_map_transformed[top_embedding_indices][None].repeat(num_gpus, 1, 1, 1), invertible_transform, index
             ))
         
 
-        if ddpm_loss_weight != 0:
-            _ddpm_loss = nn.MSELoss()(noise, pred_noise)
-        else:
-            _ddpm_loss = torch.zeros(1).to('cuda:0')
+
         _sharpening_loss = torch.stack([loss.to('cuda:0') for loss in _sharpening_loss]).mean()
         _loss_equivariance_attn = torch.stack([loss.to('cuda:0') for loss in _loss_equivariance_attn]).mean()
         
@@ -531,13 +505,11 @@ def optimize_embedding(
             + _loss_equivariance_attn * equivariance_attn_loss_weight
             # + _spreading_loss * spreading_loss_weight
             + _sharpening_loss * sharpening_loss_weight
-            + _ddpm_loss * ddpm_loss_weight
         )
 
         running_equivariance_attn_loss += _loss_equivariance_attn / (batch_size//num_gpus) * equivariance_attn_loss_weight
         running_sharpening_loss += _sharpening_loss / (batch_size//num_gpus) * sharpening_loss_weight
         # running_spreading_loss += _spreading_loss / (batch_size//num_gpus)
-        running_ddpm_loss += _ddpm_loss / (batch_size//num_gpus) * ddpm_loss_weight
         running_total_loss += loss / (batch_size//num_gpus)
 
         loss = loss / (batch_size//num_gpus)
@@ -553,10 +525,8 @@ def optimize_embedding(
                         "loss": running_total_loss.item(),
                         "running_equivariance_attn_loss": running_equivariance_attn_loss.item(),
                         "running_sharpening_loss": running_sharpening_loss.item(),
-                        "running_ddpm_loss": running_ddpm_loss.item(),
                         "iteration time": time.time() - it_start,
                         # "running_spreading_loss": running_spreading_loss.item(),
-                        "running_ddpm_loss": running_ddpm_loss.item(),
                     }
                 )
             else:
@@ -564,13 +534,11 @@ def optimize_embedding(
                     f"loss: {loss.item()}, \
                     _loss_equivariance_attn: {running_equivariance_attn_loss.item()} \
                     sharpening_loss: {running_sharpening_loss.item()},  \
-                    ddpm_loss: {running_ddpm_loss.item()}, \
                     running_total_loss: {running_total_loss.item()}, \
                     iteration time: {time.time() - it_start}"
                 )
             running_equivariance_attn_loss = 0
             running_sharpening_loss = 0
-            running_ddpm_loss = 0
             running_total_loss = 0
             
             it_start = time.time()
