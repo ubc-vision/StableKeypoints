@@ -12,6 +12,10 @@ body {
   margin-bottom: 5px;
 }
 
+.carousel-dots {
+  display: none;
+}
+
 .dnerf {
   font-variant: small-caps;
 }
@@ -170,7 +174,7 @@ body {
 }
 
 .videos-container {
-  width: 70%; /* Set width to 70% of the parent container */
+  width: 90%; /* Set width to 70% of the parent container */
   margin: 0 auto; /* Center the container */
   display: flex;
   flex-direction: column;
@@ -178,8 +182,10 @@ body {
 }
 
 .video-container {
-  width: 50%; /* Each video takes up 50% of the .side-by-side-videos width */
-  margin-right: 5px; /* Optional spacing between videos */
+  width: calc(
+    33.33% - 10px
+  ); /* Adjusted for 3 videos side by side, accounting for 5px margin */
+  margin-right: 5px; /* Spacing between videos */
   flex: 0 0 auto; /* Prevents flex items from growing or shrinking */
   margin-top: 20px; /* Adjust as needed */
   margin-bottom: 20px; /* Adjust as needed */
@@ -202,7 +208,7 @@ body {
 }
 
 video {
-  width: 100%; /* Make video take full width of its container */
+  width: 80%; /* Make video take full width of its container */
   height: auto; /* Maintain aspect ratio */
 }
 
