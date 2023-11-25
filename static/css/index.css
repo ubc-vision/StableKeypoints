@@ -121,9 +121,50 @@ body {
   justify-content: space-around; /* Adjust as needed */
 }
 
+.carousel-item .items-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: center; /* Center items horizontally */
+  align-items: center; /* Align items vertically */
+}
+
+.carousel-item .caption {
+  display: block;
+  margin-top: 10px; /* Space between images and caption */
+  text-align: center; /* Center the caption text */
+  /* Other caption styles */
+}
+
 .results-carousel .item {
-  width: calc(20% - 10px); /* Adjust width for 5 items */
+  width: calc(15% - 10px); /* Adjust width for 5 items */
   /* Other styles... */
+}
+
+#two-row-carousel .carousel-item {
+  display: flex;
+  flex-direction: column;
+}
+
+#two-row-carousel .carousel-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px; /* Spacing between rows */
+}
+
+#two-row-carousel .carousel-item .item {
+  flex: 1 0 calc(16.67% - 10px); /* Flex grow, flex shrink, and basis */
+  margin: 5px;
+}
+
+#two-row-carousel .carousel-item .item img {
+  width: 100%;
+  height: auto;
+}
+
+#two-row-carousel .carousel-row img {
+  width: calc(16.67% - 10px); /* Adjust the 10px based on your margin/padding */
+  margin: 5px; /* Adjust based on your design */
+  height: auto; /* Maintain aspect ratio */
 }
 
 .carousel-caption p {
@@ -132,6 +173,12 @@ body {
   margin-bottom: 10px; /* Adjust as needed */
   font-size: 16px; /* Adjust as needed */
   color: #333; /* Adjust as needed */
+}
+
+#two-row-carousel {
+  width: 100vw; /* This will make the carousel take the full viewport width */
+  max-width: 100%; /* To ensure it doesn't overflow */
+  overflow: hidden; /* In case of horizontal overflow */
 }
 
 .interpolation-panel {
@@ -220,4 +267,42 @@ video {
 
 .subtitle {
   text-align: justify !important;
+}
+
+/* Adjust the container if needed */
+.hero-body .container {
+  width: 100%; /* Full width */
+  max-width: 100%; /* Prevent exceeding the viewport width */
+  padding: 0; /* Remove padding */
+  margin: 0 auto; /* Center the container, if needed */
+}
+
+.row-caption {
+  text-align: center;
+  margin-top: -10px; /* Adjust as needed */
+  margin-bottom: 10px; /* Adjust as needed */
+  font-size: 14px; /* Adjust as needed */
+  color: #333; /* Adjust as needed */
+  /* Add any additional styling as needed */
+}
+
+.carousel-item-caption {
+  text-align: center;
+  margin-top: 10px; /* Space between images and caption */
+  font-size: 16px; /* Adjust as needed */
+  color: #333; /* Adjust as needed */
+  /* Any additional styling as needed */
+}
+
+.carousel-section-header {
+  text-align: center;
+  font-size: 24px; /* Adjust font size as needed */
+  margin-bottom: 10px; /* Spacing between the header and paragraph */
+  /* Additional styling as needed */
+}
+
+.carousel-section-description {
+  text-align: center;
+  margin-bottom: 20px; /* Spacing between the paragraph and carousel */
+  /* Additional styling as needed */
 }

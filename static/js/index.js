@@ -93,25 +93,41 @@ $(document).ready(function () {
     $(".navbar-menu").toggleClass("is-active");
   });
 
+  // Options for your existing carousels
   var options = {
     slidesToScroll: 1,
     slidesToShow: 1,
     loop: true,
     infinite: true,
     autoplay: true,
-    autoplaySpeed: 2000,
+    autoplaySpeed: 5000,
+    pagination: false,
   };
 
-  // Initialize all div with carousel class
+  // Initialize all div with carousel class (for existing carousels)
   var carousels = bulmaCarousel.attach(".carousel", options);
 
-  // Loop on each carousel initialized
-  for (var i = 0; i < carousels.length; i++) {
-    // Add listener to  event
-    carousels[i].on("before:show", (state) => {
+  // New options for the two-row carousel
+  var twoRowOptions = {
+    // You might need different options here
+    slidesToScroll: 1,
+    slidesToShow: 1,
+    loop: true,
+    infinite: true,
+    autoplay: false,
+    autoplaySpeed: 20000,
+    pagination: false,
+  };
+
+  // Initialize the new two-row carousel
+  var twoRowCarousel = bulmaCarousel.attach("#two-row-carousel", twoRowOptions);
+
+  // Assuming you want similar event listeners for the new carousel
+  twoRowCarousel.forEach((carousel) => {
+    carousel.on("before:show", (state) => {
       console.log(state);
     });
-  }
+  });
 
   // Access to bulmaCarousel instance of an element
   var element = document.querySelector("#my-element");
