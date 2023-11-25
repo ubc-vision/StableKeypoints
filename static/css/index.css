@@ -291,7 +291,7 @@ video {
 }
 
 .carousel-item-caption {
-  text-align: center;
+  text-align: justify;
   margin-top: 10px; /* Space between images and caption */
   font-size: 16px; /* Adjust as needed */
   color: #333; /* Adjust as needed */
@@ -306,7 +306,7 @@ video {
 }
 
 .carousel-section-description {
-  text-align: center;
+  text-align: justify;
   margin-bottom: 20px; /* Spacing between the paragraph and carousel */
   /* Additional styling as needed */
 }
