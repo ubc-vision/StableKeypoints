@@ -116,6 +116,10 @@ body {
 .publication-body img {
 }
 
+.results-carousel {
+  overflow: hidden;
+}
+
 .results-carousel .carousel-item {
   display: flex;
   justify-content: space-around; /* Adjust as needed */
@@ -136,7 +140,7 @@ body {
 }
 
 .results-carousel .item {
-  width: calc(15% - 10px); /* Adjust width for 5 items */
+  width: calc(16.67% - 10px); /* Adjust width for 5 items */
   /* Other styles... */
 }
 
