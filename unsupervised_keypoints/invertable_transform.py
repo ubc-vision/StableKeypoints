@@ -1,11 +1,6 @@
 import math
 import torch
-import random
-from torchvision.transforms import functional as TF
 import torch.nn.functional as F
-
-from torch import Tensor
-from typing import Any, List, Optional, Tuple, Union
 
 
 class RandomAffineWithInverse:
@@ -83,8 +78,6 @@ class RandomAffineWithInverse:
         theta_augmented = torch.cat(
             [theta, torch.Tensor([[0, 0, 1]]).expand(theta.shape[0], -1, -1)], dim=1
         )
-        
-        # import ipdb; ipdb.set_trace()
 
         # Compute the inverse of the affine matrix
         theta_inv_augmented = torch.inverse(theta_augmented)
@@ -98,89 +91,6 @@ class RandomAffineWithInverse:
 
         return untransformed_img
 
-    def transform_keypoints(self, keypoints):
-        
-        raise NotImplementedError
-        keypoints = keypoints * 2 - 1
-        # Get the transformation matrix
-        theta = self.last_params["theta"][0]
-
-        keypoints_pixel = keypoints.flip(1)
-
-        # Convert to homogeneous coordinates
-        keypoints_homogeneous = torch.cat(
-            [
-                keypoints_pixel,
-                torch.ones(keypoints_pixel.shape[0], 1, dtype=keypoints.dtype).to(
-                    keypoints.device
-                ),
-            ],
-            dim=1,
-        )
-
-        theta = self.last_params["theta"][0]
-        theta_augmented = torch.cat(
-            [theta, torch.Tensor([0, 0, 1]).view(1, -1)], dim=0
-        ).to(keypoints.device)
-        theta_inv = torch.inverse(theta_augmented)[:2, :]
-
-        # Transform the keypoints
-        transformed_keypoints_homogeneous = keypoints_homogeneous.mm(theta_inv.t())
-
-        # Convert back to regular coordinates and normalize
-        transformed_keypoints_pixel = transformed_keypoints_homogeneous[:, :2]
-        # transformed_keypoints = transformed_keypoints_pixel / torch.tensor(
-        #     img_size, dtype=keypoints.dtype
-        # ).flip(0)
-        transformed_keypoints = transformed_keypoints_pixel.flip(1)
-        # transformed_keypoints = transformed_keypoints_pixel[:, [1, 0]]
-        # transformed_keypoints = transformed_keypoints_pixel
-
-        transformed_keypoints = transformed_keypoints / 2 + 0.5
-
-        return transformed_keypoints
-
-    def inverse_transform_keypoints(self, keypoints):
-        
-        raise NotImplementedError
-        
-        keypoints = keypoints * 2 - 1
-
-        # Get the transformation matrix and calculate its inverse
-        theta = self.last_params["theta"][0].to(keypoints.device)
-        # theta_augmented = torch.cat([theta, torch.Tensor([0, 0, 1]).view(1, -1)], dim=0)
-        # theta_inv = torch.inverse(theta_augmented)[:2, :]
-
-        # Map normalized keypoints to pixel space
-        # keypoints_pixel = keypoints * torch.tensor(
-        #     img_size, dtype=keypoints.dtype
-        # ).flip(0)
-        keypoints_pixel = keypoints.flip(1)
-
-        # Convert to homogeneous coordinates
-        keypoints_homogeneous = torch.cat(
-            [
-                keypoints_pixel,
-                torch.ones(keypoints_pixel.shape[0], 1, dtype=keypoints.dtype).to(
-                    keypoints_pixel.device
-                ),
-            ],
-            dim=1,
-        )
-
-        # Inversely transform the keypoints
-        transformed_keypoints_homogeneous = keypoints_homogeneous.mm(theta.t())
-
-        # Convert back to regular coordinates and normalize
-        transformed_keypoints_pixel = transformed_keypoints_homogeneous[:, :2]
-        # transformed_keypoints = transformed_keypoints_pixel / torch.tensor(
-        #     img_size, dtype=keypoints.dtype
-        # ).flip(0)
-        transformed_keypoints = transformed_keypoints_pixel.flip(1)
-
-        transformed_keypoints = transformed_keypoints / 2 + 0.5
-
-        return transformed_keypoints
 
 
 def return_theta(scale, pixel_loc, rotation_angle_degrees=0):

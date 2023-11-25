@@ -91,17 +91,10 @@ def plot_point_single(img, points, name):
     for i in range(num_people):
         for j in range(num_points):
             # Choose color based on j, cycling through the default color cycle
-            if j == 5:
-                color = "purple"
-            elif j == 11:
-                color = "yellow"
-            else:
-                color = colors[j % len(colors)]
+            color = colors[j % len(colors)]
             x, y = points[i, j, 1] * 512, points[i, j, 0] * 512
-            # Plot a white circle with larger size to create an outline effect
-            # ax.scatter(x, y, color='white', marker=f"${j}$", s=110)
             # Plot the original color on top
-            ax.scatter(x, y, color=color, marker=f"${j}$", s=200)
+            ax.scatter(x, y, color=color, marker=f"${j}$", s=300)
 
     ax.axis("off")  # Remove axis
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Remove border
@@ -144,115 +137,6 @@ def plot_point_correspondences(imgs, points, name, height = 11, width = 9):
     plt.savefig(name, dpi=300, bbox_inches='tight', pad_inches=0)
     plt.close()
 
-
-# TODO remove this function when done
-@torch.no_grad()
-def save_all_contexts(
-    ldm,
-    indices,
-    device="cuda",
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    upsample_res=32,
-    layers=[0, 1, 2, 3, 4, 5],
-    lr=5e-3,
-    noise_level=-1,
-    num_tokens=1000,
-    num_points=30,
-    num_images=100,
-    regressor=None,
-    augment_degrees=30,
-    augment_scale=(0.9, 1.1),
-    augment_translate=(0.1, 0.1),
-    augmentation_iterations=20,
-    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
-    save_folder="outputs",
-    visualize=False,
-    dataset_name = "celeba_aligned",
-    controllers=None,
-    num_gpus=1,
-    max_loc_strategy="argmax",
-    height = 11,
-    width = 9,
-    validation = False,
-):
-    if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="test", dataset_loc=dataset_loc)
-    elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="test", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub_aligned":
-        dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "cub_001":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=1)
-    elif dataset_name == "cub_002":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=2)
-    elif dataset_name == "cub_003":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=3)
-    elif dataset_name == "cub_all":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test")
-    elif dataset_name == "taichi":
-        dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "human3.6m":
-        dataset = human36m.TestSet(data_root=dataset_loc, validation=validation)
-    elif dataset_name == "unaligned_human3.6m":
-        dataset = unaligned_human36m.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "deepfashion":
-        dataset = deepfashion.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "custom":
-        dataset = custom_images.CustomDataset(data_root=dataset_loc, image_size=512)
-    else:
-        raise NotImplementedError
-    
-    randperm = torch.randperm(len(dataset))
-    
-    for index, path in enumerate(tqdm(sorted(glob("/ubc/cs/home/i/iamerich/scratch/keypoint_correspondences_ldm/cub_all_visualization/embedding_*.pt")))):
-        context = torch.load(path)
-
-        imgs = []
-        maps = []
-        gt_kpts = []
-        
-        # random permute the dataset
-        # randperm = torch.randperm(len(dataset))
-        # randperm = torch.arange(len(dataset))*100
-        
-        for i in tqdm(range(10)):
-        # for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:
-            batch = dataset[randperm[i].item()]
-
-            img = batch["img"]
-
-            _gt_kpts = batch["kpts"] 
-            gt_kpts.append(_gt_kpts)
-            imgs.append(img.cpu())
-
-            map = run_image_with_context_augmented(
-                ldm,
-                img,
-                context,
-                indices.cpu(),
-                device=device,
-                from_where=from_where,
-                layers=layers,
-                noise_level=noise_level,
-                augment_degrees=augment_degrees,
-                augment_scale=augment_scale,
-                augment_translate=augment_translate,
-                augmentation_iterations=augmentation_iterations,
-                controllers=controllers,
-                num_gpus=num_gpus,
-                save_folder=save_folder,
-                human36m=dataset_name == "human3.6m",
-            )
-
-            maps.append(map.cpu())
-        maps = torch.stack(maps)
-        gt_kpts = torch.stack(gt_kpts)
-        
-        # TODO remove
-        save_grid(
-                maps[:, 2].cpu(), imgs, os.path.join(save_folder, "visualizations", f"keypoint_{index:05d}.png")
-            )
-
 @torch.no_grad()
 def visualize_attn_maps(
     ldm,
@@ -272,7 +156,7 @@ def visualize_attn_maps(
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
     augmentation_iterations=20,
-    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    dataset_loc="~",
     save_folder="outputs",
     visualize=False,
     dataset_name = "celeba_aligned",
@@ -316,10 +200,8 @@ def visualize_attn_maps(
     
     # random permute the dataset
     randperm = torch.randperm(len(dataset))
-    # randperm = torch.arange(len(dataset))*100
     
     for i in tqdm(range(height * width)):
-    # for i in [35, 36, 148, 222, 57, 123, 282, 78, 99, 192]:
         batch = dataset[randperm[i%len(dataset)].item()]
 
         img = batch["img"]
@@ -381,97 +263,3 @@ def visualize_attn_maps(
         plot_point_correspondences(
             imgs, gt_kpts, os.path.join(save_folder, "gt_keypoints.pdf"), height, width
         )
-
-        pass
-    
-    
-@torch.no_grad()
-def create_vid(
-    ldm,
-    context,
-    indices,
-    device="cuda",
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    layers=[0, 1, 2, 3, 4, 5],
-    noise_level=-1,
-    num_points=30,
-    num_images=100,
-    augment_degrees=30,
-    augment_scale=(0.9, 1.1),
-    augment_translate=(0.1, 0.1),
-    augmentation_iterations=20,
-    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
-    save_folder="outputs",
-    controllers=None,
-    num_gpus=1,
-    max_loc_strategy="argmax",
-    dataset_name = "celeba_aligned",
-    validation=False,
-    max_num_frames = 1_000,
-    num_subjects = 1,
-):
-    if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="test", dataset_loc=dataset_loc)
-    elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="test", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub_aligned":
-        dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "cub_001":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=1)
-    elif dataset_name == "cub_002":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=2)
-    elif dataset_name == "cub_003":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=3)
-    elif dataset_name == "cub_all":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test")
-    elif dataset_name == "taichi":
-        dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "human3.6m":
-        dataset = human36m.TestSet(data_root=dataset_loc, validation=validation)
-    elif dataset_name == "unaligned_human3.6m":
-        dataset = unaligned_human36m.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "deepfashion":
-        dataset = deepfashion.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "custom":
-        dataset = custom_images.CustomDataset(data_root=dataset_loc, image_size=512)
-    else:
-        raise NotImplementedError
-    
-    # remove indeces 8, 4, 15, 11, 1 from 'indices'
-    indices = indices[torch.tensor([1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 13, 14])]
-    
-    # make a random permutation of the dataset
-    # randperm = torch.randperm(len(dataset))
-    randperm = torch.arange(len(dataset))
-    
-    for i in tqdm(range(min(max_num_frames, len(dataset)))):
-        batch = dataset[randperm[i].item()]
-
-        img = batch["img"]
-
-        map = run_image_with_context_augmented(
-            ldm,
-            img,
-            context,
-            indices.cpu(),
-            device=device,
-            from_where=from_where,
-            layers=layers,
-            noise_level=noise_level,
-            augment_degrees=augment_degrees,
-            augment_scale=augment_scale,
-            augment_translate=augment_translate,
-            augmentation_iterations=augmentation_iterations,
-            controllers=controllers,
-            num_gpus=num_gpus,
-            save_folder=save_folder,
-        )
-        
-        points = find_k_max_pixels(map, num=num_subjects)/512
-        
-        plot_point_single(
-            img, points.cpu(), os.path.join(save_folder, f"unsupervised_keypoints_{i:04d}.png")
-        )
-        # plot_point_single(
-        #     img, second_point.cpu(), os.path.join(save_folder, f"unsupervised_keypoints_2_{i:04d}.png")
-        # )

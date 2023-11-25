@@ -1,9 +1,6 @@
 # load the dataset
 import os
 import torch
-import numpy as np
-from tqdm import tqdm
-from queue import PriorityQueue
 import torch.nn.functional as F
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
@@ -15,15 +12,10 @@ from unsupervised_keypoints import unaligned_human36m
 from unsupervised_keypoints import deepfashion
 from unsupervised_keypoints.invertable_transform import (
     RandomAffineWithInverse,
-    return_theta,
 )
 
 # now import weights and biases
 import wandb
-
-# from unsupervised_keypoints.optimize_token import init_random_noise
-
-from unsupervised_keypoints import optimize
 
 
 def save_img(map, img, point, name):
@@ -189,8 +181,6 @@ def find_corresponding_points(maps, num_points=10):
 
     entropy = entropy.reshape(num_images, num_tokens)
 
-    # _, top_embedding_indices = torch.topk(entropy, num_tokens, largest=False)
-
     entropy = entropy.sum(dim=0)
 
     # get a sorted list of tokens with lowest entropy
@@ -203,217 +193,6 @@ def find_corresponding_points(maps, num_points=10):
     highest_indices = highest_indices.reshape(num_images, num_points, 2)
 
     return highest_indices, sorted_entropy[:num_points]
-
-
-# def crop_image(image, crop_percent=90):
-#     """pixel is an integer between 0 and image.shape[1] or image.shape[2]"""
-
-#     assert 0 < crop_percent <= 100, "crop_percent should be between 0 and 100"
-
-#     height, width, channels = image.shape
-#     crop_height = int(height * crop_percent / 100)
-#     crop_width = int(width * crop_percent / 100)
-
-#     x_start_max = width - crop_width
-#     y_start_max = height - crop_height
-
-#     # Choose a random top-left corner within the allowed bounds
-#     x_start = torch.randint(0, int(x_start_max) + 1, (1,)).item()
-#     y_start = torch.randint(0, int(y_start_max) + 1, (1,)).item()
-
-#     # Crop the image
-#     cropped_image = image[
-#         y_start : y_start + crop_height, x_start : x_start + crop_width
-#     ]
-
-#     # bilinearly upsample to 512x512
-#     cropped_image = torch.nn.functional.interpolate(
-#         torch.tensor(cropped_image[None]).permute(0, 3, 1, 2),
-#         size=(512, 512),
-#         mode="bilinear",
-#         align_corners=False,
-#     )[0]
-
-#     return (
-#         cropped_image.permute(1, 2, 0).numpy(),
-#         y_start,
-#         crop_height,
-#         x_start,
-#         crop_width,
-#     )
-
-
-# @torch.no_grad()
-# def progressively_zoom_into_image(
-#     ldm,
-#     image,
-#     context,
-#     indices,
-#     device="cuda",
-#     from_where=["down_cross", "mid_cross", "up_cross"],
-#     layers=[0, 1, 2, 3, 4, 5],
-#     num_zooms=2,
-#     noise_level=-1,
-#     visualize=False,
-#     rotation_degrees=15,
-# ):
-#     """
-#     First forward passes the image with no augmentation and find the argmax for each keypoint
-#     Then 'zoom' in on each keypoint by cropping the image around the keypoint
-#     """
-
-#     num_samples = torch.zeros(len(indices), 512, 512).to(device)
-#     sum_samples = torch.zeros(len(indices), 512, 512).to(device)
-
-#     points = []
-
-#     # if image is a torch.tensor, convert to numpy
-#     if type(image) == torch.Tensor:
-#         image = image.permute(1, 2, 0).detach().cpu().numpy()
-
-#     if parent_keypoints is None:
-#         initial_maps = ptp_utils.run_and_find_attn(
-#             ldm,
-#             image,
-#             context,
-#             layers=layers,
-#             noise_level=noise_level,
-#             from_where=from_where,
-#             upsample_res=512,
-#             indices=indices,
-#         )
-
-#         highest_indices, confidences = find_max_pixel(
-#             initial_maps, return_confidences=True
-#         )
-#         highest_indices = highest_indices / 512.0
-
-#     else:
-#         highest_indices = parent_keypoints.clone()
-
-#     if visualize:
-#         import matplotlib.pyplot as plt
-
-#         fig, axs = plt.subplots(4, 11)
-#         axs[0, 0].imshow(image)
-#         axs[1, 0].imshow(image)
-#         for i in range(highest_indices.shape[0]):
-#             # make the point the number f"{i}"
-
-#             axs[0, 0].scatter(
-#                 highest_indices[i, 1].cpu() * 512,
-#                 highest_indices[i, 0].cpu() * 512,
-#                 marker=f"${i}$",
-#             )
-
-#     transform = RandomAffineWithInverse()
-
-#     for keypoint in range(highest_indices.shape[0]):
-#         # randomly choose rotation between -rotation_degrees and rotation_degrees
-#         random_rot = torch.rand(1) * 2 * rotation_degrees - rotation_degrees
-
-#         theta = return_theta(0.5, highest_indices[keypoint], random_rot)
-
-#         augmented_img = (
-#             transform(torch.tensor(image).permute(2, 0, 1), theta)
-#             .permute(1, 2, 0)
-#             .numpy()
-#         )
-
-#         maps = ptp_utils.run_and_find_attn(
-#             ldm,
-#             augmented_img,
-#             context,
-#             layers=layers,
-#             noise_level=noise_level,
-#             from_where=from_where,
-#             upsample_res=512,
-#             indices=indices,
-#         )
-
-#         # transform all keypoints to this view to see which are in view
-#         # untransform the maps to the original view and add the maps which are within view
-
-#         transformed_highest_indices = transform.transform_keypoints(highest_indices)
-#         within_view = (
-#             (transformed_highest_indices > 0.1) * (transformed_highest_indices < 0.9)
-#         ).sum(dim=1) == 2
-
-#         sum_samples[within_view] += transform.inverse(maps)[within_view]
-#         num_samples[within_view] += transform.inverse(torch.ones_like(maps))[
-#             within_view
-#         ]
-
-#         highest_indices_iteration, confidences = find_max_pixel(
-#             maps, return_confidences=True
-#         )
-#         highest_indices_iteration = highest_indices_iteration / 512.0
-
-#         inverted_kpts = transform.inverse_transform_keypoints(highest_indices_iteration)
-
-#         points.append(inverted_kpts[keypoint])
-
-#         if visualize:
-#             axs[0, keypoint + 1].scatter(
-#                 256,
-#                 256,
-#                 marker=f"${keypoint}$",
-#             )
-
-#             axs[0, keypoint + 1].scatter(
-#                 highest_indices_iteration[keypoint, 1].cpu() * 512,
-#                 highest_indices_iteration[keypoint, 0].cpu() * 512,
-#                 marker=f"${keypoint}$",
-#             )
-
-#             axs[0, keypoint + 1].imshow(augmented_img)
-
-#             # upscale maps to 512x512
-#             maps_upscaled = torch.nn.functional.interpolate(
-#                 maps[keypoint, None, None],
-#                 size=(512, 512),
-#                 mode="bilinear",
-#                 align_corners=False,
-#             )[0, 0]
-#             axs[1, keypoint + 1].imshow(maps_upscaled.cpu(), alpha=0.5)
-#             axs[1, keypoint + 1].imshow(augmented_img, alpha=0.5)
-
-#             axs[1, keypoint + 1].scatter(
-#                 highest_indices_iteration[keypoint, 1].cpu() * 512,
-#                 highest_indices_iteration[keypoint, 0].cpu() * 512,
-#                 marker=f"${keypoint}$",
-#             )
-
-#             axs[1, 0].scatter(
-#                 inverted_kpts[keypoint, 1].cpu() * 512,
-#                 inverted_kpts[keypoint, 0].cpu() * 512,
-#                 marker=f"${keypoint}$",
-#             )
-
-#     points = torch.stack(points)
-
-#     attention_maps = sum_samples / num_samples
-#     # replace all nans with 0s
-#     attention_maps[attention_maps != attention_maps] = 0
-
-#     if visualize:
-#         for i in range(points.shape[0]):
-#             axs[1, 0].scatter(
-#                 points[i, 1].cpu() * 512,
-#                 points[i, 0].cpu() * 512,
-#                 marker=f"${i}$",
-#             )
-
-#             axs[2, i + 1].imshow(attention_maps[i].cpu())
-#             axs[3, i + 1].imshow((num_samples[i] / num_samples[i].max()).cpu())
-#         # # increase resolution of pyplot to 512x2048
-#         fig.set_size_inches(4096 / 100, 4096 / 400)
-#         plt.savefig("initial.png")
-
-#         pass
-
-#     return points
-
 
 @torch.no_grad()
 def run_image_with_context_augmented(
@@ -459,8 +238,6 @@ def run_image_with_context_augmented(
 
     for i in range(augmentation_iterations//num_gpus):
         
-        
-        
         augmented_img = (
             invertible_transform(torch.tensor(image)[None].repeat(num_gpus, 1, 1, 1).permute(0, 3, 1, 2))
             .permute(0, 2, 3, 1)
@@ -481,41 +258,7 @@ def run_image_with_context_augmented(
             human36m=human36m,
         )
         
-        # import ipdb; ipdb.set_trace()
-        
         attn_maps = torch.stack([map.to("cuda:0") for map in attn_maps])
-
-        # if i != 0:
-        #     augmented_img = (
-        #         invertible_transform(torch.tensor(image).permute(2, 0, 1))
-        #         .permute(1, 2, 0)
-        #         .numpy()
-        #     )
-        # else:
-        #     augmented_img = image
-
-        # latents = ptp_utils.image2latent(ldm, augmented_img, device)
-
-        # latents = ldm.scheduler.add_noise(
-        #     latents, torch.rand_like(latents), ldm.scheduler.timesteps[noise_level]
-        # )
-
-        # latents = ptp_utils.diffusion_step(
-        #     ldm,
-        #     controller,
-        #     latents,
-        #     context,
-        #     ldm.scheduler.timesteps[noise_level],
-        #     cfg=False,
-        # )
-
-        # _attention_maps, _ = optimize.collect_maps(
-        #     controller,
-        #     from_where=from_where,
-        #     upsample_res=512,
-        #     layers=layers,
-        #     indices=indices,
-        # )
         
         _num_samples = invertible_transform.inverse(torch.ones_like(attn_maps))
         _sum_samples = invertible_transform.inverse(attn_maps)
@@ -645,7 +388,7 @@ def evaluate(
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
     augmentation_iterations=20,
-    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    dataset_loc="~",
     save_folder="outputs",
     wandb_log=False,
     visualize=False,
@@ -682,10 +425,6 @@ def evaluate(
         raise NotImplementedError
 
     distances = []
-
-    # eye_dists = []
-
-    worst_l2 = PriorityQueue()
 
     max_value = 0
 
@@ -782,15 +521,6 @@ def evaluate(
             print(i)
             max_value = l2_mean
 
-        if worst_l2.qsize() < 10:
-            worst_l2.put((l2_mean.item(), i))
-        else:
-            smallest_worst, smallest_worst_index = worst_l2.get()
-            if l2_mean.item() > smallest_worst:
-                worst_l2.put((l2_mean.item(), i))
-            else:
-                worst_l2.put((smallest_worst, smallest_worst_index))
-
         distances.append(l2_mean.cpu())
         # eye_dists.append(eye_dist.cpu())
 
@@ -807,17 +537,5 @@ def evaluate(
         wandb.log({"mean_distance": torch.mean(torch.stack(distances))})
     print()
 
-    worst_10 = []
-    while not worst_l2.empty():
-        distance, index = worst_l2.get()
-        worst_10.append((index, distance))
-
-    # Now worst_10 contains the indices and l2 distances of the 10 worst cases
-    print("10 worst L2 distances and their indices:")
-    for index, distance in reversed(worst_10):
-        print(f"Index: {index}, L2 Distance: {distance}")
-
-    print()
-
     # save argsorted all_values in torch
-    torch.save(torch.tensor(all_values), os.path.join(save_folder, "argsort_test.pt"))
+    torch.save(torch.tensor(all_values), os.path.join(save_folder, "all_errors.pt"))

@@ -2,8 +2,6 @@ import os
 import torch
 import numpy as np
 from PIL import Image
-
-# from unsupervised_keypoints.custom_transform import CustomTransform
 from torch.utils.data import Dataset
 
 
@@ -17,7 +15,7 @@ class CelebA(Dataset):
         max_len=-1,
         split="train",
         align=True,
-        dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+        dataset_loc="~",
         iou_threshold= 0.3,
     ):
         self.dataset_loc = dataset_loc
@@ -150,65 +148,3 @@ class CelebA(Dataset):
         else:
             return os.path.join(self.dataset_loc, "Img", "img_celeba", img_name)
 
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
-
-    ds = CelebA(align=True, split="test")
-
-    transform = RandomAffineWithInverse(
-        # degrees=100,
-        scale=(0.5, 0.5),
-        # translate=(0.0, 1.0),
-        translate=(2.0, 2.0),
-    )
-
-    img = ds[121]["img"]
-    kpts = ds[121]["kpts"]
-
-    # transformed_img, transformed_kpts = transform(img, kpts)
-    transformed_img = transform(img)
-    transformed_kpts = transform.transform_keypoints(kpts, 512)
-
-    initial_image = transform.inverse(transformed_img)
-    initial_keypoints_prime = transform.inverse_transform_keypoints(
-        transformed_kpts, 512
-    )
-
-    # plot all of img, transformed_img, and initial_image in the same figure
-    fig, axs = plt.subplots(1, 3)
-    axs[0].imshow(img.permute(1, 2, 0).cpu().detach().numpy())
-    # plot the keypoints on the image (shape is [5, 2])
-    axs[0].scatter(kpts[:, 1] * 512.0, kpts[:, 0] * 512.0, marker="x", color="red")
-    axs[1].imshow(transformed_img.permute(1, 2, 0).cpu().detach().numpy())
-    axs[1].scatter(
-        transformed_kpts[:, 1] * 512.0,
-        transformed_kpts[:, 0] * 512.0,
-        marker="x",
-        color="red",
-    )
-    axs[2].imshow(initial_image.permute(1, 2, 0).cpu().detach().numpy())
-    axs[2].scatter(
-        initial_keypoints_prime[:, 1] * 512.0,
-        initial_keypoints_prime[:, 0] * 512.0,
-        marker="x",
-        color="red",
-    )
-    plt.savefig(f"outputs/image.png")
-    plt.close()
-
-    # print(len(ds))
-
-    # mini_batch = ds[999]
-
-    # image = mini_batch["img"]
-    # keypoints = mini_batch["kpts"]
-
-    # plt.imshow(image.permute(1, 2, 0).cpu().detach().numpy())
-    # # plot the keypoints on the image
-    # plt.scatter(
-    #     keypoints[:, 1] * 512.0, keypoints[:, 0] * 512.0, marker="x", color="red"
-    # )
-    # plt.savefig(f"outputs/image.png")
-    # plt.close()

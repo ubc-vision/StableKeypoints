@@ -112,66 +112,6 @@ def find_top_k_gaussian(attention_maps, top_k, sigma = 3, epsilon = 1e-5, num_su
     return torch.tensor(kl_distances_argsort[:top_k]).to(device)
 
 
-# def furthest_point_sampling(attention_maps, top_k, initial_candidates=30, sigma = 3, epsilon = 1e-5):
-#     """
-#     attention_maps is of shape [batch_size, image_h, image_w]
-    
-#     min_dist set to 0 becomes a simple top_k
-#     """
-    
-#     device = attention_maps.device
-
-#     batch_size, image_h, image_w = attention_maps.shape
-
-#     # Assuming you have a function find_max_pixel to get the pixel locations
-#     max_pixel_locations = find_max_pixel(attention_maps)/image_h  # You'll need to define find_max_pixel
-
-#     # Normalize the activation maps to represent probability distributions
-#     attention_maps_softmax = torch.softmax(attention_maps.view(batch_size, image_h * image_w) + epsilon, dim=-1)
-
-#     # Assuming you have a function gaussian_circle in the module optimize_token
-#     target = optimize_token.gaussian_circle(
-#         max_pixel_locations, size=image_h, sigma=sigma, device=attention_maps.device
-#     )  # You'll need to define gaussian_circle
-    
-#     target = target.reshape(batch_size, image_h * image_w) + epsilon
-#     target /= target.sum(dim=-1, keepdim=True)
-
-#     # sort the kl distances between attention_maps_softmax and target
-#     kl_distances = torch.sum(target * (torch.log(target) - torch.log(attention_maps_softmax)), dim=-1)
-    
-#     # get the argsort for kl_distances
-#     kl_distances_argsort = torch.argsort(kl_distances, dim=-1, descending=False)
-    
-#     # Take top 30 points based on the kl divergence
-#     top_initial_candidates = kl_distances_argsort[:initial_candidates]
-    
-#     if initial_candidates == top_k:
-#         return top_initial_candidates
-    
-#     # Initialize the furthest point sampling
-#     selected_indices = [top_initial_candidates[0].item()]
-    
-#     for _ in range(top_k - 1):
-#         max_min_dist = -1
-#         furthest_point = None
-        
-#         for i in top_initial_candidates:
-#             if i.item() in selected_indices:
-#                 continue
-            
-#             this_min_dist = torch.min(torch.sqrt(torch.sum((max_pixel_locations[i] - torch.index_select(max_pixel_locations, 0, torch.tensor(selected_indices).to(device)))**2, dim=-1)))
-            
-#             if this_min_dist > max_min_dist:
-#                 max_min_dist = this_min_dist
-#                 furthest_point = i.item()
-        
-#         if furthest_point is not None:
-#             selected_indices.append(furthest_point)
-    
-#     return torch.tensor(selected_indices).to(device)
-
-
 def furthest_point_sampling(attention_maps, top_k, top_initial_candidates):
     """
     attention_maps is of shape [batch_size, image_h, image_w]
@@ -366,34 +306,14 @@ def image2latent(model, image, device):
                 latents = model.vae.encode(image)["latent_dist"].mean
             latents = latents * 0.18215
     return latents
-
-
-# class CustomDataParallel(DataParallel):
-#     def gather(self, outputs, output_device):
-#         # Assuming 'outputs' is a list of 'BaseOutput' from multiple GPUs
-#         gathered_output = BaseOutput()
-        
-#         for output in outputs:
-#             for k, v in output.items():
-#                 if k not in gathered_output:
-#                     gathered_output[k] = 0
-#                 gathered_output[k] += v  # Example operation
-                
-#         return gathered_output
-    
     
 
 def diffusion_step(
     model, latents, context, t
 ):
     
-    # import ipdb; ipdb.set_trace()  
     noise_pred = model.unet(latents, t.repeat(latents.shape[0]), context.repeat(latents.shape[0], 1, 1))["sample"]
     
-    # import ipdb; ipdb.set_trace()  
-
-    # latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
-    # latents = controller.step_callback(latents)
     return noise_pred
 
 
@@ -417,47 +337,6 @@ def init_latent(latent, model, height, width, generator):
     ).to(model.device)
     return latent, latents
 
-
-# @torch.no_grad()
-# def text2image_ldm(
-#     model,
-#     prompt: List[str],
-#     controller,
-#     num_inference_steps: int = 50,
-#     guidance_scale: Optional[float] = 7.0,
-#     generator: Optional[torch.Generator] = None,
-#     latent: Optional[torch.FloatTensor] = None,
-# ):
-#     register_attention_control(model, controller)
-#     height = width = 256
-#     batch_size = len(prompt)
-
-#     uncond_input = model.tokenizer(
-#         [""] * batch_size, padding="max_length", max_length=77, return_tensors="pt"
-#     )
-#     uncond_embeddings = model.bert(uncond_input.input_ids.to(model.device))[0]
-
-#     text_input = model.tokenizer(
-#         prompt, padding="max_length", max_length=77, return_tensors="pt"
-#     )
-#     text_embeddings = model.bert(text_input.input_ids.to(model.device))[0]
-#     latent, latents = init_latent(latent, model, height, width, generator, batch_size)
-#     context = torch.cat([uncond_embeddings, text_embeddings])
-
-#     model.scheduler.set_timesteps(num_inference_steps)
-#     for t in tqdm(model.scheduler.timesteps):
-#         latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
-
-#     image = latent2image(model.vqvae, latents)
-
-#     return image, latent
-
-# def latent_step(model, controller, latents, context, t):
-
-#     noise_pred = model.unet(latents, t, encoder_hidden_states=context)["sample"]
-#     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
-#     latents = controller.step_callback(latents)
-#     return latents
 
 def latent_step(model, controller, latents, context, t, guidance_scale, low_resource=True):
     if low_resource:
@@ -504,32 +383,6 @@ def register_attention_control_generation(model, controller, target_attn_maps, i
             # attention, what we cannot get enough of
             attn = sim.softmax(dim=-1)
             
-            # if (
-            #     is_cross
-            #     and sequence_length <= 32**2
-            #     and len(controller.step_store["attn"]) < 4
-            #     and attn.shape[-1] != 77
-            # ):
-            #     attn = controller({"attn": attn}, is_cross, place_in_unet)
-            #     target_res = int(attn.shape[1]**0.5)
-                
-            #     # downsample target_attn_maps to target_res
-            #     downsampled = F.interpolate(
-            #         target_attn_maps[None],
-            #         size=(target_res, target_res),
-            #         mode="bilinear",
-            #         align_corners=False,
-            #     )[0]
-            #     downsampled = downsampled.reshape(-1, target_res**2)
-            #     downsampled /= downsampled.max(dim=-1, keepdim=True)[0]
-            #     downsampled = downsampled.permute(1, 0)
-            #     downsampled = downsampled[None].repeat(attn.shape[0], 1, 1)
-            
-            #     attn[:, :, indices] += downsampled*2
-                
-            #     attn /= attn.sum(dim=-1, keepdim=True)
-            
-            
             out = torch.einsum("b i j, b j d -> b i d", attn, v)
             out = self.reshape_batch_dim_to_heads(out)
             return to_out(out)
@@ -546,8 +399,6 @@ def register_attention_control_generation(model, controller, target_attn_maps, i
     if controller is None:
         controller = DummyController()
 
-    # replacing forward function in /scratch/iamerich/miniconda3/envs/LDM_correspondences/lib/python3.10/site-packages/diffusers/models/attention.py
-    # line 518
     def register_recr(net_, count, place_in_unet):
         if net_.__class__.__name__ == "CrossAttention":
             net_.forward = ca_forward(net_, place_in_unet)
@@ -705,8 +556,6 @@ def register_attention_control(model, controller, feature_upsample_res=256):
     if controller is None:
         controller = DummyController()
 
-    # replacing forward function in /scratch/iamerich/miniconda3/envs/LDM_correspondences/lib/python3.10/site-packages/diffusers/models/attention.py
-    # line 518
     def register_recr(net_, count, place_in_unet):
         if net_.__class__.__name__ == "CrossAttention":
             net_.forward = ca_forward(net_, place_in_unet)

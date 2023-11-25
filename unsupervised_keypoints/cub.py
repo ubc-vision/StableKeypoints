@@ -39,14 +39,6 @@ class TrainSet(torch.utils.data.Dataset):
         ])
 
     def __getitem__(self, idx):
-        # import matplotlib.pyplot as plt
-        # part_color = get_part_color(15)
-        # plt.imshow(self.imgs[idx].permute(1, 2, 0))
-        # for i in range(15):
-        #     if self.visibility[idx, i] == 1:
-        #         plt.scatter(self.keypoints[idx, i, 1]*128, self.keypoints[idx, i, 0]*128, c=part_color[i])
-        #         plt.annotate(str(i), (self.keypoints[idx, i, 1]*128, self.keypoints[idx, i, 0]*128))
-        # plt.show()
         sample = {'img': self.transform(self.imgs[idx] / 255)}
         return sample
 
@@ -96,55 +88,3 @@ class TestSet(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.imgs.shape[0]
-
-
-def regress_kp(batch_list):
-    train_X = torch.cat([batch['det_keypoints'] for batch in batch_list]) * 0.5 + 0.5
-    train_y = torch.cat([batch['kpts'] for batch in batch_list])
-    visibility = torch.cat([batch['visibility'] for batch in batch_list])
-    scores = []
-    num_gnd_kp = 15
-    betas = []
-    for i in range(num_gnd_kp):
-        index = visibility[:, i].bool()
-        if index.sum() == 0:
-            betas.append(torch.zeros(2*train_X.shape[1], 2))
-            continue
-        features = train_X[index]
-        features = features.reshape(features.shape[0], -1)
-        label = train_y[index, i]
-        try:
-            beta = (features.T @ features).inverse() @ features.T @ label
-        except:
-            beta = (features.T @ features + torch.eye(features.shape[-1]).to(features)).inverse() @ features.T @ label
-        betas.append(beta)
-
-        pred_label = features @ beta
-        score = (pred_label - label).norm(dim=-1).sum()
-        scores.append(score.item())
-    return {'val_loss': np.sum(scores) / visibility.sum().item(), 'beta': betas}
-
-
-def test_epoch_end(batch_list_list):
-    valid_list = batch_list_list[0]
-    test_list = batch_list_list[1]
-    betas = regress_kp(valid_list)['beta']
-    num_gnd_kp = 15
-    scores = []
-
-    X = torch.cat([batch['det_keypoints'] for batch in test_list]) * 0.5 + 0.5
-    y = torch.cat([batch['kpts'] for batch in test_list])
-    visibility = torch.cat([batch['visibility'] for batch in test_list])
-
-    for i in range(num_gnd_kp):
-        index_test = visibility[:, i].bool()
-        if index_test.sum() == 0:
-            continue
-        features = X[index_test]
-        features = features.reshape(features.shape[0], -1)
-        label = y[index_test, i]
-        pred_label = features @ betas[i]
-        score = (pred_label - label).norm(dim=-1).sum()
-        scores.append(score.item())
-
-    return {'val_loss': np.sum(scores) / visibility.sum().item()}

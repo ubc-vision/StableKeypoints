@@ -15,23 +15,10 @@
 import torch
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 import numpy as np
-import abc
 from unsupervised_keypoints import ptp_utils
 from PIL import Image
-
-import time
 import torch.nn.functional as F
-
 import torch.nn as nn
-
-import pynvml
-
-
-def get_memory_free_MiB(gpu_index):
-    pynvml.nvmlInit()
-    handle = pynvml.nvmlDeviceGetHandleByIndex(int(gpu_index))
-    mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-    return mem_info.free // 1024**2
 
 
 def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=256):
@@ -214,74 +201,6 @@ def upscale_to_img_size(
     return imgs
 
 
-def softargmax2d(input, beta=1000):
-    *_, h, w = input.shape
-
-    assert h == w, "only square images are supported"
-
-    input = input.reshape(*_, h * w)
-    input = nn.functional.softmax(input * beta, dim=-1)
-
-    indices_c, indices_r = np.meshgrid(
-        np.linspace(0, 1, w), np.linspace(0, 1, h), indexing="xy"
-    )
-
-    indices_r = (
-        torch.tensor(np.reshape(indices_r, (-1, h * w))).to(input.device).float()
-    )
-    indices_c = (
-        torch.tensor(np.reshape(indices_c, (-1, h * w))).to(input.device).float()
-    )
-
-    result_r = torch.sum((h - 1) * input * indices_r, dim=-1)
-    result_c = torch.sum((w - 1) * input * indices_c, dim=-1)
-
-    result = torch.stack([result_c, result_r], dim=-1)
-
-    return result / h
-
-
-def find_context(image, ldm, pixel_loc, context_estimator, device="cuda"):
-    with torch.no_grad():
-        latent = image2latent(ldm, image.numpy().transpose(1, 2, 0), device)
-
-    context = context_estimator(latent, pixel_loc)
-
-    return context
-
-
-def visualize_image_with_points(image, point, name, save_folder="outputs"):
-    """The point is in pixel numbers"""
-
-    import matplotlib.pyplot as plt
-
-    # if image is a torch.tensor, convert to numpy
-    if type(image) == torch.Tensor:
-        try:
-            image = image.permute(1, 2, 0).detach().cpu().numpy()
-        except:
-            import ipdb
-
-            ipdb.set_trace()
-
-    # make the figure without a border
-    fig = plt.figure(frameon=False)
-    fig.set_size_inches(10, 10)
-
-    ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
-    ax.set_axis_off()
-    fig.add_axes(ax)
-
-    plt.imshow(image, aspect="auto")
-
-    if point is not None:
-        # plot point on image
-        plt.scatter(point[0].cpu(), point[1].cpu(), s=20, marker="o", c="r")
-
-    plt.savefig(f"{save_folder}/{name}.png", dpi=200)
-    plt.close()
-
-
 def gaussian_circle(pos, size=64, sigma=16, device="cuda"):
     """Create a batch of 2D Gaussian circles with a given size, standard deviation, and center coordinates.
 
@@ -321,60 +240,3 @@ def gaussian_circles(pos, size=64, sigma=16, device="cuda"):
     circles = torch.mean(circles, dim=0)
     
     return circles
-
-
-def crop_image(image, pixel, crop_percent=80, margin=0.15):
-    """pixel is an integer between 0 and image.shape[1] or image.shape[2]"""
-
-    assert 0 < crop_percent <= 100, "crop_percent should be between 0 and 100"
-
-    height, width, channels = image.shape
-    crop_height = int(height * crop_percent / 100)
-    crop_width = int(width * crop_percent / 100)
-
-    # Calculate the crop region's top-left corner
-    x, y = pixel
-
-    # Calculate safe margin
-    safe_margin_x = int(crop_width * margin)
-    safe_margin_y = int(crop_height * margin)
-
-    x_start_min = max(0, x - crop_width + safe_margin_x)
-    x_start_min = min(x_start_min, width - crop_width)
-    x_start_max = max(0, x - safe_margin_x)
-    x_start_max = min(x_start_max, width - crop_width)
-
-    y_start_min = max(0, y - crop_height + safe_margin_y)
-    y_start_min = min(y_start_min, height - crop_height)
-    y_start_max = max(0, y - safe_margin_y)
-    y_start_max = min(y_start_max, height - crop_height)
-
-    # Choose a random top-left corner within the allowed bounds
-    x_start = torch.randint(int(x_start_min), int(x_start_max) + 1, (1,)).item()
-    y_start = torch.randint(int(y_start_min), int(y_start_max) + 1, (1,)).item()
-
-    # Crop the image
-    cropped_image = image[
-        y_start : y_start + crop_height, x_start : x_start + crop_width
-    ]
-
-    # bilinearly upsample to 512x512
-    cropped_image = torch.nn.functional.interpolate(
-        torch.tensor(cropped_image[None]).permute(0, 3, 1, 2),
-        size=(512, 512),
-        mode="bilinear",
-        align_corners=False,
-    )[0]
-
-    # calculate new pixel location
-    new_pixel = torch.stack([x - x_start, y - y_start])
-    new_pixel = new_pixel / crop_width
-
-    return (
-        cropped_image.permute(1, 2, 0).numpy(),
-        new_pixel,
-        y_start,
-        crop_height,
-        x_start,
-        crop_width,
-    )

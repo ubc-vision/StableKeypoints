@@ -240,7 +240,7 @@ def compute_dt_barrier(mask, k=50):
     return dist
 
 class CUBDataset(Dataset):
-    def __init__(self, img_size=512, split='train', unsup_mask= False, dataset_root= "/ubc/cs/home/i/iamerich/scratch/datasets/cub/", single_class=None):
+    def __init__(self, img_size=512, split='train', unsup_mask= False, dataset_root= "~", single_class=None):
         super().__init__()
 
         self.img_size = img_size
@@ -439,18 +439,3 @@ class CUBDataset(Dataset):
 
         return elem
     
-if __name__ == "__main__":
-    dataset = CUBDataset(split="train", single_class=1)
-    dataset = CUBDataset(split="test", single_class=1)
-    
-    batch = dataset[2]
-    
-    
-    # display batch['img'] with matplotlib
-    # overlay batch['kp']
-    import matplotlib.pyplot as plt
-    plt.imshow(batch['img'])
-    
-    kp = (batch['kp']+1)*256
-    plt.scatter(kp[:,0], kp[:,1])
-    plt.savefig("outputs/test.png")

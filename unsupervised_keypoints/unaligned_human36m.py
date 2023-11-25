@@ -135,7 +135,6 @@ class TrainSet(torch.utils.data.Dataset):
         # transpose last 2 dimensions
         pose = pose[:, [1, 0]]
         
-        # img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
         return {'img': img_array}
 
     def __len__(self):
@@ -230,19 +229,3 @@ class TestSet(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.samples)
-    
-    
-if __name__ == "__main__":
-    
-    # select random number between 0 and 4999
-    num = np.random.randint(0, 5000)
-    print("Testing taichi.py")
-    dataset = TrainRegSet(data_root="/ubc/cs/home/i/iamerich/scratch/datasets/human3.6m/human_images", image_size=512)
-    
-    print("len(dataset):", len(dataset))
-    
-    batch = dataset[num]
-    
-    print("batch['img'].shape:", batch['img'].shape)
-    
-    pass

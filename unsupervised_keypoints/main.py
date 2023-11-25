@@ -5,7 +5,6 @@ import argparse
 import torch
 import numpy as np
 from unsupervised_keypoints.optimize_token import load_ldm
-from unsupervised_keypoints.keypoint_regressor import LinearProjection
 from unsupervised_keypoints.optimize import optimize_embedding
 
 from unsupervised_keypoints.keypoint_regressor import (
@@ -17,7 +16,7 @@ from unsupervised_keypoints.keypoint_regressor import (
 )
 
 from unsupervised_keypoints.eval import evaluate
-from unsupervised_keypoints.visualize import visualize_attn_maps, create_vid, save_all_contexts
+from unsupervised_keypoints.visualize import visualize_attn_maps
 
 
 # Argument parsing
@@ -34,7 +33,7 @@ parser.add_argument(
 parser.add_argument(
     "--dataset_loc",
     type=str,
-    default="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    default="~",
     help="Path to celeba dataset",
 )
 parser.add_argument(
@@ -70,14 +69,9 @@ parser.add_argument(
     default="optimize",
     help="Specify the stage from which the process should start: 'optimize', 'precompute', or 'evaluate'."
 )
-# make a term for sdxl, itll be bool and only true if we want to use sdxl
-parser.add_argument("--sdxl", action="store_true", help="use sdxl")
 parser.add_argument("--device", type=str, default="cuda:0", help="device to use")
-# boolean argument called wandb
 parser.add_argument("--wandb", action="store_true", help="wandb logging")
-# argument for learning rate
 parser.add_argument("--lr", type=float, default=5e-3, help="learning rate")
-# add argument for num_steps
 parser.add_argument(
     "--num_steps", type=int, default=1e4, help="number of steps to optimize"
 )
@@ -227,7 +221,6 @@ if args.start_from_stage == "optimize":
         num_tokens=args.num_tokens,
         device=args.device,
         layers=args.layers,
-        sdxl=args.sdxl,
         top_k=args.top_k,
         augment_degrees=args.augment_degrees,
         augment_scale=args.augment_scale,
@@ -302,56 +295,6 @@ else:
     indices = (
         torch.load(os.path.join(args.save_folder, "indices.pt")).to(args.device).detach()
     )
-    
-    
-
-    
-# visualize_attn_maps(
-#     ldm,
-#     embedding,
-#     indices,
-#     noise_level=args.noise_level,
-#     num_tokens=args.num_tokens,
-#     layers=args.layers,
-#     num_points=args.top_k,
-#     augment_degrees=args.augment_degrees,
-#     augment_scale=args.augment_scale,
-#     augment_translate=args.augment_translate,
-#     augmentation_iterations=args.augmentation_iterations,
-#     dataset_loc=args.dataset_loc,
-#     save_folder=args.save_folder,
-#     visualize=args.visualize,
-#     device=args.device,
-#     dataset_name = args.dataset_name,
-#     controllers=controllers,
-#     num_gpus=num_gpus,
-#     max_loc_strategy=args.max_loc_strategy,
-#     validation=args.validation,
-# )
-
-# exit()
-    
-create_vid(
-    ldm,
-    embedding,
-    indices,
-    noise_level=args.noise_level,
-    layers=args.layers,
-    num_points=args.top_k,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augmentation_iterations=args.augmentation_iterations,
-    dataset_loc=args.dataset_loc,
-    save_folder=args.save_folder,
-    dataset_name = args.dataset_name,
-    device=args.device,
-    controllers=controllers,
-    num_gpus=num_gpus,
-    max_loc_strategy=args.max_loc_strategy,
-    num_subjects=args.num_subjects,
-)
-exit()
 
 
 if args.start_from_stage == "precompute" or args.start_from_stage == "find_indices" or args.start_from_stage == "optimize":
@@ -422,8 +365,6 @@ else:
     )
 regressor = torch.tensor(regressor).to(torch.float32)
 torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
-
-# regressor = torch.load(os.path.join(args.save_folder, "regressor.pt"))
 
 # visualize embeddings
 visualize_attn_maps(

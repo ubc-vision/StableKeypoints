@@ -1,9 +1,5 @@
 import torch
-import wandb
-import numpy as np
 from tqdm import tqdm
-import torch.distributions as dist
-from torch.optim.lr_scheduler import StepLR
 from unsupervised_keypoints import ptp_utils
 from unsupervised_keypoints.celeba import CelebA
 from unsupervised_keypoints import custom_images
@@ -14,30 +10,7 @@ from unsupervised_keypoints import human36m
 from unsupervised_keypoints import unaligned_human36m
 from unsupervised_keypoints import deepfashion
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel
-from unsupervised_keypoints.optimize import collect_maps
-from unsupervised_keypoints.eval import (
-    find_corresponding_points,
-    run_image_with_context_augmented,
-    # progressively_zoom_into_image,
-)
-
-from unsupervised_keypoints.invertable_transform import RandomAffineWithInverse
-
-# from unsupervised_keypoints.optimize_token import (
-#     init_random_noise,
-#     # image2latent,
-#     # AttentionStore,
-# )
-
-
-class LinearProjection(torch.nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super(LinearProjection, self).__init__()
-        self.mlp = torch.nn.Linear(input_dim, output_dim, bias=False)
-
-    def forward(self, x):
-        y = self.mlp(x)
-        return y
+from unsupervised_keypoints.eval import run_image_with_context_augmented
 
 
 @torch.no_grad()
@@ -52,7 +25,7 @@ def find_best_indices(
     from_where=["down_cross", "mid_cross", "up_cross"],
     num_tokens=1000,
     top_k=30,
-    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    dataset_loc="~",
     dataset_name = "celeba_aligned",
     min_dist = 0.05,
     furthest_point_num_samples=50,
@@ -149,115 +122,6 @@ def find_best_indices(
     return indices
 
 
-# def compose_transform(
-#     scale=(1.0, 1.0),
-#     translation=(0.0, 0.0),
-#     rotation=0.0,
-
-#     center=(0.5, 0.5),
-#     device="cuda",
-# ):
-#     # Convert rotation to radians
-#     theta = rotation * (3.14159 / 180.0)
-
-#     # Create individual transformation matrices
-#     T_scale = torch.tensor(
-#         [[scale[0], 0, 0], [0, scale[1], 0], [0, 0, 1]], dtype=torch.float32
-#     ).to(device)
-#     T_trans = torch.tensor(
-#         [[1, 0, translation[0]], [0, 1, translation[1]], [0, 0, 1]], dtype=torch.float32
-#     ).to(device)
-#     T_rot = torch.tensor(
-#         [
-#             [torch.cos(theta), -torch.sin(theta), 0],
-#             [torch.sin(theta), torch.cos(theta), 0],
-#             [0, 0, 1],
-#         ],
-#         dtype=torch.float32,
-#     ).to(device)
-#     T_shear = torch.tensor(
-#         [[1, shear[0], 0], [shear[1], 1, 0], [0, 0, 1]], dtype=torch.float32
-#     ).to(device)
-
-#     # Transformation matrices for translating rotation center to origin and back
-#     T_center_to_origin = torch.tensor(
-#         [[1, 0, -center[0]], [0, 1, -center[1]], [0, 0, 1]], dtype=torch.float32
-#     ).to(device)
-#     T_origin_to_center = torch.tensor(
-#         [[1, 0, center[0]], [0, 1, center[1]], [0, 0, 1]], dtype=torch.float32
-#     ).to(device)
-
-#     # Compose transformations
-#     T = torch.mm(
-#         T_trans,
-#         torch.mm(
-#             T_origin_to_center,
-#             torch.mm(T_shear, torch.mm(T_scale, torch.mm(T_rot, T_center_to_origin))),
-#         ),
-#     )
-
-#     return T
-
-
-def transform_points(points, T):
-    # Convert to homogeneous coordinates
-    points_h = torch.cat(
-        [points, torch.ones(points.shape[0], 1, dtype=points.dtype).to(points.device)],
-        dim=1,
-    )
-    # Apply transformation
-    transformed_points_h = torch.mm(points_h, T.t())
-    # Convert back to 2D coordinates
-    transformed_points = transformed_points_h[:, :2] / transformed_points_h[:, 2].view(
-        -1, 1
-    )
-    return transformed_points
-
-
-# def create_batch_of_augmentations(initial_keypoints, final_keypoints, device="cuda"):
-#     # Number of augmentations
-#     batch_size = 32
-
-#     # Initialize tensors to hold the batch of transformed keypoints
-#     transformed_initial_keypoints_batch = torch.zeros(
-#         (batch_size, *initial_keypoints.shape)
-#     ).to(device)
-#     transformed_final_keypoints_batch = torch.zeros(
-#         (batch_size, *final_keypoints.shape)
-#     ).to(device)
-
-#     transformed_initial_keypoints_batch[0] = initial_keypoints
-#     transformed_final_keypoints_batch[0] = final_keypoints
-
-#     # Generate a batch of differently rotated keypoints
-#     for i in range(1, batch_size):
-#         # create random scale, translation, rotation, and shear
-#         scale = ptp_utils.random_range(2, 0.95, 1.05)
-#         translation = ptp_utils.random_range(2, -0.05, 0.05)
-#         rotation = ptp_utils.random_range(1, -10, 10)
-#         shear = ptp_utils.random_range(2, -0.05, 0.05)
-
-#         # Create rotation matrix
-#         T_rot = compose_transform(
-#             scale=scale,
-#             translation=translation,
-#             rotation=rotation,
-#             shear=shear,
-#             device=device,
-#         )
-
-#         # Transform the keypoints
-#         transformed_initial_keypoints = transform_points(initial_keypoints, T_rot)
-#         transformed_final_keypoints = transform_points(final_keypoints, T_rot)
-
-#         # Store in batch tensors
-#         transformed_initial_keypoints_batch[i] = transformed_initial_keypoints
-#         transformed_final_keypoints_batch[i] = transformed_final_keypoints
-
-#     return transformed_initial_keypoints_batch, transformed_final_keypoints_batch
-
-
-
 @torch.no_grad()
 def precompute_all_keypoints(
     ldm,
@@ -271,7 +135,7 @@ def precompute_all_keypoints(
     augment_scale=(0.9, 1.1),
     augment_translate=(0.1, 0.1),
     augmentation_iterations=20,
-    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    dataset_loc="~",
     visualize=False,
     dataset_name = "celeba_aligned",
     controllers=None,
@@ -436,39 +300,3 @@ def return_regressor_human36m(X, Y):
 
     return W.numpy()
 
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-    initial_keypoints = torch.rand(10, 2) / 2 + 0.25
-    final_keypoints = torch.rand(5, 2) / 2 + 0.25
-
-    batch_initial_keypoints, batch_final_keypoints = create_batch_of_augmentations(
-        initial_keypoints, final_keypoints
-    )
-
-    # visualize the keypoints before and after
-    fig, axs = plt.subplots(1, 10)
-    for i in range(10):
-        axs[i].scatter(
-            batch_initial_keypoints[i, :, 0],
-            batch_initial_keypoints[i, :, 1],
-            marker="x",
-            color="red",
-        )
-        axs[i].scatter(
-            batch_final_keypoints[i, :, 0],
-            batch_final_keypoints[i, :, 1],
-            marker="x",
-            color="blue",
-        )
-
-        # make the range of the axes between 0 and 1
-        axs[i].set_xlim(0, 1)
-        axs[i].set_ylim(0, 1)
-
-        axs[i].set_aspect("equal")
-    # increase resolution of plot to 512x512
-    fig.set_size_inches(2048 / 100, 2048 / 100)
-
-    plt.savefig(f"outputs/rotated_points.png")

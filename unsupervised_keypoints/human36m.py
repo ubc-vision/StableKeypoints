@@ -1,13 +1,10 @@
 import os
-import h5py
-from tqdm import tqdm
 import numpy as np
 import scipy.io
 import torch
 import torch.utils.data
 import torch.nn.functional as F
 from PIL import Image
-from torchvision import transforms
 from matplotlib import colors
 
 
@@ -164,30 +161,3 @@ class TestSet(torch.utils.data.Dataset):
         return len(self.samples)
     
     
-if __name__ == "__main__":
-    
-    # Initialize your dataset
-    data_root = '/home/iamerich/burst/human_images_og/human_images'
-    image_size = 512  # for example
-    dataset = TrainSet(data_root, image_size)
-    
-    # import ipdb; ipdb.set_trace()
-
-    # Prepare to convert the dataset
-    # Open an HDF5 file in 'w'rite mode
-    with h5py.File('/home/iamerich/scratch/human36m/TrainSet.h5', 'w') as h5f:
-        # Preallocate space for the largest expected size in your dataset
-        # This assumes all images are the same size and the poses have the same shape
-        images_dataset = h5f.create_dataset('images', (len(dataset), 3, image_size, image_size), dtype='f')
-        # poses_dataset = h5f.create_dataset('kpts', (len(dataset), 32, 2), dtype='f')
-        # visibility_dataset = h5f.create_dataset('visibility', (len(dataset), 32), dtype='i')
-
-        # Convert each item and save it to the HDF5 file
-        for i in tqdm(range(len(dataset))):
-            sample = dataset[i]
-            images_dataset[i] = sample['img']
-            # poses_dataset[i] = sample['kpts']
-            # visibility_dataset[i] = sample['visibility']
-
-        # Optionally you can also save some attributes or metadata if needed
-        h5f.attrs['image_size'] = image_size
