@@ -101,7 +101,7 @@
                   <a href="https://abhishekkar.info/">Abhishek Kar</a
                   ><sup>3</sup>
                 </span>
-                <br>
+                <br />
                 <span class="author-block">
                   <a href="https://www.cs.ubc.ca/~rhodin/web/">Helge Rhodin</a
                   ><sup>1</sup>
@@ -124,7 +124,7 @@
                   ><sup>2</sup>Vector Institute for AI</span
                 >
                 <span class="author-block"><sup>3</sup>Google DeepMind</span>
-                <br>
+                <br />
                 <span class="author-block"
                   ><sup>4</sup>Simon Fraser University</span
                 >
@@ -171,14 +171,14 @@
       <!-- Container for Side-by-Side Videos -->
       <div class="side-by-side-videos">
         <div class="video-container">
-            <video id="video1" autoplay muted loop playsinline>
-                <source src="./static/videos/satya_nadella.mov" type="video/mp4" />
-            </video>
+          <video id="video1" autoplay muted loop playsinline>
+            <source src="./static/videos/satya_nadella.mov" type="video/mp4" />
+          </video>
         </div>
         <div class="video-container">
-            <video id="video2" autoplay muted loop playsinline>
-                <source src="./static/videos/ilya.mov" type="video/mp4" />
-            </video>
+          <video id="video2" autoplay muted loop playsinline>
+            <source src="./static/videos/ilya.mov" type="video/mp4" />
+          </video>
         </div>
         <div class="video-container">
           <video id="video3" autoplay muted loop playsinline>
@@ -189,60 +189,22 @@
 
       <!-- Common Caption for both videos below them -->
       <div class="video-caption">
-          <h2 class="subtitle has-text-centered">
-            <strong>Unsupervised keypoints show temporal consistency –</strong>
-            Besides the state of the art results in the paper on images, our approach 
-            also works on videos. We can find keypoints that show temporal smoothness even with only a <i>single video</i>, <i>without</i> using temporal information 
-            during training. This indicates wider applicability of our approach.
-          </h2>
+        <h2 class="subtitle has-text-centered">
+          <strong>Unsupervised keypoints show temporal consistency –</strong>
+          Besides the state of the art results in the paper on images, our
+          approach also works on videos. We can find keypoints that show
+          temporal smoothness even with only a <i>single video</i>,
+          <i>without</i> using temporal information during training. This
+          indicates wider applicability of our approach.
+        </h2>
       </div>
     </div>
 
     <section class="section">
       <div class="container is-max-desktop">
-        <div class="columns is-centered">
-
-        <!-- Localization. -->
-        <div class="columns is-centered">
-          <div class="column is-full-width">
-            <!-- <h2 class="title is-3">Visualizing localization</h2> -->
-
-            <!-- Interpolating. -->
-            
-            <div class="columns is-vcentered interpolation-panel">
-              <div class="column interpolation-video-column">
-                <div id="interpolation-image-wrapper">Loading...</div>
-                <input
-                  class="slider is-fullwidth is-large is-info"
-                  id="interpolation-slider"
-                  step="1"
-                  min="0"
-                  max="100"
-                  value="0"
-                  type="range"
-                />
-              </div>
-            </div>
-            <div class="content has-text-justified">
-              <p>
-                This interactive slider shows the progression of our training 
-                process for a given token on randomly chosen images. Move the 
-                slider to see how the attention map evolves during training.
-              </p>
-            </div>
-            <!-- <br /> -->
-            <!--/ Interpolating. -->
-          </div>
-        </div>
-        <!--/ Animation. -->
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="container is-max-desktop">
         <div class="columns is-centered has-text-centered">
           <div class="column is-four-fifths">
-            <h2 class="title is-3">Abstract</h2>
+            <h2 class="carousel-section-header">Abstract</h2>
             <div class="content has-text-justified">
               <p>
                 Unsupervised learning of keypoints and landmarks has seen
@@ -270,38 +232,75 @@
 
     <section class="hero teaser">
       <div class="container is-max-desktop">
-        <div class="hero-body">
-          <img
-            id="teaser"
-            src="./static/images/method.png"
-            alt="Descriptive Text"
-            style="width: 100%; height: auto"
-          />
-          <h2 class="subtitle has-text-centered">
-            <strong>Overview –</strong> we pass a randomly initialized text
-            embedding into Stable Diffusion and extract the attention maps. We
-            then optimize the text embedding to have localized attention maps,
-            by supervising them to become a single-mode Gaussian distribution,
-            drawn at the location of their maxima. We also enforce attention
-            maps to be transformation equivariant to small affine
-            transformations on images. We repeat this process over a set of
-            training images, which after optimization provides a set of K
-            keypoints.
-          </h2>
-        </div>
+        <!-- Header for the Carousel Section -->
+        <h2 class="carousel-section-header">Overview</h2>
+        <img
+          id="teaser"
+          src="./static/images/method.png"
+          alt="Descriptive Text"
+          style="width: 100%; height: auto"
+        />
+        <h2 class="subtitle has-text-centered">
+          We pass a randomly initialized text embedding into Stable Diffusion
+          and extract the attention maps. We then optimize the text embedding to
+          have localized attention maps, by supervising them to become a
+          single-mode Gaussian distribution, drawn at the location of their
+          maxima. We also enforce attention maps to be transformation
+          equivariant to small affine transformations on images. We repeat this
+          process over a set of training images, which after optimization
+          provides a set of K keypoints.
+        </h2>
       </div>
     </section>
-  
 
-    <section class="hero is-light is-small">
+    <section class="section">
+      <div class="container is-max-desktop">
+        <h2 class="carousel-section-header">Visualizing keypoint discovery</h2>
+        <!-- Localization. -->
+        <div class="columns is-centered">
+          <div class="column is-full-width">
+            <!-- Interpolating. -->
+            <div class="columns is-vcentered interpolation-panel">
+              <div class="column interpolation-video-column">
+                <div id="interpolation-image-wrapper">Loading...</div>
+                <input
+                  class="slider is-fullwidth is-large is-info"
+                  id="interpolation-slider"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value="0"
+                  type="range"
+                />
+              </div>
+            </div>
+            <div class="content has-text-justified">
+              <p>
+                This interactive slider shows the progression of our training
+                process for a given token on randomly chosen images. Move the
+                slider to see how the attention map evolves during training.
+              </p>
+            </div>
+            <!--/ Interpolating. -->
+          </div>
+        </div>
+        <!--/ Animation. -->
+      </div>
+    </section>
+
+    <section class="hero is-small">
       <div class="hero-body">
         <div class="container">
+          <!-- Header for the Carousel Section -->
+          <h2 class="carousel-section-header">More qualitative examples</h2>
+          <!-- Paragraph Description -->
+          <p class="carousel-section-description">
+            We show more qualitative examples of our unsupervised keypoints for
+            each dataset. Each keypoint should be consistently at the same
+            semantic location.
+          </p>
           <div class="carousel results-carousel">
-
             <div class="items-container">
-            
-
-              <!-- First slide with 5 images -->
               <div class="carousel-item">
                 <div class="item">
                   <img
@@ -333,24 +332,11 @@
                     src="./static/images/celeba_aligned/unsupervised_keypoints_0005.jpg"
                   />
                 </div>
-                <!-- <div class="item">
-                  <img
-                    src="./static/images/celeba_aligned/unsupervised_keypoints_0006.png"
-                  />
-                </div>
-                <div class="item">
-                  <img
-                    src="./static/images/celeba_aligned/unsupervised_keypoints_0007.png"
-                  />
-                </div> -->
               </div>
               <div class="caption">CelebA Aligned</div>
             </div>
 
             <div class="items-container">
-            
-
-              <!-- First slide with 5 images -->
               <div class="carousel-item">
                 <div class="item">
                   <img
@@ -382,24 +368,11 @@
                     src="./static/images/celeba_wild/unsupervised_keypoints_0005.jpg"
                   />
                 </div>
-                <!-- <div class="item">
-                  <img
-                    src="./static/images/celeba_wild/unsupervised_keypoints_0006.png"
-                  />
-                </div>
-                <div class="item">
-                  <img
-                    src="./static/images/celeba_wild/unsupervised_keypoints_0007.png"
-                  />
-                </div> -->
               </div>
               <div class="caption">CelebA in the wild</div>
             </div>
 
             <div class="items-container">
-            
-
-              <!-- First slide with 5 images -->
               <div class="carousel-item">
                 <div class="item">
                   <img
@@ -431,24 +404,11 @@
                     src="./static/images/deepfashion/unsupervised_keypoints_0005.jpg"
                   />
                 </div>
-                <!-- <div class="item">
-                  <img
-                    src="./static/images/deepfashion/unsupervised_keypoints_0006.png"
-                  />
-                </div>
-                <div class="item">
-                  <img
-                    src="./static/images/deepfashion/unsupervised_keypoints_0007.png"
-                  />
-                </div> -->
               </div>
               <div class="caption">DeepFashion</div>
             </div>
 
             <div class="items-container">
-            
-
-              <!-- First slide with 5 images -->
               <div class="carousel-item">
                 <div class="item">
                   <img
@@ -480,24 +440,11 @@
                     src="./static/images/taichi/unsupervised_keypoints_0005.jpg"
                   />
                 </div>
-                <!-- <div class="item">
-                  <img
-                    src="./static/images/taichi/unsupervised_keypoints_0006.png"
-                  />
-                </div>
-                <div class="item">
-                  <img
-                    src="./static/images/taichi/unsupervised_keypoints_0007.png"
-                  />
-                </div> -->
               </div>
               <div class="caption">Tai-Chi-HD</div>
             </div>
 
             <div class="items-container">
-            
-
-              <!-- First slide with 5 images -->
               <div class="carousel-item">
                 <div class="item">
                   <img
@@ -529,24 +476,11 @@
                     src="./static/images/cub_all/unsupervised_keypoints_0005.jpg"
                   />
                 </div>
-                <!-- <div class="item">
-                  <img
-                    src="./static/images/cub_all/unsupervised_keypoints_0006.png"
-                  />
-                </div>
-                <div class="item">
-                  <img
-                    src="./static/images/cub_all/unsupervised_keypoints_0007.png"
-                  />
-                </div> -->
               </div>
               <div class="caption">CUB-200-2011 all</div>
             </div>
 
             <div class="items-container">
-            
-
-              <!-- First slide with 5 images -->
               <div class="carousel-item">
                 <div class="item">
                   <img
@@ -578,24 +512,11 @@
                     src="./static/images/cub_aligned/unsupervised_keypoints_0005.jpg"
                   />
                 </div>
-                <!-- <div class="item">
-                  <img
-                    src="./static/images/cub_aligned/unsupervised_keypoints_0006.png"
-                  />
-                </div>
-                <div class="item">
-                  <img
-                    src="./static/images/cub_aligned/unsupervised_keypoints_0007.png"
-                  />
-                </div> -->
               </div>
               <div class="caption">CUB-200-2011 aligned</div>
             </div>
 
             <div class="items-container">
-            
-
-              <!-- First slide with 5 images -->
               <div class="carousel-item">
                 <div class="item">
                   <img
@@ -627,24 +548,11 @@
                     src="./static/images/human36m_unaligned/unsupervised_keypoints_0005.png"
                   />
                 </div>
-                <!-- <div class="item">
-                  <img
-                    src="./static/images/human36m_unaligned/unsupervised_keypoints_0006.png"
-                  />
-                </div>
-                <div class="item">
-                  <img
-                    src="./static/images/human36m_unaligned/unsupervised_keypoints_0007.png"
-                  />
-                </div> -->
               </div>
               <div class="caption">Human3.6m unaligned</div>
             </div>
 
             <div class="items-container">
-            
-
-              <!-- First slide with 5 images -->
               <div class="carousel-item">
                 <div class="item">
                   <img
@@ -676,68 +584,107 @@
                     src="./static/images/human36m/unsupervised_keypoints_0005.jpg"
                   />
                 </div>
-                <!-- <div class="item">
-                  <img
-                    src="./static/images/human36m/unsupervised_keypoints_0006.png"
-                  />
-                </div>
-                <div class="item">
-                  <img
-                    src="./static/images/human36m/unsupervised_keypoints_0007.png"
-                  />
-                </div> -->
               </div>
               <div class="caption">Human3.6m</div>
             </div>
-        </div>
-        <div class="carousel-caption">
-          <p>Visualized examples from each dataset</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="hero is-light is-small">
+    <section class="hero is-small">
       <div class="hero-body">
         <div class="container">
           <!-- Header for the Carousel Section -->
-          <h2 class="carousel-section-header">Applying our learned tokens out of distribution</h2>
+          <h2 class="carousel-section-header">
+            Generalizing learned keypoints to other (completely different)
+            datasets
+          </h2>
           <!-- Paragraph Description -->
           <p class="carousel-section-description">
-            In our study, we have adapted tokens learned from one dataset and applied them to a different dataset. 
-            To illustrate the effectiveness of our approach, we compare it with the existing benchmark in unsupervised keypoint estimation, known as Autolink. 
-            Unlike our method, where tokens are learned, Autolink employs a learned model that operates out of its initial distribution. 
-            The top row of our presentation showcases the results of our method, while the bottom row displays the outcomes achieved using Autolink.
+            In our study, we have adapted tokens learned from one dataset and
+            applied them to a different dataset. To illustrate the effectiveness
+            of our approach, we compare it with the existing benchmark in
+            unsupervised keypoint estimation, known as Autolink. Unlike our
+            method, where tokens are learned, Autolink employs a learned model
+            that operates out of its initial distribution. The top row of our
+            presentation showcases the results of our method, while the bottom
+            row displays the outcomes achieved using Autolink.
           </p>
           <div id="two-row-carousel" class="carousel">
-
             <!-- Carousel Item with Two Rows and Captions -->
             <div class="carousel-item">
               <!-- First row of images -->
               <div class="carousel-row">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0000.png" alt="Image 1">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0001.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0002.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0003.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0004.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0005.png" alt="Image 2">
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0000.png"
+                  alt="Image 1"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0001.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0002.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0003.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0004.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/ours/unsupervised_keypoints_0005.png"
+                  alt="Image 2"
+                />
               </div>
-              <div class="row-caption">Ours (outdoor setup &rarr; lab setup)</div>
-    
+              <div class="row-caption">
+                Ours (outdoor setup &rarr; lab setup)
+              </div>
+
               <!-- Second row of images -->
               <div class="carousel-row">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0000.png" alt="Image 1">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0001.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0002.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0003.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0004.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0005.png" alt="Image 2">
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0000.png"
+                  alt="Image 1"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0001.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0002.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0003.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0004.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/taichi_to_human36m/autolink/unsupervised_keypoints_0005.png"
+                  alt="Image 2"
+                />
               </div>
-              <div class="row-caption">Autolink (outdoor setup &rarr; lab setup)</div>
+              <div class="row-caption">
+                Autolink (outdoor setup &rarr; lab setup)
+              </div>
               <div class="carousel-item-caption">
-                <strong>Keypoints from Tai-Chi-HD (outdoor setup) &rarr; applied to Human3.6m unaligned (lab setup)</strong>
-                Both methods demonstrate the ability to map Tai-Chi-HD tokens onto the Human3.6m dataset. 
-                This outcome is somewhat expected given the considerable similarity between the two datasets. 
-                Although Autolink experiences some instances of failure, it generally performs well in the majority of cases.
+                <strong
+                  >Keypoints from Tai-Chi-HD (outdoor setup) &rarr; applied to
+                  Human3.6m unaligned (lab setup)</strong
+                >
+                Both methods demonstrate the ability to map Tai-Chi-HD tokens
+                onto the Human3.6m dataset. This outcome is somewhat expected
+                given the considerable similarity between the two datasets.
+                Although Autolink experiences some instances of failure, it
+                generally performs well in the majority of cases.
               </div>
             </div>
 
@@ -745,100 +692,225 @@
             <div class="carousel-item">
               <!-- First row of images -->
               <div class="carousel-row">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0000.png" alt="Image 1">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0001.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0002.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0003.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0004.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0005.png" alt="Image 2">
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0000.png"
+                  alt="Image 1"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0001.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0002.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0003.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0004.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/ours/unsupervised_keypoints_0005.png"
+                  alt="Image 2"
+                />
               </div>
               <div class="row-caption">Ours (birds &rarr; humans)</div>
-    
+
               <!-- Second row of images -->
               <div class="carousel-row">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0000.png" alt="Image 1">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0001.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0002.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0003.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0004.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0005.png" alt="Image 2">
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0000.png"
+                  alt="Image 1"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0001.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0002.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0003.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0004.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/cub_to_taichi/autolink/unsupervised_keypoints_0005.png"
+                  alt="Image 2"
+                />
               </div>
               <div class="row-caption">Autolink (birds &rarr; humans)</div>
               <div class="carousel-item-caption">
-                <strong>Keypoints from CUB-200-2011 (birds) &rarr; applied to Tai-Chi-HD (humans)</strong>
-                Our approach demonstrates promising results when adapting bird keypoints for human figures. 
-                A distinct advantage of our method is its ability to accurately identify the direction a person is facing, as indicated by the specific orientation of keypoints 2 and 6. 
-                In contrast, Autolink faces challenges in consistently mapping these same keypoints onto corresponding areas in the images.
+                <strong
+                  >Keypoints from CUB-200-2011 (birds) &rarr; applied to
+                  Tai-Chi-HD (humans)</strong
+                >
+                Our approach demonstrates promising results when adapting bird
+                keypoints for human figures. A distinct advantage of our method
+                is its ability to accurately identify the direction a person is
+                facing, as indicated by the specific orientation of keypoints 2
+                and 6. In contrast, Autolink faces challenges in consistently
+                mapping these same keypoints onto corresponding areas in the
+                images.
               </div>
             </div>
-    
+
             <!-- Carousel Item with Two Rows and Captions -->
             <div class="carousel-item">
               <!-- First row of images -->
               <div class="carousel-row">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0000.png" alt="Image 1">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0001.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0002.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0003.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0004.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0005.png" alt="Image 2">
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0000.png"
+                  alt="Image 1"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0001.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0002.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0003.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0004.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/ours/unsupervised_keypoints_0005.png"
+                  alt="Image 2"
+                />
               </div>
               <div class="row-caption">Ours (faces &rarr; birds)</div>
-    
+
               <!-- Second row of images -->
               <div class="carousel-row">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0000.png" alt="Image 1">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0001.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0002.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0003.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0004.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0005.png" alt="Image 2">
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0000.png"
+                  alt="Image 1"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0001.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0002.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0003.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0004.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_cub/autolink/unsupervised_keypoints_0005.png"
+                  alt="Image 2"
+                />
               </div>
               <div class="row-caption">Autolink (faces &rarr; birds)</div>
-    
+
               <!-- Overall Caption for the Carousel Item -->
               <div class="carousel-item-caption">
-                <strong>Keypoints from CelebA (faces) &rarr; applied to CUB-200-2011 (bird)</strong>
-                
-                  Our method shows some capability in identifying bird faces, though it is not without its limitations. 
-                  In contrast, Autolink tends to interpret the entire structure of the bird as a face, focusing on the overall shape rather than specific features. 
-                  Given the significant differences between these two datasets, it is not surprising that both approaches encounter difficulties. 
-                  However, it is noteworthy that our method uniquely succeeds in correctly mapping keypoints to the faces of the birds.
+                <strong
+                  >Keypoints from CelebA (faces) &rarr; applied to CUB-200-2011
+                  (bird)</strong
+                >
+
+                Our method shows some capability in identifying bird faces,
+                though it is not without its limitations. In contrast, Autolink
+                tends to interpret the entire structure of the bird as a face,
+                focusing on the overall shape rather than specific features.
+                Given the significant differences between these two datasets, it
+                is not surprising that both approaches encounter difficulties.
+                However, it is noteworthy that our method uniquely succeeds in
+                correctly mapping keypoints to the faces of the birds.
               </div>
             </div>
-    
+
             <!-- Carousel Item with Two Rows and Captions -->
             <div class="carousel-item">
               <!-- First row of images -->
               <div class="carousel-row">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0000.png" alt="Image 1">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0001.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0002.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0003.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0004.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0005.png" alt="Image 2">
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0000.png"
+                  alt="Image 1"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0001.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0002.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0003.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0004.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/ours/unsupervised_keypoints_0005.png"
+                  alt="Image 2"
+                />
               </div>
               <div class="row-caption">Ours (faces &rarr; whole body)</div>
-    
+
               <!-- Second row of images -->
               <div class="carousel-row">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0000.png" alt="Image 1">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0001.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0002.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0003.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0004.png" alt="Image 2">
-                <img src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0005.png" alt="Image 2">
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0000.png"
+                  alt="Image 1"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0001.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0002.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0003.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0004.png"
+                  alt="Image 2"
+                />
+                <img
+                  src="./static/images/out_of_distribution/celeba_to_taichi/autolink/unsupervised_keypoints_0005.png"
+                  alt="Image 2"
+                />
               </div>
               <div class="row-caption">Autolink (faces &rarr; whole body)</div>
               <div class="carousel-item-caption">
-                <strong>Keypoints from CelebA (faces) &rarr; applied to Tai-Chi-HD (whole body)</strong>
-                This task proved to be unexpectedly challenging, possibly due to varying scales involved. 
-                Autolink seems to fall short, failing to accurately locate the face. 
-                In contrast, our method demonstrates the capability to successfully identify the facial area.
+                <strong
+                  >Keypoints from CelebA (faces) &rarr; applied to Tai-Chi-HD
+                  (whole body)</strong
+                >
+                This task proved to be unexpectedly challenging, possibly due to
+                varying scales involved. Autolink seems to fall short, failing
+                to accurately locate the face. In contrast, our method
+                demonstrates the capability to successfully identify the facial
+                area.
               </div>
             </div>
-    
-            <!-- ... more carousel items ... -->
           </div>
         </div>
       </div>
