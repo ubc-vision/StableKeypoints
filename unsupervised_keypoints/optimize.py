@@ -7,14 +7,14 @@ from unsupervised_keypoints import sdxl_monkey_patch
 from unsupervised_keypoints import eval
 import torch.nn.functional as F
 import torch.distributions as dist
-from unsupervised_keypoints.celeba import CelebA
-from unsupervised_keypoints import custom_images
-from unsupervised_keypoints import cub
-from unsupervised_keypoints import cub_parts
-from unsupervised_keypoints import taichi
-from unsupervised_keypoints import human36m
-from unsupervised_keypoints import unaligned_human36m
-from unsupervised_keypoints import deepfashion
+from datasets.celeba import CelebA
+from datasets import custom_images
+from datasets import cub
+from datasets import cub_parts
+from datasets import taichi
+from datasets import human36m
+from datasets import unaligned_human36m
+from datasets import deepfashion
 from unsupervised_keypoints import optimize_token
 import torch.nn as nn
 

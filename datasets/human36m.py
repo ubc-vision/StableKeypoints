@@ -1,3 +1,10 @@
+"""
+Code adapted from: https://github.com/xingzhehe/AutoLink-Self-supervised-Learning-of-Human-Skeletons-and-Object-Outlines-by-Linking-Keypoints/blob/main/datasets/h36m.py
+MIT License
+
+Copyright (c) 2023 xingzhehe
+"""
+
 import os
 import numpy as np
 import scipy.io

@@ -1,3 +1,10 @@
+"""
+Code adapted from: https://github.com/xingzhehe/AutoLink-Self-supervised-Learning-of-Human-Skeletons-and-Object-Outlines-by-Linking-Keypoints/blob/main/datasets/deepfashion.py
+MIT License
+
+Copyright (c) 2023 xingzhehe
+"""
+
 import json
 import os
 

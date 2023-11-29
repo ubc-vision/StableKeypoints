@@ -6,14 +6,14 @@ from glob import glob
 from tqdm import tqdm
 from unsupervised_keypoints import ptp_utils
 import torch.nn.functional as F
-from unsupervised_keypoints.celeba import CelebA
-from unsupervised_keypoints import custom_images
-from unsupervised_keypoints import cub
-from unsupervised_keypoints import cub_parts
-from unsupervised_keypoints import taichi
-from unsupervised_keypoints import human36m
-from unsupervised_keypoints import unaligned_human36m
-from unsupervised_keypoints import deepfashion
+from datasets.celeba import CelebA
+from datasets import custom_images
+from datasets import cub
+from datasets import cub_parts
+from datasets import taichi
+from datasets import human36m
+from datasets import unaligned_human36m
+from datasets import deepfashion
 from unsupervised_keypoints.eval import run_image_with_context_augmented
 from unsupervised_keypoints.eval import pixel_from_weighted_avg, find_max_pixel, mask_radius, find_k_max_pixels
 
