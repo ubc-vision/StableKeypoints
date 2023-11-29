@@ -34,7 +34,7 @@ parser.add_argument(
     "--dataset_loc",
     type=str,
     default="~",
-    help="Path to celeba dataset",
+    help="Path to dataset",
 )
 parser.add_argument(
     "--save_folder",
@@ -67,22 +67,22 @@ parser.add_argument(
     choices=["optimize", "find_indices", "precompute", "evaluate"],
     type=str,
     default="optimize",
-    help="Specify the stage from which the process should start: 'optimize', 'precompute', or 'evaluate'."
+    help="Specify the stage from which the process should start."
 )
 parser.add_argument("--device", type=str, default="cuda:0", help="device to use")
 parser.add_argument("--wandb", action="store_true", help="wandb logging")
 parser.add_argument("--lr", type=float, default=5e-3, help="learning rate")
 parser.add_argument(
-    "--num_steps", type=int, default=1e4, help="number of steps to optimize"
+    "--num_steps", type=int, default=500, help="number of steps to optimize for"
 )
 parser.add_argument(
-    "--num_tokens", type=int, default=500, help="number of tokens to optimize"
+    "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
 )
 parser.add_argument(
     "--feature_upsample_res", type=int, default=128, help="upsampled resolution for latent features grabbed from the attn operation"
 )
 parser.add_argument(
-    "--batch_size", type=int, default=1, help="size of the batch for optimization"
+    "--batch_size", type=int, default=4, help="size of the batch for optimization"
 )
 parser.add_argument(
     "--top_k_strategy",

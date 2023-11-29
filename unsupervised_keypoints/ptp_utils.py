@@ -242,7 +242,6 @@ def run_and_find_attn(
     upsample_res=32,
     indices=None,
     controllers=None,
-    human36m = False
 ):
     _, _ = find_pred_noise(
         ldm,
@@ -263,9 +262,6 @@ def run_and_find_attn(
             layers=layers,
             indices=indices,
         )
-        
-        if human36m:
-            _attention_maps = mask_attn(image, _attention_maps)
         
         attention_maps.append(_attention_maps)
 
