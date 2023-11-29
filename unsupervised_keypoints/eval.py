@@ -497,7 +497,7 @@ def evaluate(
         if evaluation_method == "pck":
             l2_mean = (l2 < 6).float().mean()
             
-        if evaluation_method == "human3.6m":
+        if evaluation_method == "orientation_invariant":
             l2_mean = l2.mean()
             swapped_kpts = swap_points(estimated_kpts[None])[0]
             

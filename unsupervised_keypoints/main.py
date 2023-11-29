@@ -102,7 +102,7 @@ parser.add_argument(
     "--evaluation_method",
     type=str,
     default="inter_eye_distance",
-    choices=["inter_eye_distance", "visible", "mean_average_error", "pck", "human3.6m"],
+    choices=["inter_eye_distance", "visible", "mean_average_error", "pck", "orientation_invariant"],
     help="strategy for evaluation",
 )
 parser.add_argument(
@@ -175,7 +175,6 @@ parser.add_argument(
     "--augment_translate",
     type=float,
     nargs="+",
-    # default=[0.3, 0.3],
     default=[0.25, 0.25],
     help="amount of translation for augmentation along x and y axis",
 )
@@ -352,7 +351,7 @@ if args.evaluation_method == "visible" or args.evaluation_method == "mean_averag
         visible_reshaped.cpu().numpy().astype(np.float64),
     )
     
-elif args.evaluation_method == "human3.6m":
+elif args.evaluation_method == "orientation_invariant":
     regressor = return_regressor_human36m( 
         source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
         target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
