@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Redirecting...</title>
+    <script type="text/javascript">
+      document.addEventListener("DOMContentLoaded", function () {
+        var url = window.location.href;
+        // Check if the URL is the case-sensitive version that needs redirection
+        if (url.includes("/StableKeypoints")) {
+          window.location.href = url.replace(
+            "/StableKeypoints",
+            "/stablekeypoints"
+          );
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <p>Redirecting...</p>
+  </body>
+</html>
