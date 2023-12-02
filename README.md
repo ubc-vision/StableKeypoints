@@ -4,7 +4,7 @@
 
 ## Project Page
 
-For more detailed information, visit our project page: [StableKeypoints](https://ubc-vision.github.io/stablekeypoints/)
+For more detailed information, visit our project page: [StableKeypoints](https://ubc-vision.github.io/StableKeypoints/)
 
 ## Requirements
 
