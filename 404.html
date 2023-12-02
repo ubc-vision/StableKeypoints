@@ -1,29 +1,28 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Page Moved</title>
-  </head>
-  <body>
-    <p>
-      The page you are looking for has moved. Please visit
-      <a href="https://ubc-vision.github.io/stablekeypoints/"
-        >https://ubc-vision.github.io/stablekeypoints/</a
-      >.
-    </p>
-  </body>
-  <head>
     <title>Redirecting...</title>
     <script type="text/javascript">
       document.addEventListener("DOMContentLoaded", function () {
+        console.log("404 page loaded");
+
         var currentUrl = window.location.href;
+        console.log("Current URL: " + currentUrl);
+
         if (currentUrl.toLowerCase().includes("/stablekeypoints")) {
+          console.log("Redirecting to the correct URL");
           window.location.href =
             "https://ubc-vision.github.io/stablekeypoints/";
+        } else {
+          console.log("No redirection needed");
         }
       });
     </script>
   </head>
   <body>
-    <p>Redirecting...</p>
+    <p>
+      If you are not redirected,
+      <a href="https://ubc-vision.github.io/stablekeypoints/">click here</a>.
+    </p>
   </body>
 </html>
