@@ -1,16 +1,24 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <title>Page Moved</title>
+  </head>
+  <body>
+    <p>
+      The page you are looking for has moved. Please visit
+      <a href="https://ubc-vision.github.io/stablekeypoints/"
+        >https://ubc-vision.github.io/stablekeypoints/</a
+      >.
+    </p>
+  </body>
+  <head>
     <title>Redirecting...</title>
     <script type="text/javascript">
       document.addEventListener("DOMContentLoaded", function () {
-        var url = window.location.href;
-        // Check if the URL is the case-sensitive version that needs redirection
-        if (url.includes("/StableKeypoints")) {
-          window.location.href = url.replace(
-            "/StableKeypoints",
-            "/stablekeypoints"
-          );
+        var currentUrl = window.location.href;
+        if (currentUrl.toLowerCase().includes("/stablekeypoints")) {
+          window.location.href =
+            "https://ubc-vision.github.io/stablekeypoints/";
         }
       });
     </script>
