@@ -90,7 +90,6 @@ def find_best_indices(
             from_where=from_where,
             upsample_res=upsample_res,
             controllers=controllers,
-            human36m = dataset_name == "human3.6m",
         )
         
         for attention_map in attention_maps:
@@ -214,7 +213,6 @@ def precompute_all_keypoints(
             controllers=controllers,
             save_folder=save_folder,
             num_gpus=num_gpus,
-            human36m = dataset_name == "human3.6m",
         )
         if max_loc_strategy == "argmax":
             highest_indices = find_max_pixel(attention_maps) / 512.0
