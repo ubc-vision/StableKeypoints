@@ -76,7 +76,7 @@ parser.add_argument(
     "--num_steps", type=int, default=500, help="number of steps to optimize for"
 )
 parser.add_argument(
-    "--num_tokens", type=int, default=1000, help="number of tokens to optimize"
+    "--num_tokens", type=int, default=500, help="number of tokens to optimize"
 )
 parser.add_argument(
     "--feature_upsample_res", type=int, default=128, help="upsampled resolution for latent features grabbed from the attn operation"
