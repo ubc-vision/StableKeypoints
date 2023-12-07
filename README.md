@@ -4,7 +4,7 @@
 
 ## Project Page
 
-For more detailed information, visit our [project page](https://https://stablekeypoints.github.io/) or read our [paper](https://arxiv.org/abs/2312.00065)
+For more detailed information, visit our [project page](https://stablekeypoints.github.io/) or read our [paper](https://arxiv.org/abs/2312.00065)
 
 ## Requirements
 
@@ -49,6 +49,10 @@ python3 -m unsupervised_keypoints.main [arguments]
 ```bash
 python3 -m unsupervised_keypoints.main --dataset_loc /path/to/dataset --dataset_name celeba_wild --evaluation_method inter_eye_distance --save_folder /path/to/save
 ```
+
+## Precomputed tokens
+
+We provide the precomputed tokens [here](https://drive.google.com/drive/folders/1RUHfm5Lss7OkJ7hlts0jZNViVeo60rYQ?usp=sharin)
 
 ## BibTeX
 
