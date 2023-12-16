@@ -53,7 +53,7 @@ python3 -m unsupervised_keypoints.main --dataset_loc /path/to/dataset --dataset_
 If you want to use a custom dataset you can run 
 
 ```bash
-python3 -m unsupervised_keypoints.main --dataset_loc /path/to/dataset --dataset_name custom --save_folder /path/to/save
+python3 -m unsupervised_keypoints.main --dataset_loc /path/to/dataset --dataset_name custom
 ```
 
 ## Precomputed tokens
