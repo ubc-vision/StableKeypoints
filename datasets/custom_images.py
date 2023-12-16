@@ -12,7 +12,7 @@ class CustomDataset(Dataset):
         # sort by name
         self.image_files.sort()
         self.transform = transforms.Compose([
-            transforms.Lambda(lambda img: img.crop((280, 0, img.width - 280, img.height))),
+            # transforms.Lambda(lambda img: img.crop((280, 0, img.width - 280, img.height))),
             transforms.Resize((image_size, image_size)),
             transforms.ToTensor()
         ])
