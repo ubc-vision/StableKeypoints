@@ -65,8 +65,8 @@ We provide the precomputed tokens [here](https://drive.google.com/drive/folders/
 ```bibtex
 @article{hedlin2023keypoints,
   title={Unsupervised Keypoints from Pretrained Diffusion Models},
-  author={Eric Hedlin and Gopal Sharma and Shweta Mahajan and Xingzhe He and Hossam Isack and Abhishek Kar and Helge Rhodin and Andrea Tagliasacchi and Kwang Moo Yi},
-  journal={arXiv},
-  year={2023},
+  author={Hedlin, Eric and Sharma, Gopal and Mahajan, Shweta and He, Xingzhe and Isack, Hossam and Rhodin, Abhishek Kar Helge and Tagliasacchi, Andrea and Yi, Kwang Moo},
+  journal={arXiv preprint arXiv:2312.00065},
+  year={2023}
 }
 ```
