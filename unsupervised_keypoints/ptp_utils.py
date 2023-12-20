@@ -568,6 +568,9 @@ def register_attention_control(model, controller, feature_upsample_res=256):
             cross_att_count += register_recr(net[1], 0, "up")
 
     controller.num_att_layers = cross_att_count
+    
+    # create assertion with message
+    assert cross_att_count != 0, "No cross attention layers found in the model. Please check to make sure you're using diffusers==0.8.0."
 
 
 def get_word_inds(text: str, word_place: int, tokenizer):
