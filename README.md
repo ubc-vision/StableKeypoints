@@ -6,6 +6,11 @@
 
 For more detailed information, visit our [project page](https://stablekeypoints.github.io/) or read our [paper](https://arxiv.org/abs/2312.00065)
 
+## Interactive Demo
+
+We provide an interactive demo in a [Google Colab](https://colab.research.google.com/drive/1ULz-HIR9LgzXL5Lr68Cn_HV4Fn6tMlBj?usp=sharing). This allows a user to upload custom images and optimizes and visualizes the found keypoints over the images. 
+
+
 ## Requirements
 
 ### Set up environment
