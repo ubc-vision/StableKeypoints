@@ -1,10 +1,15 @@
-# Unsupervised Keypoints from Pretrained Diffusion Models
+# Unsupervised Keypoints from Pretrained Diffusion Models (CVPR 2024 Highlight)
 
 [Eric Hedlin](https://ehedlin.github.io/), [Gopal Sharma](https://hippogriff.github.io/), [Shweta Mahajan](https://s-mahajan.github.io/), [Xingzhe He](https://xingzhehe.github.io/), [Hossam Isack](http://www.hossamisack.com/), [Abhishek Kar](https://abhishekkar.info/), [Helge Rhodin](https://www.cs.ubc.ca/~rhodin/web/), [Andrea Tagliasacchi](https://taiya.github.io/), [Kwang Moo Yi](https://www.cs.ubc.ca/~kmyi/)
 
 ## Project Page
 
 For more detailed information, visit our [project page](https://stablekeypoints.github.io/) or read our [paper](https://arxiv.org/abs/2312.00065)
+
+## Interactive Demo
+
+We provide an interactive demo in a [Google Colab](https://colab.research.google.com/drive/1ULz-HIR9LgzXL5Lr68Cn_HV4Fn6tMlBj?usp=sharing). This allows a user to upload custom images and optimizes and visualizes the found keypoints over the images. 
+
 
 ## Requirements
 
