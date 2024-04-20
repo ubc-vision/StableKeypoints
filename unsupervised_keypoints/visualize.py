@@ -262,3 +262,130 @@ def visualize_attn_maps(
         plot_point_correspondences(
             imgs, gt_kpts, os.path.join(save_folder, "gt_keypoints.pdf"), height, width
         )
+        
+        
+@torch.no_grad()
+def create_vid(
+    ldm,
+    contexts,
+    indices,
+    device="cuda",
+    from_where=["down_cross", "mid_cross", "up_cross"],
+    layers=[0, 1, 2, 3, 4, 5],
+    noise_level=-1,
+    num_points=30,
+    num_images=100,
+    augment_degrees=30,
+    augment_scale=(0.9, 1.1),
+    augment_translate=(0.1, 0.1),
+    augment_shear=(0.0, 0.0),
+    augmentation_iterations=20,
+    dataset_loc="/ubc/cs/home/i/iamerich/scratch/datasets/celeba/",
+    save_folder="outputs",
+    controllers=None,
+    num_gpus=1,
+    max_loc_strategy="argmax",
+    dataset_name = "celeba_aligned",
+    validation=False,
+    max_num_frames = 1_000,
+):
+    if dataset_name == "celeba_aligned":
+        dataset = CelebA(split="test", dataset_loc=dataset_loc)
+    elif dataset_name == "celeba_wild":
+        dataset = CelebA(split="test", dataset_loc=dataset_loc, align = False)
+    elif dataset_name == "cub_aligned":
+        dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "cub_001":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=1)
+    elif dataset_name == "cub_002":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=2)
+    elif dataset_name == "cub_003":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=3)
+    elif dataset_name == "cub_all":
+        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test")
+    elif dataset_name == "taichi":
+        dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "human3.6m":
+        dataset = human36m.TestSet(data_root=dataset_loc, validation=validation)
+    elif dataset_name == "unaligned_human3.6m":
+        dataset = unaligned_human36m.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "deepfashion":
+        dataset = deepfashion.TestSet(data_root=dataset_loc, image_size=512)
+    elif dataset_name == "custom":
+        dataset = custom_images.CustomDataset(data_root=dataset_loc, image_size=512)
+    else:
+        raise NotImplementedError
+    
+    # make a random permutation of the dataset
+    # randperm = torch.randperm(len(dataset))
+    randperm = torch.arange(len(dataset))
+    # randperm = torch.arange(len(dataset))
+    
+    keypoints = []
+    saved_maps = []
+    
+    for i in tqdm(range(len(randperm))):
+        
+        # interpolate exponentially between 0 and 500 over len(randperm)
+        
+        # index = min(499, int((i*0.05)**2.3))
+        
+        # create_progress_bar(index, len(randperm), f'satya/progress_{i:04d}.png')
+        
+        # print(index, i, end = "\r")
+        
+        # index = min(499, i*2)
+        
+        
+        
+        batch = dataset[randperm[i].item()]
+
+        img = batch["img"]
+
+        maps = []
+        for j in range(len(contexts)):
+            map = run_image_with_context_augmented(
+                ldm,
+                img,
+                contexts[j],
+                indices.cpu(),
+                device=device,
+                from_where=from_where,
+                layers=layers,
+                noise_level=noise_level,
+                augment_degrees=augment_degrees,
+                augment_scale=augment_scale,
+                augment_translate=augment_translate,
+                augmentation_iterations=augmentation_iterations,
+                controllers=controllers,
+                num_gpus=num_gpus,
+                save_folder=save_folder,
+                upscale_size=128,
+            )
+            maps.append(map)
+            
+        maps = torch.stack(maps)
+        map = torch.mean(maps, dim=0)
+        
+        saved_maps.append(map.cpu())
+        
+        # plot_map_single(
+        #     img, map, os.path.join(save_folder, f"unsupervised_keypoints_{i:04d}.png")
+        # )
+        
+        point = find_max_pixel(map) / 512.0
+        
+        # plot_point_single(
+        #     img, point.unsqueeze(0).cpu(), os.path.join(save_folder, f"unsupervised_keypoints_{i:04d}.png")
+        # )
+        
+        keypoints.append(point)
+        
+    keypoints = torch.stack(keypoints)
+    # save as a json file
+    torch.save(keypoints, os.path.join(save_folder, "keypoints.pt"))
+    torch.save(saved_maps, os.path.join(save_folder, "saved_maps.pt"))
+    
+    # import json
+    # with open(os.path.join(save_folder, "keypoints.json"), "w") as f:
+    #     json.dump(keypoints.tolist(), f)

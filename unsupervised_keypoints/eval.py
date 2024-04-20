@@ -212,13 +212,14 @@ def run_image_with_context_augmented(
     controllers=None,
     num_gpus=1,
     save_folder="outputs",
+    upscale_size = 512,
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
         image = image.permute(1, 2, 0).detach().cpu().numpy()
 
-    num_samples = torch.zeros(len(indices), 512, 512).to(device)
-    sum_samples = torch.zeros(len(indices), 512, 512).to(device)
+    num_samples = torch.zeros(len(indices), upscale_size, upscale_size).to(device)
+    sum_samples = torch.zeros(len(indices), upscale_size, upscale_size).to(device)
 
     invertible_transform = RandomAffineWithInverse(
         degrees=augment_degrees,
@@ -250,7 +251,7 @@ def run_image_with_context_augmented(
             layers=layers,
             noise_level=noise_level,
             from_where=from_where,
-            upsample_res=512,
+            upsample_res=upscale_size,
             device=device,
             controllers=controllers,
             indices=indices.cpu(),

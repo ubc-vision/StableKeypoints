@@ -16,7 +16,7 @@ from unsupervised_keypoints.keypoint_regressor import (
 )
 
 from unsupervised_keypoints.eval import evaluate
-from unsupervised_keypoints.visualize import visualize_attn_maps
+from unsupervised_keypoints.visualize import visualize_attn_maps, create_vid
 
 
 # Argument parsing
@@ -294,6 +294,29 @@ else:
     indices = (
         torch.load(os.path.join(args.save_folder, "indices.pt")).to(args.device).detach()
     )
+    
+    
+create_vid(
+    ldm,
+    embedding,
+    indices,
+    noise_level=args.noise_level,
+    layers=args.layers,
+    num_points=args.top_k,
+    augment_degrees=args.augment_degrees,
+    augment_scale=args.augment_scale,
+    augment_translate=args.augment_translate,
+    augmentation_iterations=args.augmentation_iterations,
+    dataset_loc=args.dataset_loc,
+    save_folder=args.save_folder,
+    device=args.device,
+    dataset_name = args.dataset_name,
+    controllers=controllers,
+    num_gpus=num_gpus,
+    max_loc_strategy=args.max_loc_strategy,
+    validation=args.validation,)
+exit()
+
 
 
 if args.start_from_stage == "precompute" or args.start_from_stage == "find_indices" or args.start_from_stage == "optimize":
