@@ -1,4 +1,4 @@
-# Unsupervised Keypoints from Pretrained Diffusion Models
+# Unsupervised Keypoints from Pretrained Diffusion Models (CVPR 2024 Highlight)
 
 [Eric Hedlin](https://ehedlin.github.io/), [Gopal Sharma](https://hippogriff.github.io/), [Shweta Mahajan](https://s-mahajan.github.io/), [Xingzhe He](https://xingzhehe.github.io/), [Hossam Isack](http://www.hossamisack.com/), [Abhishek Kar](https://abhishekkar.info/), [Helge Rhodin](https://www.cs.ubc.ca/~rhodin/web/), [Andrea Tagliasacchi](https://taiya.github.io/), [Kwang Moo Yi](https://www.cs.ubc.ca/~kmyi/)
 
