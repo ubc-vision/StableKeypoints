@@ -150,7 +150,7 @@ def visualize_attn_maps(
     noise_level=-1,
     num_tokens=1000,
     num_points=30,
-    num_images=100,
+    num_images=99,
     regressor=None,
     augment_degrees=30,
     augment_scale=(0.9, 1.1),

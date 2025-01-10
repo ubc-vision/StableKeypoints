@@ -267,29 +267,30 @@ if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize
     )
     torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
     
-    # visualize embeddings
-    visualize_attn_maps(
-        ldm,
-        embedding,
-        indices,
-        noise_level=args.noise_level,
-        num_tokens=args.num_tokens,
-        layers=args.layers,
-        num_points=args.top_k,
-        augment_degrees=args.augment_degrees,
-        augment_scale=args.augment_scale,
-        augment_translate=args.augment_translate,
-        augmentation_iterations=args.augmentation_iterations,
-        dataset_loc=args.dataset_loc,
-        save_folder=args.save_folder,
-        visualize=args.visualize,
-        device=args.device,
-        dataset_name = args.dataset_name,
-        controllers=controllers,
-        num_gpus=num_gpus,
-        max_loc_strategy=args.max_loc_strategy,
-        validation=args.validation,
-    )
+    if args.visualize:
+        # visualize embeddings
+        visualize_attn_maps(
+            ldm,
+            embedding,
+            indices,
+            noise_level=args.noise_level,
+            num_tokens=args.num_tokens,
+            layers=args.layers,
+            num_points=args.top_k,
+            augment_degrees=args.augment_degrees,
+            augment_scale=args.augment_scale,
+            augment_translate=args.augment_translate,
+            augmentation_iterations=args.augmentation_iterations,
+            dataset_loc=args.dataset_loc,
+            save_folder=args.save_folder,
+            visualize=args.visualize,
+            device=args.device,
+            dataset_name = args.dataset_name,
+            controllers=controllers,
+            num_gpus=num_gpus,
+            max_loc_strategy=args.max_loc_strategy,
+            validation=args.validation,
+        )
 else:
     indices = (
         torch.load(os.path.join(args.save_folder, "indices.pt")).to(args.device).detach()
@@ -366,29 +367,30 @@ else:
 regressor = torch.tensor(regressor).to(torch.float32)
 torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
 
-# visualize embeddings
-visualize_attn_maps(
-    ldm,
-    embedding,
-    indices,
-    num_tokens=args.num_tokens,
-    layers=args.layers,
-    noise_level=args.noise_level,
-    num_points=args.top_k,
-    regressor=regressor.to(args.device),
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    dataset_loc=args.dataset_loc,
-    save_folder=args.save_folder,
-    device=args.device,
-    dataset_name = args.dataset_name,
-    controllers=controllers,
-    num_gpus=num_gpus,
-    max_loc_strategy=args.max_loc_strategy,
-    validation=args.validation,
-    augmentation_iterations=args.augmentation_iterations,
-)
+if args.visualize:
+    # visualize embeddings
+    visualize_attn_maps(
+        ldm,
+        embedding,
+        indices,
+        num_tokens=args.num_tokens,
+        layers=args.layers,
+        noise_level=args.noise_level,
+        num_points=args.top_k,
+        regressor=regressor.to(args.device),
+        augment_degrees=args.augment_degrees,
+        augment_scale=args.augment_scale,
+        augment_translate=args.augment_translate,
+        dataset_loc=args.dataset_loc,
+        save_folder=args.save_folder,
+        device=args.device,
+        dataset_name = args.dataset_name,
+        controllers=controllers,
+        num_gpus=num_gpus,
+        max_loc_strategy=args.max_loc_strategy,
+        validation=args.validation,
+        augmentation_iterations=args.augmentation_iterations,
+    )
 
 evaluate(
     ldm,
