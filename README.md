@@ -22,6 +22,13 @@ conda env create -f requirements.yaml
 conda activate StableKeypoints
 ```
 
+### Hugging Face Token
+
+To download the pre-trained models from Hugging Face, you need a read-access token. 
+1. Create an account on [Hugging Face](https://huggingface.co/) if you don't have one.
+2. Go to your [account settings](https://huggingface.co/settings/tokens) and create a new token with "read" permissions.
+3. When running the script, provide this token using the `--my_token YOUR_TOKEN_HERE` command-line argument.
+
 ### Download datasets
 
 The [CelebA](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html), [Taichi](https://github.com/AliaksandrSiarohin/motion-cosegmentation), [Human3.6m](http://vision.imar.ro/human3.6m/description.php), [DeepFashion](https://github.com/theRealSuperMario/unsupervised-disentangling/tree/reproducing_baselines/original_code/custom_datasets/deepfashion), and [CUB](http://www.vision.caltech.edu/visipedia/CUB-200-2011.html) datasets can be found on their websites.

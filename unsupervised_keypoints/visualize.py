@@ -142,55 +142,38 @@ def visualize_attn_maps(
     ldm,
     context,
     indices,
-    device="cuda",
-    from_where=["down_cross", "mid_cross", "up_cross"],
-    upsample_res=32,
-    layers=[0, 1, 2, 3, 4, 5],
-    lr=5e-3,
-    noise_level=-1,
-    num_tokens=1000,
-    num_points=30,
-    num_images=99,
+    args,
+    controllers,
+    num_gpus,
     regressor=None,
-    augment_degrees=30,
-    augment_scale=(0.9, 1.1),
-    augment_translate=(0.1, 0.1),
-    augmentation_iterations=20,
-    dataset_loc="~",
-    save_folder="outputs",
-    visualize=False,
-    dataset_name = "celeba_aligned",
-    controllers=None,
-    num_gpus=1,
-    max_loc_strategy="argmax",
+    from_where=["down_cross", "mid_cross", "up_cross"],
     height = 11,
     width = 9,
-    validation = False,
 ):
-    if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="test", dataset_loc=dataset_loc)
-    elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="test", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub_aligned":
-        dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "cub_001":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=1)
-    elif dataset_name == "cub_002":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=2)
-    elif dataset_name == "cub_003":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=3)
-    elif dataset_name == "cub_all":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test")
-    elif dataset_name == "taichi":
-        dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "human3.6m":
-        dataset = human36m.TestSet(data_root=dataset_loc, validation=validation)
-    elif dataset_name == "unaligned_human3.6m":
-        dataset = unaligned_human36m.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "deepfashion":
-        dataset = deepfashion.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "custom":
-        dataset = custom_images.CustomDataset(data_root=dataset_loc, image_size=512)
+    if args.dataset_name == "celeba_aligned":
+        dataset = CelebA(split="test", dataset_loc=args.dataset_loc)
+    elif args.dataset_name == "celeba_wild":
+        dataset = CelebA(split="test", dataset_loc=args.dataset_loc, align = False)
+    elif args.dataset_name == "cub_aligned":
+        dataset = cub.TestSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "cub_001":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="test", single_class=1)
+    elif args.dataset_name == "cub_002":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="test", single_class=2)
+    elif args.dataset_name == "cub_003":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="test", single_class=3)
+    elif args.dataset_name == "cub_all":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="test")
+    elif args.dataset_name == "taichi":
+        dataset = taichi.TestSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "human3.6m":
+        dataset = human36m.TestSet(data_root=args.dataset_loc, validation=args.validation)
+    elif args.dataset_name == "unaligned_human3.6m":
+        dataset = unaligned_human36m.TestSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "deepfashion":
+        dataset = deepfashion.TestSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "custom":
+        dataset = custom_images.CustomDataset(data_root=args.dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -210,57 +193,57 @@ def visualize_attn_maps(
         gt_kpts.append(_gt_kpts)
         imgs.append(img.cpu())
 
-        map = run_image_with_context_augmented(
+        map_out = run_image_with_context_augmented(
             ldm,
             img,
             context,
             indices.cpu(),
-            device=device,
+            device=args.device,
             from_where=from_where,
-            layers=layers,
-            noise_level=noise_level,
-            augment_degrees=augment_degrees,
-            augment_scale=augment_scale,
-            augment_translate=augment_translate,
-            augmentation_iterations=augmentation_iterations,
-            visualize=(i==0),
+            layers=args.layers,
+            noise_level=args.noise_level,
+            augment_degrees=args.augment_degrees,
+            augment_scale=args.augment_scale,
+            augment_translate=args.augment_translate,
+            augmentation_iterations=args.augmentation_iterations,
+            visualize=(i==0 and args.visualize),
             controllers=controllers,
             num_gpus=num_gpus,
-            save_folder=save_folder,
+            save_folder=args.save_folder,
         )
 
-        maps.append(map.cpu())
+        maps.append(map_out.cpu())
     maps = torch.stack(maps)
     gt_kpts = torch.stack(gt_kpts)
 
-    if max_loc_strategy == "argmax":
-        points = find_max_pixel(maps.view(height * width * num_points, 512, 512)) / 512.0
+    if args.max_loc_strategy == "argmax":
+        points = find_max_pixel(maps.view(height * width * args.top_k, 512, 512)) / 512.0
     else:
-        points = pixel_from_weighted_avg(maps.view(height * width * num_points, 512, 512)) / 512.0
-    points = points.reshape(height * width, num_points, 2)
+        points = pixel_from_weighted_avg(maps.view(height * width * args.top_k, 512, 512)) / 512.0
+    points = points.reshape(height * width, args.top_k, 2)
 
     plot_point_correspondences(
-        imgs, points.cpu(), os.path.join(save_folder, "unsupervised_keypoints.pdf"), height, width
+        imgs, points.cpu(), os.path.join(args.save_folder, "unsupervised_keypoints.pdf"), height, width
     )
 
-    for i in range(num_points):
+    for i in range(args.top_k):
         save_grid(
-            maps[:, i].cpu(), imgs, os.path.join(save_folder, f"keypoint_{i:03d}.png")
+            maps[:, i].cpu(), imgs, os.path.join(args.save_folder, f"keypoint_{i:03d}.png")
         )
 
     if regressor is not None:
-        est_points = ((points.view(num_images, -1)-0.5) @ regressor)+0.5
+        est_points = ((points.view(height * width, -1)-0.5) @ regressor)+0.5
 
         plot_point_correspondences(
             imgs,
-            est_points.view(num_images, -1, 2).cpu(),
-            os.path.join(save_folder, "estimated_keypoints.pdf"),
+            est_points.view(height * width, -1, 2).cpu(),
+            os.path.join(args.save_folder, "estimated_keypoints.pdf"),
             height,
             width,
         )
 
         plot_point_correspondences(
-            imgs, gt_kpts, os.path.join(save_folder, "gt_keypoints.pdf"), height, width
+            imgs, gt_kpts, os.path.join(args.save_folder, "gt_keypoints.pdf"), height, width
         )
         
         

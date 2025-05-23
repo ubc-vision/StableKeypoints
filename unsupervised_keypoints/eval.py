@@ -257,7 +257,7 @@ def run_image_with_context_augmented(
             indices=indices.cpu(),
         )
         
-        attn_maps = torch.stack([map.to("cuda:0") for map in attn_maps])
+        attn_maps = torch.stack(attn_maps)
         
         _num_samples = invertible_transform.inverse(torch.ones_like(attn_maps))
         _sum_samples = invertible_transform.inverse(attn_maps)
@@ -377,49 +377,33 @@ def evaluate(
     context,
     indices,
     regressor,
-    device="cuda",
+    args,
+    controllers,
+    num_gpus,
     from_where=["down_cross", "mid_cross", "up_cross"],
-    upsample_res=32,
-    layers=[0, 1, 2, 3, 4, 5],
-    noise_level=-1,
-    num_tokens=1000,
-    augment_degrees=30,
-    augment_scale=(0.9, 1.1),
-    augment_translate=(0.1, 0.1),
-    augmentation_iterations=20,
-    dataset_loc="~",
-    save_folder="outputs",
-    wandb_log=False,
-    visualize=False,
-    dataset_name = "celeba_aligned",
-    evaluation_method="inter_eye_distance",
-    controllers=None,
-    num_gpus=1,
-    max_loc_strategy = "argmax",
-    validation = False,
 ):
-    if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="test", dataset_loc=dataset_loc)
-    elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="test", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub_aligned":
-        dataset = cub.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "cub_001":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=1)
-    elif dataset_name == "cub_002":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=2)
-    elif dataset_name == "cub_003":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test", single_class=3)
-    elif dataset_name == "cub_all":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="test")
-    elif dataset_name == "taichi":
-        dataset = taichi.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "human3.6m":
-        dataset = human36m.TestSet(data_root=dataset_loc, validation=validation)
-    elif dataset_name == "unaligned_human3.6m":
-        dataset = unaligned_human36m.TestSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "deepfashion":
-        dataset = deepfashion.TestSet(data_root=dataset_loc, image_size=512)
+    if args.dataset_name == "celeba_aligned":
+        dataset = CelebA(split="test", dataset_loc=args.dataset_loc)
+    elif args.dataset_name == "celeba_wild":
+        dataset = CelebA(split="test", dataset_loc=args.dataset_loc, align = False)
+    elif args.dataset_name == "cub_aligned":
+        dataset = cub.TestSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "cub_001":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="test", single_class=1)
+    elif args.dataset_name == "cub_002":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="test", single_class=2)
+    elif args.dataset_name == "cub_003":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="test", single_class=3)
+    elif args.dataset_name == "cub_all":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="test")
+    elif args.dataset_name == "taichi":
+        dataset = taichi.TestSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "human3.6m":
+        dataset = human36m.TestSet(data_root=args.dataset_loc, validation=args.validation)
+    elif args.dataset_name == "unaligned_human3.6m":
+        dataset = unaligned_human36m.TestSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "deepfashion":
+        dataset = deepfashion.TestSet(data_root=args.dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -446,21 +430,21 @@ def evaluate(
             img,
             context,
             indices.cpu(),
-            device=device,
+            device=args.device,
             from_where=from_where,
-            layers=layers,
-            noise_level=noise_level,
-            augmentation_iterations=augmentation_iterations,
-            augment_degrees=augment_degrees,
-            augment_scale=augment_scale,
-            augment_translate=augment_translate,
+            layers=args.layers,
+            noise_level=args.noise_level,
+            augmentation_iterations=args.augmentation_iterations,
+            augment_degrees=args.augment_degrees,
+            augment_scale=args.augment_scale,
+            augment_translate=args.augment_translate,
             controllers=controllers,
             num_gpus=num_gpus,
-            save_folder=save_folder,
-            visualize=(i==0),
+            save_folder=args.save_folder,
+            visualize=(i==0 and args.visualize),
         )
         
-        if max_loc_strategy == "argmax":
+        if args.max_loc_strategy == "argmax":
             highest_indices = find_max_pixel(attention_maps) / 512.0
         else:
             highest_indices = pixel_from_weighted_avg(attention_maps) / 512.0
@@ -472,14 +456,14 @@ def evaluate(
 
         gt_kpts = batch["kpts"][0].cuda()
         
-        if evaluation_method == "mean_average_error" or evaluation_method == "pck":
+        if args.evaluation_method == "mean_average_error" or args.evaluation_method == "pck":
             estimated_kpts *= 256
             gt_kpts *= 256
 
         # get l2 distance between estimated and gt kpts
         l2 = (estimated_kpts - gt_kpts).norm(dim=-1)
         
-        if evaluation_method == "inter_eye_distance":
+        if args.evaluation_method == "inter_eye_distance":
 
             eye_dist = torch.sqrt(torch.sum((gt_kpts[0] - gt_kpts[1]) ** 2, dim=-1))
 
@@ -487,18 +471,18 @@ def evaluate(
             
             l2_mean = torch.mean(l2)
             
-        if evaluation_method == "visible" or evaluation_method == "mean_average_error":
-            visible = batch['visibility'][0].to(device) if 'visibility' in batch else torch.ones_like(l2)
+        if args.evaluation_method == "visible" or args.evaluation_method == "mean_average_error":
+            visible = batch['visibility'][0].to(args.device) if 'visibility' in batch else torch.ones_like(l2)
             
             l2_mean = (l2*visible).sum()
             
-        if evaluation_method == "visible":
+        if args.evaluation_method == "visible":
             l2_mean /= visible.sum()
             
-        if evaluation_method == "pck":
+        if args.evaluation_method == "pck":
             l2_mean = (l2 < 6).float().mean()
             
-        if evaluation_method == "orientation_invariant":
+        if args.evaluation_method == "orientation_invariant":
             l2_mean = l2.mean()
             swapped_kpts = swap_points(estimated_kpts[None])[0]
             
@@ -531,9 +515,9 @@ def evaluate(
             print()
         # Extract the 10 worst distances (and their indices) from the priority queue
 
-    if wandb_log:
+    if args.wandb:
         wandb.log({"mean_distance": torch.mean(torch.stack(distances))})
     print()
 
     # save argsorted all_values in torch
-    torch.save(torch.tensor(all_values), os.path.join(save_folder, "all_errors.pt"))
+    torch.save(torch.tensor(all_values), os.path.join(args.save_folder, "all_errors.pt"))

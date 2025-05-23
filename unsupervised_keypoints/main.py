@@ -26,8 +26,14 @@ parser = argparse.ArgumentParser(description="optimize a class embedding")
 parser.add_argument(
     "--model_type",
     type=str,
-    default="runwayml/stable-diffusion-v1-5",
+    default="sd-legacy/stable-diffusion-v1-5",
     help="ldm model type",
+)
+parser.add_argument(
+    "--my_token",
+    type=str,
+    required=True,
+    help="Hugging Face token for model download. Create a read token from https://huggingface.co/settings/tokens",
 )
 # Dataset details
 parser.add_argument(
@@ -61,13 +67,6 @@ parser.add_argument(
     type=int,
     default=-1,
     help="max length of the dataset. -1 means no max length",
-)
-parser.add_argument(
-    "--start_from_stage",
-    choices=["optimize", "find_indices", "precompute", "evaluate"],
-    type=str,
-    default="optimize",
-    help="Specify the stage from which the process should start."
 )
 parser.add_argument("--device", type=str, default="cuda:0", help="device to use")
 parser.add_argument("--wandb", action="store_true", help="wandb logging")
@@ -195,7 +194,7 @@ parser.add_argument("--top_k", type=int, default=10, help="number of points to c
 
 args = parser.parse_args()
 
-ldm, controllers, num_gpus = load_ldm(args.device, args.model_type, feature_upsample_res=args.feature_upsample_res)
+ldm, controllers, num_gpus = load_ldm(args.device, args.model_type, feature_upsample_res=args.feature_upsample_res, my_token=args.my_token)
 
 # if args.save_folder doesnt exist create it
 if not os.path.exists(args.save_folder):
@@ -209,210 +208,108 @@ if args.wandb:
     wandb.init(project="attention_maps", name=args.wandb_name, config=vars(args))
 
 
-if args.start_from_stage == "optimize":
-    embedding = optimize_embedding(
-        ldm,
-        top_k_strategy=args.top_k_strategy,
-        wandb_log=args.wandb,
-        noise_level=args.noise_level,
-        lr=args.lr,
-        num_steps=int(args.num_steps),
-        num_tokens=args.num_tokens,
-        device=args.device,
-        layers=args.layers,
-        top_k=args.top_k,
-        augment_degrees=args.augment_degrees,
-        augment_scale=args.augment_scale,
-        augment_translate=args.augment_translate,
-        dataset_loc=args.dataset_loc,
-        sigma=args.sigma,
-        sharpening_loss_weight=args.sharpening_loss_weight,
-        equivariance_attn_loss_weight=args.equivariance_attn_loss_weight,
-        batch_size=args.batch_size,
-        dataset_name = args.dataset_name,
-        max_len=args.max_len,
-        furthest_point_num_samples=args.furthest_point_num_samples,
-        min_dist=args.min_dist,
-        controllers=controllers,
-        num_gpus=num_gpus,
-        validation=args.validation,
-        num_subjects=args.num_subjects,
-    )
-    torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
-else:
-    embedding = (
-        torch.load(os.path.join(args.save_folder, "embedding.pt")).to(args.device).detach()
-    )
+# Stage 1: Optimize Embedding (runs unconditionally)
+embedding = optimize_embedding(
+    ldm,
+    args,
+    controllers,
+    num_gpus,
+)
+torch.save(embedding, os.path.join(args.save_folder, "embedding.pt"))
     
-if args.start_from_stage == "find_indices" or args.start_from_stage == "optimize":
-    indices = find_best_indices(
-        ldm,
-        embedding,
-        num_steps=args.num_indices,
-        noise_level=args.noise_level,
-        num_tokens=args.num_tokens,
-        device=args.device,
-        layers=args.layers,
-        top_k=args.top_k,
-        dataset_loc=args.dataset_loc,
-        dataset_name = args.dataset_name,
-        min_dist=args.min_dist,
-        controllers=controllers,
-        num_gpus=num_gpus,
-        top_k_strategy=args.top_k_strategy,
-        furthest_point_num_samples=args.furthest_point_num_samples,
-        sigma = args.sigma,
-        validation=args.validation,
-        num_subjects=args.num_subjects,
-    )
-    torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
+# Stage 2: Find Best Indices (runs unconditionally)
+indices = find_best_indices(
+    ldm,
+    embedding,
+    args,
+    controllers,
+    num_gpus,
+)
+torch.save(indices, os.path.join(args.save_folder, "indices.pt"))
     
-    if args.visualize:
-        # visualize embeddings
-        visualize_attn_maps(
-            ldm,
-            embedding,
-            indices,
-            noise_level=args.noise_level,
-            num_tokens=args.num_tokens,
-            layers=args.layers,
-            num_points=args.top_k,
-            augment_degrees=args.augment_degrees,
-            augment_scale=args.augment_scale,
-            augment_translate=args.augment_translate,
-            augmentation_iterations=args.augmentation_iterations,
-            dataset_loc=args.dataset_loc,
-            save_folder=args.save_folder,
-            visualize=args.visualize,
-            device=args.device,
-            dataset_name = args.dataset_name,
-            controllers=controllers,
-            num_gpus=num_gpus,
-            max_loc_strategy=args.max_loc_strategy,
-            validation=args.validation,
-        )
-else:
-    indices = (
-        torch.load(os.path.join(args.save_folder, "indices.pt")).to(args.device).detach()
-    )
-
-
-
-if args.start_from_stage == "precompute" or args.start_from_stage == "find_indices" or args.start_from_stage == "optimize":
-
-    source_kpts, target_kpts, visible = precompute_all_keypoints(
-        ldm,
-        embedding,
-        indices,
-        noise_level=args.noise_level,
-        device=args.device,
-        layers=args.layers,
-        augment_degrees=args.augment_degrees,
-        augment_scale=args.augment_scale,
-        augment_translate=args.augment_translate,
-        augmentation_iterations=args.augmentation_iterations,
-        dataset_loc=args.dataset_loc,
-        visualize=args.visualize,
-        dataset_name = args.dataset_name,
-        controllers=controllers,
-        num_gpus=num_gpus,
-        max_num_points=args.max_num_points,
-        max_loc_strategy=args.max_loc_strategy,
-        save_folder=args.save_folder,
-        validation=args.validation,
-    )
-
-    torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
-    torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
-    torch.save(visible, os.path.join(args.save_folder, "visible.pt"))
-else:
-    
-    
-    
-    source_kpts = torch.load(os.path.join(args.save_folder, "source_keypoints.pt")).to(
-        args.device
-    )
-    target_kpts = torch.load(os.path.join(args.save_folder, "target_keypoints.pt")).to(
-        args.device
-    )
-
-    visible = torch.load(os.path.join(args.save_folder, "visible.pt"))
-    if visible is not None:
-        visible = visible.to(args.device)
-
-if args.evaluation_method == "visible" or args.evaluation_method == "mean_average_error":
-    
-    if visible is None:
-        visible_reshaped = torch.ones_like(target_kpts).reshape(target_kpts.shape[0], target_kpts.shape[1] * 2)
-    else:
-        visible_reshaped = visible.unsqueeze(-1).repeat(1, 1, 2).reshape(visible.shape[0], visible.shape[1] * 2)
-
-    regressor = return_regressor_visible( 
-        source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
-        target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
-        visible_reshaped.cpu().numpy().astype(np.float64),
-    )
-    
-elif args.evaluation_method == "orientation_invariant":
-    regressor = return_regressor_human36m( 
-        source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
-        target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
-    )
-else:
-    
-    regressor = return_regressor( 
-        source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
-        target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
-    )
-regressor = torch.tensor(regressor).to(torch.float32)
-torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
-
 if args.visualize:
-    # visualize embeddings
+    # Visualize embeddings after finding indices
     visualize_attn_maps(
         ldm,
         embedding,
         indices,
-        num_tokens=args.num_tokens,
-        layers=args.layers,
-        noise_level=args.noise_level,
-        num_points=args.top_k,
-        regressor=regressor.to(args.device),
-        augment_degrees=args.augment_degrees,
-        augment_scale=args.augment_scale,
-        augment_translate=args.augment_translate,
-        dataset_loc=args.dataset_loc,
-        save_folder=args.save_folder,
-        device=args.device,
-        dataset_name = args.dataset_name,
-        controllers=controllers,
-        num_gpus=num_gpus,
-        max_loc_strategy=args.max_loc_strategy,
-        validation=args.validation,
-        augmentation_iterations=args.augmentation_iterations,
+        args,
+        controllers,
+        num_gpus,
+        # regressor is not available yet for the first visualization
     )
 
-evaluate(
-    ldm,
-    embedding,
-    indices,
-    regressor.to(args.device),
-    num_tokens=args.num_tokens,
-    layers=args.layers,
-    noise_level=args.noise_level,
-    augment_degrees=args.augment_degrees,
-    augment_scale=args.augment_scale,
-    augment_translate=args.augment_translate,
-    augmentation_iterations=args.augmentation_iterations,
-    dataset_loc=args.dataset_loc,
-    save_folder=args.save_folder,
-    device=args.device,
-    wandb_log=args.wandb,
-    visualize=args.visualize,
-    dataset_name = args.dataset_name,
-    evaluation_method=args.evaluation_method,
-    controllers=controllers,
-    num_gpus=num_gpus,
-    max_loc_strategy=args.max_loc_strategy,
-    validation=args.validation,
-)
+# Check for custom dataset before precomputation
+if args.dataset_name == "custom":
+    print("Dataset is 'custom'. Skipping precomputation, regressor training, and evaluation stages.")
+    # If you want to exit completely after visualization for custom datasets:
+    # import sys
+    # sys.exit(0)
+else:
+    # Stage 3: Precompute Keypoints (runs if not custom dataset)
+    source_kpts, target_kpts, visible = precompute_all_keypoints(
+        ldm,
+        embedding,
+        indices,
+        args,
+        controllers,
+        num_gpus,
+    )
+
+    torch.save(source_kpts, os.path.join(args.save_folder, "source_keypoints.pt"))
+    torch.save(target_kpts, os.path.join(args.save_folder, "target_keypoints.pt"))
+    if visible is not None: # visible can be None
+        torch.save(visible, os.path.join(args.save_folder, "visible.pt"))
+
+    # Stage 4: Train Regressor (runs if not custom dataset)
+    if args.evaluation_method == "visible" or args.evaluation_method == "mean_average_error":
+        if visible is None:
+            # If visible is None from precompute (e.g. custom dataset didn't yield it, though we stop before this for custom)
+            # or if a dataset type simply doesn't provide visibility.
+            # Create a dummy visible tensor full of ones if it's required by evaluation but not provided.
+            # This part might need adjustment based on how precompute_all_keypoints handles visible for all dataset types.
+            # For now, assuming target_kpts is available to infer shape.
+            visible_reshaped = torch.ones_like(target_kpts).reshape(target_kpts.shape[0], target_kpts.shape[1] * 2).cpu().numpy().astype(np.float64)
+        else:
+            visible_reshaped = visible.unsqueeze(-1).repeat(1, 1, 2).reshape(visible.shape[0], visible.shape[1] * 2).cpu().numpy().astype(np.float64)
+
+        regressor = return_regressor_visible( 
+            source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
+            target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
+            visible_reshaped,
+        )
+    elif args.evaluation_method == "orientation_invariant":
+        regressor = return_regressor_human36m( 
+            source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
+            target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
+        )
+    else:
+        regressor = return_regressor( 
+            source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
+            target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
+        )
+    regressor = torch.tensor(regressor).to(torch.float32)
+    torch.save(regressor, os.path.join(args.save_folder, "regressor.pt"))
+
+    if args.visualize:
+        # Visualize with regressor (runs if not custom dataset and visualize is true)
+        visualize_attn_maps(
+            ldm,
+            embedding,
+            indices,
+            args,
+            controllers,
+            num_gpus,
+            regressor=regressor.to(args.device),
+        )
+
+    # Stage 5: Evaluate (runs if not custom dataset)
+    evaluate(
+        ldm,
+        embedding,
+        indices,
+        regressor.to(args.device),
+        args,
+        controllers,
+        num_gpus,
+    )

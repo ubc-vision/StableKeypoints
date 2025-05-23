@@ -17,49 +17,35 @@ from unsupervised_keypoints.eval import run_image_with_context_augmented
 def find_best_indices(
     ldm,
     context,
-    num_steps=100,
-    device="cuda",
-    noise_level=-1,
-    upsample_res=256,
-    layers=[0, 1, 2, 3, 4, 5],
+    args,
+    controllers,
+    num_gpus,
     from_where=["down_cross", "mid_cross", "up_cross"],
-    num_tokens=1000,
-    top_k=30,
-    dataset_loc="~",
-    dataset_name = "celeba_aligned",
-    min_dist = 0.05,
-    furthest_point_num_samples=50,
-    controllers=None,
-    num_gpus=1,
-    top_k_strategy = "entropy",
-    sigma = 3,
-    validation = False,
-    num_subjects=1,
 ):
-    if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="train", dataset_loc=dataset_loc)
-    elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="train", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub_aligned":
-        dataset = cub.TrainSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "cub_001":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=1)
-    elif dataset_name == "cub_002":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=2)
-    elif dataset_name == "cub_003":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=3)
-    elif dataset_name == "cub_all":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train")
-    elif dataset_name == "taichi":
-        dataset = taichi.TrainSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "human3.6m":
-        dataset = human36m.TrainSet(data_root=dataset_loc, validation=validation)
-    elif dataset_name == "unaligned_human3.6m":
-        dataset = unaligned_human36m.TrainSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "deepfashion":
-        dataset = deepfashion.TrainSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "custom":
-        dataset = custom_images.CustomDataset(data_root=dataset_loc, image_size=512)
+    if args.dataset_name == "celeba_aligned":
+        dataset = CelebA(split="train", dataset_loc=args.dataset_loc)
+    elif args.dataset_name == "celeba_wild":
+        dataset = CelebA(split="train", dataset_loc=args.dataset_loc, align = False)
+    elif args.dataset_name == "cub_aligned":
+        dataset = cub.TrainSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "cub_001":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="train", single_class=1)
+    elif args.dataset_name == "cub_002":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="train", single_class=2)
+    elif args.dataset_name == "cub_003":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="train", single_class=3)
+    elif args.dataset_name == "cub_all":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="train")
+    elif args.dataset_name == "taichi":
+        dataset = taichi.TrainSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "human3.6m":
+        dataset = human36m.TrainSet(data_root=args.dataset_loc, validation=args.validation)
+    elif args.dataset_name == "unaligned_human3.6m":
+        dataset = unaligned_human36m.TrainSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "deepfashion":
+        dataset = deepfashion.TrainSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "custom":
+        dataset = custom_images.CustomDataset(data_root=args.dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -71,7 +57,7 @@ def find_best_indices(
 
     dataloader_iter = iter(dataloader)
 
-    for _ in tqdm(range(num_steps//num_gpus)):
+    for _ in tqdm(range(args.num_indices//num_gpus)):
 
         try:
             mini_batch = next(dataloader_iter)
@@ -85,29 +71,30 @@ def find_best_indices(
             ldm,
             image,
             context,
-            layers=layers,
-            noise_level=noise_level,
+            layers=args.layers,
+            noise_level=args.noise_level,
             from_where=from_where,
-            upsample_res=upsample_res,
+            upsample_res=args.feature_upsample_res,
             controllers=controllers,
+            device=args.device,
         )
         
         for attention_map in attention_maps:
         
-            if top_k_strategy == "entropy":
+            if args.top_k_strategy == "entropy":
                 top_initial_candidates = ptp_utils.entropy_sort(
-                    attention_map, furthest_point_num_samples, 
+                    attention_map, args.furthest_point_num_samples, 
                 )
-            elif top_k_strategy == "gaussian":
+            elif args.top_k_strategy == "gaussian":
                 top_initial_candidates = ptp_utils.find_top_k_gaussian(
-                    attention_map, furthest_point_num_samples, sigma=sigma, num_subjects = num_subjects
+                    attention_map, args.furthest_point_num_samples, sigma=args.sigma, num_subjects = args.num_subjects
                 )
-            elif top_k_strategy == "consistent":
-                top_initial_candidates = torch.arange(furthest_point_num_samples)
+            elif args.top_k_strategy == "consistent":
+                top_initial_candidates = torch.arange(args.furthest_point_num_samples)
             else:
                 raise NotImplementedError
             
-            top_embedding_indices = ptp_utils.furthest_point_sampling(attention_map, top_k, top_initial_candidates)
+            top_embedding_indices = ptp_utils.furthest_point_sampling(attention_map, args.top_k, top_initial_candidates)
         
             indices_list.append(top_embedding_indices.cpu())
     
@@ -116,7 +103,7 @@ def find_best_indices(
     # indices_list = indices_list.reshape(-1)
     indices, counts = torch.unique(indices_list, return_counts=True)
     indices = indices[counts.argsort(descending=True)]
-    indices = indices[:top_k]
+    indices = indices[:args.top_k]
 
     return indices
 
@@ -126,46 +113,33 @@ def precompute_all_keypoints(
     ldm,
     context,
     top_indices,
-    device="cuda",
-    noise_level=-1,
-    layers=[0, 1, 2, 3, 4, 5],
+    args,
+    controllers,
+    num_gpus,
     from_where=["down_cross", "mid_cross", "up_cross"],
-    augment_degrees=30,
-    augment_scale=(0.9, 1.1),
-    augment_translate=(0.1, 0.1),
-    augmentation_iterations=20,
-    dataset_loc="~",
-    visualize=False,
-    dataset_name = "celeba_aligned",
-    controllers=None,
-    num_gpus=1,
-    max_num_points = 50_000,
-    max_loc_strategy="argmax",
-    save_folder="outputs",
-    validation = False,
 ):
-    if dataset_name == "celeba_aligned":
-        dataset = CelebA(split="train", dataset_loc=dataset_loc)
-    elif dataset_name == "celeba_wild":
-        dataset = CelebA(split="train", dataset_loc=dataset_loc, align = False)
-    elif dataset_name == "cub_aligned":
-        dataset = cub.TrainRegSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "cub_001":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=1)
-    elif dataset_name == "cub_002":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=2)
-    elif dataset_name == "cub_003":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train", single_class=3)
-    elif dataset_name == "cub_all":
-        dataset = cub_parts.CUBDataset(dataset_root=dataset_loc, split="train")
-    elif dataset_name == "taichi":
-        dataset = taichi.TrainRegSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "human3.6m":
-        dataset = human36m.TrainRegSet(data_root=dataset_loc, validation=validation)
-    elif dataset_name == "unaligned_human3.6m":
-        dataset = unaligned_human36m.TrainRegSet(data_root=dataset_loc, image_size=512)
-    elif dataset_name == "deepfashion":
-        dataset = deepfashion.TrainRegSet(data_root=dataset_loc, image_size=512)
+    if args.dataset_name == "celeba_aligned":
+        dataset = CelebA(split="train", dataset_loc=args.dataset_loc)
+    elif args.dataset_name == "celeba_wild":
+        dataset = CelebA(split="train", dataset_loc=args.dataset_loc, align = False)
+    elif args.dataset_name == "cub_aligned":
+        dataset = cub.TrainRegSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "cub_001":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="train", single_class=1)
+    elif args.dataset_name == "cub_002":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="train", single_class=2)
+    elif args.dataset_name == "cub_003":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="train", single_class=3)
+    elif args.dataset_name == "cub_all":
+        dataset = cub_parts.CUBDataset(dataset_root=args.dataset_loc, split="train")
+    elif args.dataset_name == "taichi":
+        dataset = taichi.TrainRegSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "human3.6m":
+        dataset = human36m.TrainRegSet(data_root=args.dataset_loc, validation=args.validation)
+    elif args.dataset_name == "unaligned_human3.6m":
+        dataset = unaligned_human36m.TrainRegSet(data_root=args.dataset_loc, image_size=512)
+    elif args.dataset_name == "deepfashion":
+        dataset = deepfashion.TrainRegSet(data_root=args.dataset_loc, image_size=512)
     else:
         raise NotImplementedError
 
@@ -178,7 +152,7 @@ def precompute_all_keypoints(
 
     dataloader_iter = iter(dataloader)
 
-    for _ in tqdm(range(min(len(dataset), max_num_points))):
+    for _ in tqdm(range(min(len(dataset), args.max_num_points))):
 
         mini_batch = next(dataloader_iter)
 
@@ -202,19 +176,19 @@ def precompute_all_keypoints(
             image,
             context,
             top_indices,
-            device=device,
+            device=args.device,
             from_where=from_where,
-            layers=layers,
-            noise_level=noise_level,
-            augmentation_iterations=augmentation_iterations,
-            augment_degrees=augment_degrees,
-            augment_scale=augment_scale,
-            augment_translate=augment_translate,
+            layers=args.layers,
+            noise_level=args.noise_level,
+            augmentation_iterations=args.augmentation_iterations,
+            augment_degrees=args.augment_degrees,
+            augment_scale=args.augment_scale,
+            augment_translate=args.augment_translate,
             controllers=controllers,
-            save_folder=save_folder,
+            save_folder=args.save_folder,
             num_gpus=num_gpus,
         )
-        if max_loc_strategy == "argmax":
+        if args.max_loc_strategy == "argmax":
             highest_indices = find_max_pixel(attention_maps) / 512.0
         else:
             highest_indices = pixel_from_weighted_avg(attention_maps) / 512.0

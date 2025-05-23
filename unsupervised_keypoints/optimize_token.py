@@ -21,7 +21,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 
-def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=256):
+def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=256, my_token=None):
     scheduler = DDIMScheduler(
         beta_start=0.00085,
         beta_end=0.012,
@@ -30,13 +30,12 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=
         set_alpha_to_one=False,
     )
 
-    MY_TOKEN = ""
     NUM_DDIM_STEPS = 50
     scheduler.set_timesteps(NUM_DDIM_STEPS)
 
 
     ldm = StableDiffusionPipeline.from_pretrained(
-        type, use_auth_token=MY_TOKEN, scheduler=scheduler
+        type, use_auth_token=my_token, scheduler=scheduler
     ).to(device)
     
     if device != "cpu":
@@ -45,14 +44,16 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=
         
         controllers = {}
         for device_id in ldm.unet.device_ids:
-            device = torch.device("cuda", device_id)
+            _device = torch.device("cuda", device_id)
             controller = ptp_utils.AttentionStore()
-            controllers[device] = controller
+            controllers[_device] = controller
+        effective_num_gpus = len(ldm.unet.device_ids)
     else:
         controllers = {}
         _device = torch.device("cpu")
         controller = ptp_utils.AttentionStore()
         controllers[_device] = controller
+        effective_num_gpus = 1
 
         # patched_devices = set()
 
@@ -67,8 +68,6 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=
     else:
         ldm.unet.register_forward_pre_hook(hook_fn)
     
-    num_gpus = torch.cuda.device_count()
-
     for param in ldm.vae.parameters():
         param.requires_grad = False
     for param in ldm.text_encoder.parameters():
@@ -76,7 +75,7 @@ def load_ldm(device, type="CompVis/stable-diffusion-v1-4", feature_upsample_res=
     for param in ldm.unet.parameters():
         param.requires_grad = False
 
-    return ldm, controllers, num_gpus
+    return ldm, controllers, effective_num_gpus
 
 
 def load_512(image_path, left=0, right=0, top=0, bottom=0):
